@@ -1,0 +1,213 @@
+.public-nav {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-neutral-200);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.public-nav__brand {
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--color-primary);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.public-nav__links {
+  display: none;
+  gap: var(--space-6);
+}
+
+.public-nav__mobile-toggle {
+  order: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-input);
+  background: var(--color-white);
+  color: var(--color-neutral-900);
+  cursor: pointer;
+}
+
+.public-nav__mobile-toggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.public-nav__link {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-neutral-600);
+  text-decoration: none;
+  padding: var(--space-1) 0;
+  border-bottom: 2px solid transparent;
+}
+.public-nav__link:hover {
+  color: var(--color-neutral-900);
+}
+.public-nav__link--active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.public-nav__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.public-nav__profile {
+  position: relative;
+}
+
+.public-nav__profile-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-neutral-600);
+  cursor: pointer;
+}
+
+.public-nav__profile-trigger:focus-visible,
+.public-nav__menu a:focus-visible,
+.public-nav__menu button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.public-nav__cta {
+  height: 36px;
+  padding: 0 var(--space-4);
+  white-space: nowrap;
+}
+
+.public-nav__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.public-nav__menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 20;
+  width: 220px;
+  padding: var(--space-2);
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-card);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.public-nav__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-neutral-200);
+  margin-bottom: var(--space-2);
+}
+
+.public-nav__identity strong,
+.public-nav__identity span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.public-nav__identity span {
+  color: var(--color-neutral-600);
+  font-size: 12px;
+}
+
+.public-nav__menu a,
+.public-nav__menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-input);
+  background: transparent;
+  color: var(--color-neutral-900);
+  font-size: 14px;
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.public-nav__menu a:hover,
+.public-nav__menu button:hover {
+  background: var(--color-neutral-50);
+}
+
+@media (min-width: 600px) {
+  .public-nav {
+    padding: 0 var(--space-8);
+  }
+  .public-nav__links {
+    display: flex;
+    position: static;
+  }
+  .public-nav__mobile-toggle {
+    display: none;
+  }
+}
+
+@media (max-width: 599px) {
+  .public-nav {
+    height: 64px;
+  }
+  .public-nav__links {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 0;
+    padding: var(--space-2) 0;
+    background: var(--color-white);
+    border-top: 1px solid var(--color-neutral-200);
+    border-bottom: 1px solid var(--color-neutral-200);
+    box-shadow: var(--shadow-raised);
+  }
+  .public-nav__links--open {
+    display: flex;
+  }
+  .public-nav__link {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--space-2);
+  }
+  .public-nav__actions {
+    margin-left: auto;
+  }
+  .public-nav__cta {
+    padding: 0 var(--space-3);
+  }
+}

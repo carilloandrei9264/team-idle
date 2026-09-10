@@ -9,7 +9,7 @@ const DEFAULT_BANKS = ["BDO", "Landbank", "Metrobank"];
 
 export default function AdminBankCatalog() {
   const { user } = useAuth();
-  const [banks, setBanks] = useState([]);
+  const [properties, setProperties] = useState([]);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -18,9 +18,9 @@ export default function AdminBankCatalog() {
 
   useEffect(() => {
     const unsubscribeBanks = onSnapshot(
-      collection(db, "bankCatalog"),
+      collection(db, "bankProperties"),
       (snapshot) => {
-        setBanks(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+        setProperties(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
         setLoading(false);
       },
       () => {
@@ -64,7 +64,11 @@ export default function AdminBankCatalog() {
     }
   }
 
-  const displayedBanks = banks.length ? banks : DEFAULT_BANKS.map((name) => ({ id: name, name, listingCount: 0 }));
+  const displayedBanks = DEFAULT_BANKS.map((name) => {
+    const bankProperties = properties.filter((property) => property.bank === name && String(property.status || "active").toLowerCase() === "active");
+    const latest = bankProperties.reduce((current, property) => timestampValue(property.lastSeen) > timestampValue(current) ? property.lastSeen : current, null);
+    return { id: name, name, listingCount: bankProperties.length, lastRunAt: latest };
+  });
 
   return (
     <div className="admin-page">

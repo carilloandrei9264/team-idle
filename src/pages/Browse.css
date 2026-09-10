@@ -1,0 +1,125 @@
+.browse {
+  min-height: 100vh;
+  background: var(--color-neutral-50);
+}
+
+.browse__layout {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4) var(--space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.browse__filters {
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-self: start;
+}
+.browse__filters-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-neutral-900);
+}
+.browse__price-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.browse__price-row .field,
+.browse__price-row .field__input {
+  min-width: 0;
+  width: 100%;
+}
+
+.browse__results-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.browse__count {
+  font-size: 13px;
+  color: var(--color-neutral-600);
+  margin: 0;
+}
+.browse__sort {
+  min-width: 200px;
+}
+
+.browse__empty {
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-control);
+  padding: var(--space-8);
+  text-align: center;
+  color: var(--color-neutral-600);
+  font-size: 13px;
+}
+
+.browse__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (max-width: 1023px) {
+  .browse__filters {
+    width: min(100%, 560px);
+    align-self: center;
+  }
+}
+
+@media (max-width: 599px) {
+  .browse__results-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .browse__sort {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .browse__price-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 600px) {
+  .browse__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .browse__layout {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .browse__filters {
+    width: 260px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 80px;
+  }
+  .browse__results {
+    flex: 1;
+    min-width: 0;
+  }
+  .browse__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
