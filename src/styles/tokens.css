@@ -1,0 +1,44 @@
+/* TrustHome PH — design tokens
+   Single source of truth for the team's design system (Design Guide, Part B).
+   Import once in main.jsx, before App.css: `import './styles/tokens.css'` */
+
+:root {
+  /* Color */
+  --color-primary: #2563EB;
+  --color-primary-dark: #1E40AF;
+  --color-primary-light: #DBEAFE;
+  --color-success: #16A34A;
+  --color-success-bg: #DCFCE7;
+  --color-warning: #D97706;
+  --color-warning-bg: #FEF3C7;
+  --color-danger: #DC2626;
+  --color-danger-bg: #FEE2E2;
+  --color-neutral-900: #111827;
+  --color-neutral-600: #4B5563;
+  --color-neutral-200: #E5E7EB;
+  --color-neutral-50: #F9FAFB;
+  --color-white: #FFFFFF;
+
+  /* Type */
+  --font-sans: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+
+  /* Spacing (4px scale) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Radius */
+  --radius-control: 8px;   /* buttons, cards */
+  --radius-input: 6px;
+  --radius-pill: 999px;
+  --radius-modal: 12px;
+
+  /* Elevation */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-raised: 0 4px 12px rgba(17, 24, 39, 0.08);
+}
