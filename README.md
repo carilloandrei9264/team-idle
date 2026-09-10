@@ -106,7 +106,8 @@ pip install -r requirements.txt
 python scraper.py
 ```
 
-Requires `serviceAccountKey.json` in this folder (see Setup Plan, Step 7) — **never commit this file**, it's already in `.gitignore`.
+The scraper requires credentials outside this repository. Set `GOOGLE_APPLICATION_CREDENTIALS`
+to the key path or provide `FIREBASE_SERVICE_ACCOUNT_JSON` (see the scraper README).
 
 ---
 

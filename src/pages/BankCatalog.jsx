@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { ExternalLink, Landmark, MapPin } from "lucide-react";
 import PublicNav from "../components/PublicNav";
 import { db } from "../firebase";
@@ -16,7 +16,7 @@ export default function BankCatalog() {
   const [error, setError] = useState("");
 
   useEffect(() => onSnapshot(
-    collection(db, "bankProperties"),
+    query(collection(db, "bankProperties"), where("status", "==", "active")),
     (snapshot) => {
       setProperties(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
       setLoading(false);
