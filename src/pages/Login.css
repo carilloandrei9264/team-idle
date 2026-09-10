@@ -1,0 +1,167 @@
+.auth-screen {
+  min-height: 100svh;
+  display: grid;
+  grid-template-columns: 1fr;
+  font-family: var(--font-sans);
+  background: #eef3f8;
+}
+
+/* Decorative brand panel — desktop only, per the Design Guide's
+   "don't over-engineer a single universal layout" note. */
+.auth-panel {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .auth-screen {
+    grid-template-columns: minmax(360px, 0.9fr) minmax(520px, 1.1fr);
+  }
+  .auth-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-8);
+    position: relative;
+    overflow: hidden;
+    padding: clamp(48px, 8vw, 112px);
+    background: #101a2d;
+    color: var(--color-white);
+  }
+  .auth-panel::after {
+    content: "";
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    right: -180px;
+    bottom: -160px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 50%;
+    box-shadow: 0 0 0 42px rgba(255, 255, 255, 0.025), 0 0 0 84px rgba(255, 255, 255, 0.02);
+  }
+  .auth-panel__mark {
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+  }
+  .auth-panel__line {
+    font-size: 24px;
+    line-height: 1.35;
+    font-weight: 600;
+    max-width: 22ch;
+  }
+  .auth-panel__proof {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    position: relative;
+    z-index: 1;
+  }
+  .auth-panel__proof li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: 14px;
+    color: #D1D5DB;
+  }
+  .auth-panel__mark,
+  .auth-panel__line {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+.auth-card-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100svh;
+  padding: clamp(32px, 7vw, 96px) clamp(24px, 8vw, 120px);
+  background: #f8fafc;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.auth-card__brand {
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--color-primary);
+}
+
+.auth-card__title {
+  font-size: clamp(30px, 3vw, 38px);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-neutral-900);
+  margin: 0;
+}
+
+.auth-card__subtitle {
+  font-size: 14px;
+  color: var(--color-neutral-600);
+  margin: -8px 0 8px;
+  line-height: 1.6;
+}
+
+.auth-card__form-error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: 13px;
+  padding: var(--space-3);
+  border-radius: var(--radius-input);
+}
+
+.auth-card__divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-neutral-600);
+  font-size: 12px;
+}
+.auth-card__divider::before,
+.auth-card__divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-neutral-200);
+}
+
+.auth-card__switch {
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-neutral-600);
+  margin: 0;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primary);
+  font-weight: 500;
+  font-size: inherit;
+  cursor: pointer;
+}
+.link-button:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .auth-card-wrap {
+    align-items: flex-start;
+    padding-top: 56px;
+  }
+  .auth-card__title {
+    font-size: 30px;
+  }
+}
+
+/* .btn, .badge, and .field rules live in ../styles/components.css */
