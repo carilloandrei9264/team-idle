@@ -1,0 +1,103 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isActiveUser() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function isAdmin() {
+      return isActiveUser()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // User profiles are private to the account owner and admins.
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId)
+        && request.resource.data.role == 'user'
+        && request.resource.data.status == 'active';
+      allow update: if isAdmin()
+        || (isOwner(userId)
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.status == resource.data.status);
+      allow delete: if false;
+    }
+
+    // Public users can read verified listings. Owners can read their own
+    // listings, including pending and rejected submissions.
+    match /listings/{listingId} {
+      allow read: if resource.data.verificationStatus == 'verified'
+        || isOwner(resource.data.ownerId)
+        || isAdmin();
+
+      allow create: if isActiveUser()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.verificationStatus == 'pending';
+
+      // Admins control verification fields. Owners may edit their own listing
+      // fields and resubmit rejected listings, but cannot self-approve them.
+      allow update: if isAdmin()
+        || (isActiveUser()
+          && isOwner(resource.data.ownerId)
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'description', 'type', 'city', 'price', 'pricePeriod',
+            'floorArea', 'lotArea', 'photoUrls', 'verificationDocUrl',
+            'verificationStatus', 'updatedAt'
+          ])
+          && request.resource.data.verificationStatus == 'pending');
+
+      allow delete: if isAdmin()
+        || (isActiveUser() && isOwner(resource.data.ownerId));
+    }
+
+    // Public catalog data is readable only while active. Admins may inspect
+    // delisted records as well.
+    match /bankProperties/{propertyId} {
+      allow read: if resource.data.status == 'active' || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Trust scores are public display data; only admins/functions should write.
+    match /trustScores/{scoreId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // The admin UI queues scraper requests and reads their status.
+    match /scraperJobs/{jobId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.requestedBy == request.auth.uid
+        && request.resource.data.status == 'queued';
+      allow update, delete: if isAdmin();
+    }
+
+    // Disputes are private workflow records. Users may create their own
+    // report; admins manage review and resolution.
+    match /disputes/{disputeId} {
+      allow read: if isAdmin()
+        || (isActiveUser() && resource.data.raisedBy == request.auth.uid);
+      allow create: if isActiveUser()
+        && request.resource.data.raisedBy == request.auth.uid
+        && request.resource.data.status == 'Open';
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // Admin dashboard reads.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,5 @@
+requests
+beautifulsoup4
+schedule
+firebase-admin
+# playwright     # uncomment if you need it for BDO's JS-rendered page

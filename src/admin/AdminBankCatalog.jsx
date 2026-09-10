@@ -56,7 +56,7 @@ export default function AdminBankCatalog() {
         status: "queued",
         createdAt: serverTimestamp(),
       });
-      setMessage("Scraper run queued. The worker will update the catalog when it completes.");
+      setMessage("Scraper run queued. A trusted scraper worker must be running to update the catalog.");
     } catch {
       setError("The scraper run could not be queued. Check your connection and permissions.");
     } finally {
