@@ -40,7 +40,7 @@ export default function Login() {
       ? requestedPath
       : isAdmin
         ? "/admin"
-        : "/";
+        : requestedPath || "/browse";
     navigate(destination, { replace: true });
   }, [isAdmin, loading, location.state, navigate, user]);
 
