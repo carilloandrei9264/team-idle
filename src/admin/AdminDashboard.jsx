@@ -22,6 +22,7 @@ export default function AdminDashboard() {
   const [counts, setCounts] = useState({ pendingListings: null, openDisputes: null, totalUsers: null });
   const [activity, setActivity] = useState([]);
   const [loadingActivity, setLoadingActivity] = useState(true);
+  const [error, setError] = useState("");
 
   async function loadCounts() {
     const [pendingListings, openDisputes, totalUsers] = await Promise.all([
@@ -70,10 +71,24 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => {
-    queueMicrotask(() => {
-      loadCounts();
-      loadActivity();
-    });
+    let cancelled = false;
+
+    async function loadDashboard() {
+      setError("");
+      try {
+        await Promise.all([loadCounts(), loadActivity()]);
+      } catch {
+        if (!cancelled) {
+          setError("The dashboard data could not be loaded. Check your connection and permissions.");
+          setLoadingActivity(false);
+        }
+      }
+    }
+
+    loadDashboard();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Real signal, not decoration: while the team is still seeding data,
@@ -88,6 +103,8 @@ export default function AdminDashboard() {
         <h1 className="dashboard__title">Dashboard</h1>
         <p className="dashboard__date">{TODAY}</p>
       </div>
+
+      {error && <p className="admin-page__error" role="alert">{error}</p>}
 
       <div className="stat-row">
         <StatCard label="Pending Listings" value={counts.pendingListings} tone="warning" icon={FileCheck} />
