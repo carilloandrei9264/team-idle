@@ -55,19 +55,18 @@ See [`docs/TrustHome_PH_System_Build_Plan.pdf`](./docs/TrustHome_PH_System_Build
 
 ```
 trusthome-ph/
-├── web/                    # React web app (renter/owner/admin UI)
-│   ├── src/
-│   │   ├── firebase.js     # Firebase (Firestore + Auth) config
-│   │   ├── uploadImage.js  # Cloudinary upload helper
-│   │   └── ...
-│   └── package.json
+├── src/                    # React web app (renter/owner/admin UI)
+│   ├── firebase.js         # Firebase (Firestore + Auth) config
+│   ├── uploadImage.js      # Cloudinary upload helper
+│   └── ...
+├── package.json
 │
 ├── bank_scraper/           # Python scraper — BDO / Landbank / Metrobank
 │   ├── scraper.py          # per-bank scraping functions
 │   ├── database.py         # Firestore upsert/dedup logic
 │   ├── scheduler.py        # local scheduling loop (dev use)
 │   ├── requirements.txt
-│   └── .github/workflows/scrape.yml   # scheduled cloud run (production use)
+├── .github/workflows/scrape.yml       # scheduled cloud run (production use)
 │
 ├── docs/                   # All planning & design documentation
 │   ├── TrustHome_PH_System_Build_Plan.pdf
@@ -89,9 +88,8 @@ trusthome-ph/
 ### Web app
 
 ```bash
-cd web
 npm install
-npm start          # runs locally at http://localhost:3000
+npm run dev        # runs locally at http://localhost:5173
 ```
 
 Requires `src/firebase.js` to exist with your project's config (see Setup Plan, Step 8) — this file is git-ignored since configs can differ per environment; copy `src/firebase.example.js` if present, or paste the config from the team's Firebase Console.
@@ -107,7 +105,9 @@ python scraper.py
 ```
 
 The scraper requires credentials outside this repository. Set `GOOGLE_APPLICATION_CREDENTIALS`
-to the key path or provide `FIREBASE_SERVICE_ACCOUNT_JSON` (see the scraper README).
+to the key path or provide `FIREBASE_SERVICE_ACCOUNT_JSON` (see the scraper README). The
+Metrobank path is the current default; Landbank and BDO still need live parser/API
+verification before they are enabled for regular writes.
 
 ---
 

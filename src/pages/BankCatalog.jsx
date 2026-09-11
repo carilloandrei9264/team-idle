@@ -6,7 +6,7 @@ import { db } from "../firebase";
 import { formatCurrency, numericValue } from "../lib/number";
 import "./UserPages.css";
 
-const BANKS = ["landbank", "metrobank"];
+const BANKS = ["metrobank"];
 const BANK_LABELS = { landbank: "Landbank", metrobank: "Metrobank" };
 
 export default function BankCatalog() {
@@ -68,10 +68,25 @@ export default function BankCatalog() {
 }
 
 function BankPropertyCard({ property }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const hasImage = property.imageUrl && !imageFailed;
+
   return (
     <article className="bank-property-card">
       <div className="bank-property-card__image-wrap">
-        {property.imageUrl ? <img src={property.imageUrl} alt={property.title || "Bank-acquired property"} /> : <Landmark size={30} aria-hidden="true" />}
+        {hasImage ? (
+          <img
+            src={property.imageUrl}
+            alt={property.title || "Bank-acquired property"}
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <div className="bank-property-card__image-fallback" aria-label="Property photo unavailable">
+            <Landmark size={30} aria-hidden="true" />
+            <span>Photo unavailable</span>
+            <small>See the original listing for source details</small>
+          </div>
+        )}
         <span className="badge badge--verified">{BANK_LABELS[property.bank] || property.bank || "Bank property"}</span>
       </div>
       <div className="bank-property-card__body">
