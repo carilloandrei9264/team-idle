@@ -10,6 +10,14 @@
   margin-bottom: 32px;
 }
 
+.admin-page__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .admin-page__title {
   color: var(--color-neutral-900);
   font-size: clamp(28px, 3vw, 36px);

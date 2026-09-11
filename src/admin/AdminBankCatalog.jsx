@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { addDoc, collection, onSnapshot, serverTimestamp } from "firebase/firestore";
-import { CheckCircle2, RefreshCw } from "lucide-react";
+import { addDoc, collection, deleteDoc, getDocs, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { CheckCircle2, RefreshCw, Trash2 } from "lucide-react";
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
 import "./AdminData.css";
 
-const DEFAULT_BANKS = ["BDO", "Landbank", "Metrobank"];
+const DEFAULT_BANKS = ["metrobank"];
+const BANK_LABELS = { metrobank: "Metrobank" };
 
 export default function AdminBankCatalog() {
   const { user } = useAuth();
@@ -13,6 +14,7 @@ export default function AdminBankCatalog() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -56,7 +58,11 @@ export default function AdminBankCatalog() {
         status: "queued",
         createdAt: serverTimestamp(),
       });
+<<<<<<< Updated upstream
       setMessage("Scraper run queued. The worker will update the catalog when it completes.");
+=======
+      setMessage("Metrobank scrape queued. Keep the trusted worker running; the catalog updates when it finishes.");
+>>>>>>> Stashed changes
     } catch {
       setError("The scraper run could not be queued. Check your connection and permissions.");
     } finally {
@@ -64,10 +70,29 @@ export default function AdminBankCatalog() {
     }
   }
 
+  async function clearCatalog() {
+    if (!properties.length || !window.confirm("Remove all bank properties from the catalog? Scraper logs will be kept.")) return;
+
+    setClearing(true);
+    setMessage("");
+    setError("");
+    try {
+      const snapshot = await getDocs(collection(db, "bankProperties"));
+      for (let index = 0; index < snapshot.docs.length; index += 450) {
+        await Promise.all(snapshot.docs.slice(index, index + 450).map((item) => deleteDoc(item.ref)));
+      }
+      setMessage("Bank catalog cleared. You can now run a fresh scraper demo.");
+    } catch {
+      setError("The bank catalog could not be cleared. Check your connection and permissions.");
+    } finally {
+      setClearing(false);
+    }
+  }
+
   const displayedBanks = DEFAULT_BANKS.map((name) => {
     const bankProperties = properties.filter((property) => property.bank === name && String(property.status || "active").toLowerCase() === "active");
     const latest = bankProperties.reduce((current, property) => timestampValue(property.lastSeen) > timestampValue(current) ? property.lastSeen : current, null);
-    return { id: name, name, listingCount: bankProperties.length, lastRunAt: latest };
+    return { id: name, name: BANK_LABELS[name], listingCount: bankProperties.length, lastRunAt: latest };
   });
 
   return (
@@ -77,9 +102,14 @@ export default function AdminBankCatalog() {
           <h1 className="admin-page__title">Bank Catalog Status</h1>
           <p className="admin-page__description">Monitor verified listings collected from supported bank sources.</p>
         </div>
-        <button type="button" className="btn btn--primary" onClick={queueScraper} disabled={running}>
-          <RefreshCw size={16} aria-hidden="true" /> {running ? "Queueing..." : "Run Scraper Now"}
-        </button>
+        <div className="admin-page__actions">
+          <button type="button" className="btn btn--secondary" onClick={clearCatalog} disabled={running || clearing || !properties.length}>
+            <Trash2 size={16} aria-hidden="true" /> {clearing ? "Clearing..." : "Clear catalog"}
+          </button>
+          <button type="button" className="btn btn--primary" onClick={queueScraper} disabled={running || clearing}>
+            <RefreshCw size={16} aria-hidden="true" /> {running ? "Queueing..." : "Run Scraper Now"}
+          </button>
+        </div>
       </header>
       {error && <p className="admin-page__error" role="alert">{error}</p>}
       {message && <p className="admin-page__success" role="status">{message}</p>}
@@ -104,7 +134,7 @@ export default function AdminBankCatalog() {
               <div className="admin-empty">No scraper runs have been queued yet.</div>
             ) : (
               <ul className="admin-log">
-                {logs.map((log) => <li key={log.id}>{formatDate(log.createdAt)} - {log.status} for {(log.banks || DEFAULT_BANKS).join(", ")}</li>)}
+                {logs.map((log) => <li key={log.id}>{formatDate(log.createdAt)} - {log.status} for {(log.banks || DEFAULT_BANKS).join(", ")}{log.failedBanks?.length ? ` (failed: ${log.failedBanks.join(", ")})` : ""}</li>)}
               </ul>
             )}
           </section>
