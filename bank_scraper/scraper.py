@@ -115,18 +115,24 @@ def scrape_metrobank() -> list[dict]:
 
 def parse_metrobank_pdf(content: bytes) -> list[dict]:
     listings = []
+    header_indexes = None
     with pdfplumber.open(io.BytesIO(content)) as pdf:
         for page in pdf.pages:
             for row in page.extract_tables() or []:
                 if not row:
                     continue
-                headers = [clean_text(value or "").lower() for value in row[0]]
-                header_indexes = {header: index for index, header in enumerate(headers) if header}
-                if not any("property" in header or "address" in header for header in headers):
+                rows = [[clean_text(value or "") for value in values] for values in row]
+                header_row_index = next((index for index, values in enumerate(rows) if is_header_row(values)), None)
+                if header_row_index is not None:
+                    headers = [value.lower() for value in rows[header_row_index]]
+                    header_indexes = {header: index for index, header in enumerate(headers) if header}
+                    data_rows = rows[header_row_index + 1:]
+                elif header_indexes:
+                    data_rows = rows
+                else:
                     continue
-                for values in row[1:]:
-                    cells = [clean_text(value or "") for value in values]
-                    if len(cells) < 4 or is_header_row(cells):
+                for cells in data_rows:
+                    if len(cells) < 4 or is_header_row(cells) or not cells[0].isdigit():
                         continue
                     reference_no = value_for_header(cells, header_indexes, "property") or cells[0]
                     if not reference_no or reference_no.lower() in {"n/a", "-"}:
@@ -134,11 +140,14 @@ def parse_metrobank_pdf(content: bytes) -> list[dict]:
                     listings.append({
                         "reference_no": reference_no,
                         "title": value_for_header(cells, header_indexes, "category") or "Metrobank acquired property",
-                        "location": value_for_header(cells, header_indexes, "address") or " ".join(cells[2:5]),
-                        "price": value_for_header(cells, header_indexes, "price"),
+                        "location": " ".join(
+                            value_for_header(cells, header_indexes, field) or ""
+                            for field in ("address", "city", "province")
+                        ).strip(),
+                        "price": parse_amount(value_for_header(cells, header_indexes, "price")),
                         "floor_area": value_for_header(cells, header_indexes, "floor"),
                         "lot_area": value_for_header(cells, header_indexes, "lot"),
-                        "listing_url": METROBANK_URL,
+                        "listing_url": f"https://www.metrobank.com.ph/assets-for-sale/properties/details?id={reference_no}",
                         "image_url": None,
                     })
     return listings
@@ -314,6 +323,17 @@ def value_for_header(cells, indexes, fragment):
         if fragment in header and index < len(cells):
             return cells[index]
     return None
+
+
+def parse_amount(value):
+    """Convert formatted bank prices to numbers while preserving unavailable values."""
+    if not value:
+        return None
+    cleaned = re.sub(r"[^0-9.-]", "", value)
+    try:
+        return float(cleaned) if cleaned else None
+    except ValueError:
+        return None
 
 
 if __name__ == "__main__":

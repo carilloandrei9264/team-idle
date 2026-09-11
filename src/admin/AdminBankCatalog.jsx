@@ -58,10 +58,7 @@ export default function AdminBankCatalog() {
         status: "queued",
         createdAt: serverTimestamp(),
       });
-      setMessage("Scraper run queued. The worker will update the catalog when it completes.");
-=======
-      setMessage("Scraper run queued. A trusted scraper worker must be running to update the catalog.");
->>>>>>> 0b95cf699af958a388c67d996a3324660dc8bece
+      setMessage("Metrobank scrape queued. Keep the trusted worker running; the catalog updates when it finishes.");
     } catch {
       setError("The scraper run could not be queued. Check your connection and permissions.");
     } finally {

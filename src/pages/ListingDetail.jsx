@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
+import { formatCurrency } from "../lib/number";
 import "./UserPages.css";
 
 export default function ListingDetail() {
@@ -56,7 +57,7 @@ export default function ListingDetail() {
                 </div>
                 {isOwner && <Link to={`/listings/${listing.id}/edit`} className="btn btn--secondary"><Pencil size={15} aria-hidden="true" /> Edit</Link>}
               </div>
-              <p className="listing-detail__price">₱{Number(listing.price || 0).toLocaleString()} <span>/{listing.pricePeriod || "month"}</span></p>
+              <p className="listing-detail__price">{formatCurrency(listing.price)} <span>/{listing.pricePeriod || "month"}</span></p>
               <p className="listing-detail__description">{listing.description || "No description provided."}</p>
               {listing.verificationStatus === "rejected" && listing.rejectionReason && (
                 <div className="listing-detail__rejection" role="alert">

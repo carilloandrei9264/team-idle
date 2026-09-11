@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 
 import firebase_admin
 from firebase_admin import credentials, firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 _app = None
 _db = None
@@ -42,7 +43,6 @@ def get_db():
                 raise RuntimeError(
                     "Set GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_JSON, "
                     "or place serviceAccountKey.json in bank_scraper for local testing."
-                )
                 )
             cred = credentials.Certificate(credential_path)
         _app = firebase_admin.initialize_app(cred)
@@ -100,8 +100,10 @@ def upsert_properties(bank: str, scraped_listings: list[dict]):
     # Anything for this bank that was active before but wasn't seen this
     # run has presumably been sold or taken down -> flag it, don't delete it.
     delisted = 0
-    existing_active = collection.where("bank", "==", bank).where("status", "==", "active").stream()
-    for doc in existing_active:
+    existing_bank = collection.where(filter=FieldFilter("bank", "==", bank)).stream()
+    for doc in existing_bank:
+        if doc.to_dict().get("status") != "active":
+            continue
         if doc.id not in scraped_ids:
             doc.reference.update({"status": "delisted", "lastSeen": now})
             delisted += 1
@@ -122,11 +124,20 @@ def init_db():
 
 def get_queued_jobs(limit=1):
     """Return the oldest queued scraper jobs for the worker to process."""
-    return list(
+    jobs = list(
         get_db()
         .collection("scraperJobs")
-        .where("status", "==", "queued")
-        .order_by("createdAt")
-        .limit(limit)
+        .where(filter=FieldFilter("status", "==", "queued"))
         .stream()
     )
+    jobs.sort(key=lambda job: timestamp_value(job.to_dict().get("createdAt")))
+    return jobs[:limit]
+
+
+def timestamp_value(value):
+    return value.timestamp() if hasattr(value, "timestamp") else 0
+
+
+def safe_document_id(bank, reference_no):
+    """Create a deterministic Firestore-safe ID while preserving source referenceNo."""
+    return re.sub(r"[^A-Za-z0-9_-]", "_", f"{bank}_{reference_no}")[:1500]

@@ -3,6 +3,7 @@ import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { ExternalLink, Landmark, MapPin } from "lucide-react";
 import PublicNav from "../components/PublicNav";
 import { db } from "../firebase";
+import { formatCurrency, numericValue } from "../lib/number";
 import "./UserPages.css";
 
 const BANKS = ["landbank", "metrobank"];
@@ -33,7 +34,7 @@ export default function BankCatalog() {
     if (String(property.status || "active").toLowerCase() !== "active") return false;
     if (bank && String(property.bank || "").toLowerCase() !== bank) return false;
     if (city.trim() && !String(property.location || "").toLowerCase().includes(city.trim().toLowerCase())) return false;
-    if (maxPrice && Number(property.price || 0) > Number(maxPrice)) return false;
+    if (maxPrice && numericValue(property.price) > numericValue(maxPrice)) return false;
     return true;
   }), [bank, city, maxPrice, properties]);
 
@@ -76,7 +77,7 @@ function BankPropertyCard({ property }) {
       <div className="bank-property-card__body">
         <h2>{property.title || "Untitled bank property"}</h2>
         <p className="bank-property-card__location"><MapPin size={14} aria-hidden="true" />{property.location || "Location not provided"}</p>
-        <p className="bank-property-card__price">₱{Number(property.price || 0).toLocaleString()}</p>
+        <p className="bank-property-card__price">{formatCurrency(property.price)}</p>
         <p className="bank-property-card__meta">Last verified: {formatDate(property.lastSeen || property.firstSeen)}</p>
         {property.listingUrl && <a className="btn btn--secondary bank-property-card__link" href={property.listingUrl} target="_blank" rel="noreferrer">View original listing <ExternalLink size={14} aria-hidden="true" /></a>}
       </div>

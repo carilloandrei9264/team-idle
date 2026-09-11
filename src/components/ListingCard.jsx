@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { formatCurrency } from "../lib/number";
 import "./ListingCard.css";
 
 /**
@@ -32,7 +33,7 @@ export default function ListingCard({ listing, trustScore }) {
         </div>
         <p className="listing-card__location">{listing.city}</p>
         <p className="listing-card__price">
-          ₱{Number(listing.price || 0).toLocaleString()}
+          {formatCurrency(listing.price)}
           {listing.pricePeriod ? <span className="listing-card__period">/{listing.pricePeriod}</span> : null}
         </p>
       </div>
