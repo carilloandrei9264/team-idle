@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
+import { numericValue } from "../lib/number";
 import PublicNav from "../components/PublicNav";
 import ListingCard from "../components/ListingCard";
 import { SlidersHorizontal } from "lucide-react";
@@ -61,14 +62,14 @@ export default function Browse() {
     let list = allListings.filter((l) => {
       if (city.trim() && !l.city?.toLowerCase().includes(city.trim().toLowerCase())) return false;
       if (type && l.type !== type) return false;
-      if (minPrice && Number(l.price) < Number(minPrice)) return false;
-      if (maxPrice && Number(l.price) > Number(maxPrice)) return false;
+      if (minPrice && numericValue(l.price) < numericValue(minPrice)) return false;
+      if (maxPrice && numericValue(l.price) > numericValue(maxPrice)) return false;
       return true;
     });
 
     list = [...list].sort((a, b) => {
-      if (sort === "price_asc") return (a.price || 0) - (b.price || 0);
-      if (sort === "price_desc") return (b.price || 0) - (a.price || 0);
+      if (sort === "price_asc") return numericValue(a.price) - numericValue(b.price);
+      if (sort === "price_desc") return numericValue(b.price) - numericValue(a.price);
       if (sort === "newest") return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
       // trust: unscored listings sink to the bottom rather than defaulting
       // to 0-looks-broken — sorted by recency among themselves instead.

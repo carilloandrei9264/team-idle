@@ -9,10 +9,7 @@ number as part of the document ID so re-running the scraper updates instead of d
 1. In the [Firebase Console](https://console.firebase.google.com), open your project →
    **Project Settings** (gear icon) → **Service Accounts** tab.
 2. Click **Generate new private key** — this downloads a JSON file.
-3. Keep it outside this repository and set `GOOGLE_APPLICATION_CREDENTIALS` to its
-   absolute path, or provide the JSON through `FIREBASE_SERVICE_ACCOUNT_JSON`.
-4. **Never commit or place this file in the repository** — it is a full admin credential
-   for your Firebase project.
+3. Keep it outside this repository; set `GOOGLE_APPLICATION_CREDENTIALS` to its absolute path, or provide the JSON through `FIREBASE_SERVICE_ACCOUNT_JSON`. For local-only testing you may place it in this folder as `serviceAccountKey.json`. **Never commit or share this file** — it is a full admin credential for Firebase.
 
 This is a different, separate step from setting up the React web app's Firebase config —
 the web app uses a public client-side config (safe to expose), while this scraper uses a
@@ -41,6 +38,7 @@ venv\Scripts\activate        # Windows
 source venv/bin/activate     # Mac/Linux
 pip install -r requirements.txt
 python scraper.py            # runs once, immediately
+python scraper.py --dry-run landbank metrobank  # parse sources without Firestore writes
 ```
 
 ## Files
@@ -90,3 +88,10 @@ The React admin button creates a `scraperJobs` document with status `queued`. It
 run Python in the browser. Start `python worker.py` in a trusted Python environment to
 poll that collection, run the requested banks, write `bankProperties`, and mark the job
 `completed` or `failed`.
+For the first live parser test, run only the two verified source strategies:
+
+```bash
+python scraper.py --dry-run landbank metrobank
+```
+
+BDO remains disabled for production scraping until its browser/API endpoint is verified.

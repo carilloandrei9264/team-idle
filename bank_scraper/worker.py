@@ -10,8 +10,12 @@ database.py and never exposes credentials to the React application.
 import time
 
 from firebase_admin import firestore
-from database import get_db, get_queued_jobs
-from scraper import run_banks
+try:
+    from .database import get_db, get_queued_jobs
+    from .scraper import DEFAULT_BANKS, run_banks
+except ImportError:
+    from database import get_db, get_queued_jobs
+    from scraper import DEFAULT_BANKS, run_banks
 
 POLL_SECONDS = 15
 
@@ -22,8 +26,15 @@ def process_one_job(job):
     job_ref.update({"status": "running", "startedAt": firestore.SERVER_TIMESTAMP})
 
     try:
-        run_banks(job_data.get("banks"))
-        job_ref.update({"status": "completed", "completedAt": firestore.SERVER_TIMESTAMP})
+        result = run_banks(job_data.get("banks") or DEFAULT_BANKS)
+        if not result["successful"]:
+            raise RuntimeError(f"All requested banks failed: {', '.join(result['failed'])}")
+        job_ref.update({
+            "status": "completed",
+            "completedAt": firestore.SERVER_TIMESTAMP,
+            "successfulBanks": result["successful"],
+            "failedBanks": result["failed"],
+        })
     except Exception as error:
         job_ref.update({"status": "failed", "completedAt": firestore.SERVER_TIMESTAMP, "error": str(error)[:500]})
         print(f"[{job.id}] FAILED: {error}")

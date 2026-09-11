@@ -1,5 +1,6 @@
 requests
 beautifulsoup4
+pdfplumber
 schedule
 firebase-admin
 # playwright     # uncomment if you need it for BDO's JS-rendered page

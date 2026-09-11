@@ -17,10 +17,19 @@ Run this file directly to scrape all three banks once and save to the database:
 """
 
 import time
+import io
+import re
+import argparse
+from urllib.parse import urljoin
+
+import pdfplumber
 import requests
 from bs4 import BeautifulSoup
 
-from database import init_db, upsert_properties
+try:
+    from .database import init_db, upsert_properties
+except ImportError:
+    from database import init_db, upsert_properties
 
 HEADERS = {
     # Identify honestly as a browser-like client; some sites block requests
@@ -29,43 +38,62 @@ HEADERS = {
 }
 
 REQUEST_DELAY_SECONDS = 2  # be a polite scraper — don't hammer their server
+DEFAULT_BANKS = ["metrobank"]
+
+LANDBANK_URL = "https://www.landbank.com/property-for-sale"
+METROBANK_URL = "https://www.metrobank.com.ph/assets-for-sale/properties"
 
 
 # ---------------------------------------------------------------------------
 # LANDBANK
 # ---------------------------------------------------------------------------
 def scrape_landbank() -> list[dict]:
-    url = "https://www.landbank.com/property-for-sale"
-    response = requests.get(url, headers=HEADERS, timeout=15)
+    response = requests.get(LANDBANK_URL, headers=HEADERS, timeout=30)
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "html.parser")
 
     listings = []
 
-    # TODO: verify selector — inspect the real page and replace ".property-card"
-    # with whatever actually wraps each listing.
-    for card in soup.select(".property-card"):
-        reference_no = card.get("data-ref") or card.select_one(".ref-no")
-        title = card.select_one(".property-title")
-        location = card.select_one(".property-location")
-        price = card.select_one(".property-price")
-        link = card.select_one("a")
-        image = card.select_one("img")
-
-        if not reference_no:
-            continue  # skip anything we can't uniquely identify
-
+    for row in soup.select("table tbody tr"):
+        cells = [clean_text(cell.get_text(" ", strip=True)) for cell in row.select("th, td")]
+        if len(cells) < 3:
+            continue
+        link = row.select_one("a[href]")
+        reference_no = cells[0]
         listings.append({
-            "reference_no": reference_no.get_text(strip=True) if hasattr(reference_no, "get_text") else str(reference_no),
-            "title": title.get_text(strip=True) if title else None,
-            "location": location.get_text(strip=True) if location else None,
-            "price": price.get_text(strip=True) if price else None,
-            "floor_area": None,
-            "lot_area": None,
-            "listing_url": link["href"] if link and link.has_attr("href") else url,
-            "image_url": image["src"] if image and image.has_attr("src") else None,
+            "reference_no": reference_no,
+            "title": cells[1] if len(cells) > 1 else "Landbank property",
+            "location": cells[2] if len(cells) > 2 else None,
+            "price": cells[3] if len(cells) > 3 else None,
+            "floor_area": extract_measurement(cells, "floor"),
+            "lot_area": extract_measurement(cells, "lot"),
+            "listing_url": urljoin(LANDBANK_URL, link["href"]) if link else LANDBANK_URL,
+            "image_url": None,
         })
 
+    if not listings:
+        for card in soup.select(".property-card, .property-listing, [class*='property-card'], [class*='property-item']"):
+            reference = card.select_one(".ref-no, [class*='reference'], [class*='ref']")
+            if not reference:
+                continue
+            link = card.select_one("a[href]")
+            image = card.select_one("img[src]")
+            listings.append({
+                "reference_no": clean_text(reference.get_text(" ", strip=True)),
+                "title": text_from(card, ".property-title, [class*='title']"),
+                "location": text_from(card, ".property-location, [class*='location'], [class*='address']"),
+                "price": text_from(card, ".property-price, [class*='price']"),
+                "floor_area": text_from(card, "[class*='floor']"),
+                "lot_area": text_from(card, "[class*='lot']"),
+                "listing_url": urljoin(LANDBANK_URL, link["href"]) if link else LANDBANK_URL,
+                "image_url": urljoin(LANDBANK_URL, image["src"]) if image else None,
+            })
+
+    if not listings:
+        listings = parse_landbank_text(soup)
+
+    if not listings:
+        raise RuntimeError("Landbank page loaded, but no property records matched the parser.")
     return listings
 
 
@@ -73,36 +101,55 @@ def scrape_landbank() -> list[dict]:
 # METROBANK
 # ---------------------------------------------------------------------------
 def scrape_metrobank() -> list[dict]:
-    url = "https://www.metrobank.com.ph/loans/assets-for-sale"
-    response = requests.get(url, headers=HEADERS, timeout=15)
+    response = requests.get(METROBANK_URL, headers=HEADERS, timeout=30)
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "html.parser")
+    pdf_link = find_pdf_link(soup, METROBANK_URL)
+    if not pdf_link:
+        raise RuntimeError("Metrobank property-list PDF link was not found.")
 
+    pdf_response = requests.get(pdf_link, headers=HEADERS, timeout=60)
+    pdf_response.raise_for_status()
+    return parse_metrobank_pdf(pdf_response.content)
+
+
+def parse_metrobank_pdf(content: bytes) -> list[dict]:
     listings = []
-
-    # TODO: verify selector — same idea as Landbank above.
-    for card in soup.select(".asset-item"):
-        reference_no = card.select_one(".control-no")
-        title = card.select_one(".asset-title")
-        location = card.select_one(".asset-location")
-        price = card.select_one(".asset-price")
-        link = card.select_one("a")
-        image = card.select_one("img")
-
-        if not reference_no:
-            continue
-
-        listings.append({
-            "reference_no": reference_no.get_text(strip=True),
-            "title": title.get_text(strip=True) if title else None,
-            "location": location.get_text(strip=True) if location else None,
-            "price": price.get_text(strip=True) if price else None,
-            "floor_area": None,
-            "lot_area": None,
-            "listing_url": link["href"] if link and link.has_attr("href") else url,
-            "image_url": image["src"] if image and image.has_attr("src") else None,
-        })
-
+    header_indexes = None
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        for page in pdf.pages:
+            for row in page.extract_tables() or []:
+                if not row:
+                    continue
+                rows = [[clean_text(value or "") for value in values] for values in row]
+                header_row_index = next((index for index, values in enumerate(rows) if is_header_row(values)), None)
+                if header_row_index is not None:
+                    headers = [value.lower() for value in rows[header_row_index]]
+                    header_indexes = {header: index for index, header in enumerate(headers) if header}
+                    data_rows = rows[header_row_index + 1:]
+                elif header_indexes:
+                    data_rows = rows
+                else:
+                    continue
+                for cells in data_rows:
+                    if len(cells) < 4 or is_header_row(cells) or not cells[0].isdigit():
+                        continue
+                    reference_no = value_for_header(cells, header_indexes, "property") or cells[0]
+                    if not reference_no or reference_no.lower() in {"n/a", "-"}:
+                        continue
+                    listings.append({
+                        "reference_no": reference_no,
+                        "title": value_for_header(cells, header_indexes, "category") or "Metrobank acquired property",
+                        "location": " ".join(
+                            value_for_header(cells, header_indexes, field) or ""
+                            for field in ("address", "city", "province")
+                        ).strip(),
+                        "price": parse_amount(value_for_header(cells, header_indexes, "price")),
+                        "floor_area": value_for_header(cells, header_indexes, "floor"),
+                        "lot_area": value_for_header(cells, header_indexes, "lot"),
+                        "listing_url": f"https://www.metrobank.com.ph/assets-for-sale/properties/details?id={reference_no}",
+                        "image_url": None,
+                    })
     return listings
 
 
@@ -170,7 +217,9 @@ SCRAPERS = {
 
 def run_banks(banks=None):
     init_db()
-    selected_banks = [bank.lower() for bank in (banks or SCRAPERS)]
+    selected_banks = [bank.lower() for bank in (banks or DEFAULT_BANKS)]
+    successful_banks = []
+    failed_banks = []
 
     for bank_name in selected_banks:
         scrape_fn = SCRAPERS.get(bank_name)
@@ -181,15 +230,118 @@ def run_banks(banks=None):
             print(f"Scraping {bank_name}...")
             listings = scrape_fn()
             upsert_properties(bank_name, listings)
+            successful_banks.append(bank_name)
         except Exception as e:
             # One bank failing (e.g. site redesign) shouldn't crash the whole run
             print(f"[{bank_name}] FAILED: {e}")
+            failed_banks.append(bank_name)
         time.sleep(REQUEST_DELAY_SECONDS)
+
+    return {"successful": successful_banks, "failed": failed_banks}
+
+
+def dry_run(banks):
+    """Fetch and parse sources without initializing Firebase or writing data."""
+    for bank_name in banks:
+        scrape_fn = SCRAPERS.get(bank_name.lower())
+        if not scrape_fn:
+            print(f"[{bank_name}] SKIPPED: unsupported bank")
+            continue
+        try:
+            listings = scrape_fn()
+            print(f"[{bank_name}] parsed {len(listings)} properties")
+            for listing in listings[:3]:
+                print(f"  - {listing.get('reference_no')}: {listing.get('title')}")
+        except Exception as error:
+            print(f"[{bank_name}] FAILED: {error}")
 
 
 def run_all():
-    run_banks()
+    run_banks(DEFAULT_BANKS)
+
+
+def clean_text(value):
+    return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def text_from(node, selector):
+    match = node.select_one(selector)
+    return clean_text(match.get_text(" ", strip=True)) if match else None
+
+
+def extract_measurement(cells, label):
+    for index, cell in enumerate(cells):
+        if label in cell.lower() and index + 1 < len(cells):
+            return cells[index + 1]
+    return None
+
+
+def find_pdf_link(soup, base_url):
+    for link in soup.select("a[href]"):
+        href = link["href"]
+        label = link.get_text(" ", strip=True).lower()
+        if href.lower().endswith(".pdf") or "download property list" in label:
+            return urljoin(base_url, href)
+    return None
+
+
+def is_header_row(cells):
+    joined = " ".join(cells).lower()
+    return "property no" in joined or ("tct" in joined and "address" in joined)
+
+
+def find_value(cells, label):
+    for index, cell in enumerate(cells):
+        if label in cell.lower() and index + 1 < len(cells):
+            return cells[index + 1]
+    return None
+
+
+def parse_landbank_text(soup):
+    """Fallback for pages whose records are rendered as text blocks."""
+    listings = []
+    for link in soup.select("a[href]"):
+        text = clean_text(link.parent.get_text(" ", strip=True))
+        match = re.search(r"(?:property|reference|ref(?:erence)?)[\s#:.-]*([A-Z0-9-]{4,})", text, re.I)
+        if not match:
+            continue
+        listings.append({
+            "reference_no": match.group(1),
+            "title": clean_text(link.get_text(" ", strip=True)) or "Landbank property",
+            "location": text,
+            "price": None,
+            "floor_area": None,
+            "lot_area": None,
+            "listing_url": urljoin(LANDBANK_URL, link["href"]),
+            "image_url": None,
+        })
+    return listings
+
+
+def value_for_header(cells, indexes, fragment):
+    for header, index in indexes.items():
+        if fragment in header and index < len(cells):
+            return cells[index]
+    return None
+
+
+def parse_amount(value):
+    """Convert formatted bank prices to numbers while preserving unavailable values."""
+    if not value:
+        return None
+    cleaned = re.sub(r"[^0-9.-]", "", value)
+    try:
+        return float(cleaned) if cleaned else None
+    except ValueError:
+        return None
 
 
 if __name__ == "__main__":
-    run_all()
+    parser = argparse.ArgumentParser(description="Scrape bank-acquired properties.")
+    parser.add_argument("banks", nargs="*", choices=sorted(SCRAPERS), default=DEFAULT_BANKS)
+    parser.add_argument("--dry-run", action="store_true", help="Parse sources without writing to Firestore")
+    args = parser.parse_args()
+    if args.dry_run:
+        dry_run(args.banks)
+    else:
+        run_banks(args.banks)

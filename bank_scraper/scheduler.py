@@ -9,7 +9,10 @@ Windows Task Scheduler or GitHub Actions set up yet.
 
 import schedule
 import time
-from scraper import run_all
+try:
+    from .scraper import run_all
+except ImportError:
+    from scraper import run_all
 
 # Change this to whatever cadence makes sense (e.g. every 1 day for real use,
 # every few minutes while you're testing that it works).
