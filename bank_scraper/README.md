@@ -9,10 +9,7 @@ number as part of the document ID so re-running the scraper updates instead of d
 1. In the [Firebase Console](https://console.firebase.google.com), open your project →
    **Project Settings** (gear icon) → **Service Accounts** tab.
 2. Click **Generate new private key** — this downloads a JSON file.
-3. For local-only testing, place it in this folder as `serviceAccountKey.json`, or set
-   `GOOGLE_APPLICATION_CREDENTIALS` to an external path. You can also provide the JSON
-   through `FIREBASE_SERVICE_ACCOUNT_JSON`.
-4. **Never commit or share this file** — it is a full admin credential for Firebase.
+3. Keep it outside this repository; set `GOOGLE_APPLICATION_CREDENTIALS` to its absolute path, or provide the JSON through `FIREBASE_SERVICE_ACCOUNT_JSON`. For local-only testing you may place it in this folder as `serviceAccountKey.json`. **Never commit or share this file** — it is a full admin credential for Firebase.
 
 This is a different, separate step from setting up the React web app's Firebase config —
 the web app uses a public client-side config (safe to expose), while this scraper uses a
@@ -91,7 +88,6 @@ The React admin button creates a `scraperJobs` document with status `queued`. It
 run Python in the browser. Start `python worker.py` in a trusted Python environment to
 poll that collection, run the requested banks, write `bankProperties`, and mark the job
 `completed` or `failed`.
-
 For the first live parser test, run only the two verified source strategies:
 
 ```bash
