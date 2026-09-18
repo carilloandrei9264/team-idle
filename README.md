@@ -109,6 +109,18 @@ python scraper.py
 The scraper requires credentials outside this repository. Set `GOOGLE_APPLICATION_CREDENTIALS`
 to the key path or provide `FIREBASE_SERVICE_ACCOUNT_JSON` (see the scraper README).
 
+### Firebase Functions
+
+The v0.2 trust-score cache is recomputed by the scheduled `recomputeTrustScores` function. Deploy it from the repository root after installing the Functions dependencies:
+
+```bash
+cd functions
+npm install
+npx firebase deploy --only functions:recomputeTrustScores
+```
+
+Scheduled Functions require a Firebase billing-enabled project. The browser never reads private booking history; the function reads it with Admin SDK and writes only the public `trustScores` cache.
+
 ---
 
 ## Documentation Index

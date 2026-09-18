@@ -68,6 +68,41 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /bookings/{bookingId} {
+      allow read: if isActiveUser()
+        && (resource.data.renterId == request.auth.uid
+          || resource.data.ownerId == request.auth.uid
+          || isAdmin());
+      allow create: if isActiveUser()
+        && request.resource.data.renterId == request.auth.uid
+        && request.resource.data.status == 'Pending'
+        && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.verificationStatus == 'verified'
+        && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.ownerId == request.resource.data.ownerId;
+      allow update: if isAdmin()
+        || (isActiveUser()
+          && resource.data.ownerId == request.auth.uid
+          && resource.data.status == 'Pending'
+          && request.resource.data.status in ['Confirmed', 'Cancelled'])
+        || (isActiveUser()
+          && resource.data.renterId == request.auth.uid
+          && resource.data.status in ['Confirmed', 'Completed']
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['depositReference', 'updatedAt']));
+      allow delete: if false;
+    }
+
+    match /ratings/{ratingId} {
+      allow read: if true;
+      allow create: if isActiveUser()
+        && request.resource.data.raterId == request.auth.uid
+        && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status == 'Completed'
+        && (get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.renterId == request.auth.uid
+          || get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.ownerId == request.auth.uid)
+        && request.resource.data.score >= 1
+        && request.resource.data.score <= 5;
+      allow update, delete: if false;
+    }
+
     // Trust scores are public display data; only admins/functions should write.
     match /trustScores/{scoreId} {
       allow read: if true;

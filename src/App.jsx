@@ -7,6 +7,9 @@ import Account from "./pages/Account";
 import BankCatalog from "./pages/BankCatalog";
 import CreateListing from "./pages/CreateListing";
 import ListingDetail from "./pages/ListingDetail";
+import BookingRequest from "./pages/BookingRequest";
+import MyBookings from "./pages/MyBookings";
+import ManageBookingRequests from "./pages/ManageBookingRequests";
 import EditListing from "./pages/EditListing";
 import AdminLayout from "./admin/AdminLayout";
 import AdminDashboard from "./admin/AdminDashboard";
@@ -29,7 +32,10 @@ function App() {
         <Route path="/my-listings" element={<RequireAuth><MyListings /></RequireAuth>} />
         <Route path="/listings/new" element={<RequireAuth><CreateListing /></RequireAuth>} />
         <Route path="/listings/:listingId" element={<ListingDetail />} />
+        <Route path="/listings/:listingId/book" element={<RequireAuth><BookingRequest /></RequireAuth>} />
         <Route path="/listings/:listingId/edit" element={<RequireAuth><EditListing /></RequireAuth>} />
+        <Route path="/my-bookings" element={<RequireAuth><MyBookings /></RequireAuth>} />
+        <Route path="/manage-bookings" element={<RequireAuth><ManageBookingRequests /></RequireAuth>} />
         <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
         <Route
           path="/admin"

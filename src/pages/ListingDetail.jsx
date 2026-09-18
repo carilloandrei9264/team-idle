@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
-import { ArrowLeft, MapPin, Pencil, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin, Pencil, ShieldCheck } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
@@ -71,6 +71,9 @@ export default function ListingDetail() {
                 <span>Lot area <strong>{listing.lotArea ? `${listing.lotArea} sqm` : "Not specified"}</strong></span>
               </div>
               {listing.verificationStatus === "verified" && <p className="listing-detail__verified"><ShieldCheck size={16} aria-hidden="true" /> Ownership document reviewed by TrustHome</p>}
+              {listing.verificationStatus === "verified" && !isOwner && (
+                <Link to={`/listings/${listing.id}/book`} className="btn btn--primary listing-detail__booking-cta"><CalendarDays size={17} aria-hidden="true" /> Request booking</Link>
+              )}
             </div>
           </article>
         )}
