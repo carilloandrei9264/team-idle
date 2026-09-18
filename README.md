@@ -109,6 +109,14 @@ python scraper.py
 The scraper requires credentials outside this repository. Set `GOOGLE_APPLICATION_CREDENTIALS`
 to the key path or provide `FIREBASE_SERVICE_ACCOUNT_JSON` (see the scraper README).
 
+For a demo dataset, use `bank_scraper/seed_demo_data.py`. It uses clearly labeled synthetic records and placeholder verification documents, so no real identity or ownership papers are needed:
+
+```bash
+cd bank_scraper
+python seed_demo_data.py --dry-run
+python seed_demo_data.py
+```
+
 ### Trust-score recomputation without billing
 
 The active v0.2 setup does not require Cloud Functions or a billing-enabled Firebase project. GitHub Actions runs `bank_scraper/trust_scores.py` after the Metrobank scrape, using the existing `FIREBASE_SERVICE_ACCOUNT` repository secret. The local worker runs the same recomputation after a manually queued scrape.
