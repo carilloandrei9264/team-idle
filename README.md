@@ -109,17 +109,11 @@ python scraper.py
 The scraper requires credentials outside this repository. Set `GOOGLE_APPLICATION_CREDENTIALS`
 to the key path or provide `FIREBASE_SERVICE_ACCOUNT_JSON` (see the scraper README).
 
-### Firebase Functions
+### Trust-score recomputation without billing
 
-The v0.2 trust-score cache is recomputed by the scheduled `recomputeTrustScores` function. Deploy it from the repository root after installing the Functions dependencies:
+The active v0.2 setup does not require Cloud Functions or a billing-enabled Firebase project. GitHub Actions runs `bank_scraper/trust_scores.py` after the Metrobank scrape, using the existing `FIREBASE_SERVICE_ACCOUNT` repository secret. The local worker runs the same recomputation after a manually queued scrape.
 
-```bash
-cd functions
-npm install
-npx firebase deploy --only functions:recomputeTrustScores
-```
-
-Scheduled Functions require a Firebase billing-enabled project. The browser never reads private booking history; the function reads it with Admin SDK and writes only the public `trustScores` cache.
+The optional `functions/` implementation is retained for a future migration to scheduled Cloud Functions. Do not deploy it while the project is avoiding billing.
 
 ---
 

@@ -13,9 +13,11 @@ from firebase_admin import firestore
 try:
     from .database import get_db, get_queued_jobs
     from .scraper import DEFAULT_BANKS, run_banks
+    from .trust_scores import recompute_trust_scores
 except ImportError:
     from database import get_db, get_queued_jobs
     from scraper import DEFAULT_BANKS, run_banks
+    from trust_scores import recompute_trust_scores
 
 POLL_SECONDS = 15
 
@@ -29,6 +31,7 @@ def process_one_job(job):
         result = run_banks(job_data.get("banks") or DEFAULT_BANKS)
         if not result["successful"]:
             raise RuntimeError(f"All requested banks failed: {', '.join(result['failed'])}")
+        recompute_trust_scores()
         job_ref.update({
             "status": "completed",
             "completedAt": firestore.SERVER_TIMESTAMP,
