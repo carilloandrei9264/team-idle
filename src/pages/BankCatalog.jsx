@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { ExternalLink, Landmark, MapPin } from "lucide-react";
+import { Landmark, MapPin } from "lucide-react";
+import { Link } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { db } from "../firebase";
 import { formatCurrency, numericValue } from "../lib/number";
@@ -79,7 +80,7 @@ function BankPropertyCard({ property }) {
         <p className="bank-property-card__location"><MapPin size={14} aria-hidden="true" />{property.location || "Location not provided"}</p>
         <p className="bank-property-card__price">{formatCurrency(property.price)}</p>
         <p className="bank-property-card__meta">Last verified: {formatDate(property.lastSeen || property.firstSeen)}</p>
-        {property.listingUrl && <a className="btn btn--secondary bank-property-card__link" href={property.listingUrl} target="_blank" rel="noreferrer">View original listing <ExternalLink size={14} aria-hidden="true" /></a>}
+        <Link className="btn btn--primary bank-property-card__link" to={`/bank-catalog/${property.id}`}>View property and loan estimate</Link>
       </div>
     </article>
   );

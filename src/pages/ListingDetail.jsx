@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { ArrowLeft, MapPin, Pencil, ShieldCheck } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
@@ -14,12 +14,18 @@ export default function ListingDetail() {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [ratings, setRatings] = useState([]);
 
   useEffect(() => {
     let active = true;
     getDoc(doc(db, "listings", listingId)).then((snapshot) => {
       if (!active) return;
-      if (snapshot.exists()) setListing({ id: snapshot.id, ...snapshot.data() });
+      if (snapshot.exists()) {
+        setListing({ id: snapshot.id, ...snapshot.data() });
+        getDocs(query(collection(db, "ratings"), where("listingId", "==", listingId)))
+          .then((ratingsSnapshot) => setRatings(ratingsSnapshot.docs.map((item) => item.data())))
+          .catch(() => setRatings([]));
+      }
       else setError("This listing could not be found.");
       setLoading(false);
     }).catch(() => {
@@ -70,11 +76,25 @@ export default function ListingDetail() {
                 <span>Floor area <strong>{listing.floorArea ? `${listing.floorArea} sqm` : "Not specified"}</strong></span>
                 <span>Lot area <strong>{listing.lotArea ? `${listing.lotArea} sqm` : "Not specified"}</strong></span>
               </div>
-              {listing.verificationStatus === "verified" && <p className="listing-detail__verified"><ShieldCheck size={16} aria-hidden="true" /> Ownership document reviewed by TrustHome</p>}
+              {listing.verificationStatus === "verified" && <>
+                <p className="listing-detail__verified"><ShieldCheck size={16} aria-hidden="true" /> Ownership document reviewed by TrustHome</p>
+                {!isOwner && user && <Link to={`/listings/${listing.id}/book`} className="btn btn--primary">Request booking</Link>}
+              </>}
+              <section className="listing-detail__reviews" aria-labelledby="listing-reviews-title">
+                <h2 id="listing-reviews-title">Reviews</h2>
+                {ratings.length === 0 ? <p>No reviews yet.</p> : <>
+                  <p className="listing-detail__rating-summary"><strong>{averageRating(ratings).toFixed(1)}</strong> / 5 from {ratings.length} review{ratings.length === 1 ? "" : "s"}</p>
+                  <ul className="listing-detail__review-list">{ratings.slice(0, 5).map((rating, index) => <li key={`${rating.reviewerId || "review"}-${index}`}><strong>{rating.reviewerName || "TrustHome user"}</strong><span>{rating.score} / 5</span><p>{rating.comment}</p></li>)}</ul>
+                </>}
+              </section>
             </div>
           </article>
         )}
       </main>
     </div>
   );
+}
+
+function averageRating(ratings) {
+  return ratings.reduce((total, rating) => total + Number(rating.score || 0), 0) / ratings.length;
 }
