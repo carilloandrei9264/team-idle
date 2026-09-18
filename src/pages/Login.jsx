@@ -81,6 +81,11 @@ export default function Login() {
       data,
       { merge: true }
     );
+    await setDoc(doc(db, "publicProfiles", user.uid), {
+      userId: user.uid,
+      name: data.name,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
   }
 
   async function handleSubmit(e) {
