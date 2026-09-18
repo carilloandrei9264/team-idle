@@ -40,6 +40,8 @@ source venv/bin/activate     # Mac/Linux
 pip install -r requirements.txt
 python scraper.py            # runs once, immediately
 python scraper.py --dry-run landbank metrobank  # parse sources without Firestore writes
+python seed_demo_data.py --dry-run              # preview synthetic demo data
+python seed_demo_data.py                        # write synthetic demo data to Firestore
 ```
 
 ## Files
@@ -50,6 +52,7 @@ python scraper.py --dry-run landbank metrobank  # parse sources without Firestor
    `scrape_bdo()`). Each returns a list of normalized property dicts.
 - `worker.py` — consumes `scraperJobs` created by the admin panel and runs requested banks.
 - `trust_scores.py` — recomputes the public trust-score cache with the same Admin SDK credential, without Cloud Functions.
+- `seed_demo_data.py` — writes repeatable synthetic listings, bookings, ratings, disputes, users, and Metrobank properties for testing.
 - `scheduler.py` — runs the scraper automatically every N hours, for local testing
    without Task Scheduler or GitHub Actions.
 - `.github/workflows/scrape.yml` — GitHub Actions config that runs the scraper and
