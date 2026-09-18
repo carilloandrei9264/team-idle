@@ -3,10 +3,8 @@ import { addDoc, collection, deleteDoc, getDocs, onSnapshot, serverTimestamp } f
 import { CheckCircle2, RefreshCw, Trash2 } from "lucide-react";
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
+import { BANK_LABELS, CURRENT_BANKS } from "../lib/bankCatalog";
 import "./AdminData.css";
-
-const DEFAULT_BANKS = ["metrobank"];
-const BANK_LABELS = { metrobank: "Metrobank" };
 
 export default function AdminBankCatalog() {
   const { user } = useAuth();
@@ -54,11 +52,11 @@ export default function AdminBankCatalog() {
     try {
       await addDoc(collection(db, "scraperJobs"), {
         requestedBy: user?.uid ?? null,
-        banks: DEFAULT_BANKS,
+        banks: CURRENT_BANKS,
         status: "queued",
         createdAt: serverTimestamp(),
       });
-      setMessage("Metrobank scrape queued. Keep the trusted worker running; the catalog updates when it finishes.");
+      setMessage("Metrobank scrape queued. The scheduled GitHub Action or trusted worker will process it.");
     } catch {
       setError("The scraper run could not be queued. Check your connection and permissions.");
     } finally {
@@ -85,7 +83,7 @@ export default function AdminBankCatalog() {
     }
   }
 
-  const displayedBanks = DEFAULT_BANKS.map((name) => {
+  const displayedBanks = CURRENT_BANKS.map((name) => {
     const bankProperties = properties.filter((property) => property.bank === name && String(property.status || "active").toLowerCase() === "active");
     const latest = bankProperties.reduce((current, property) => timestampValue(property.lastSeen) > timestampValue(current) ? property.lastSeen : current, null);
     return { id: name, name: BANK_LABELS[name], listingCount: bankProperties.length, lastRunAt: latest };
@@ -130,7 +128,7 @@ export default function AdminBankCatalog() {
               <div className="admin-empty">No scraper runs have been queued yet.</div>
             ) : (
               <ul className="admin-log">
-                {logs.map((log) => <li key={log.id}>{formatDate(log.createdAt)} - {log.status} for {(log.banks || DEFAULT_BANKS).join(", ")}{log.failedBanks?.length ? ` (failed: ${log.failedBanks.join(", ")})` : ""}</li>)}
+                {logs.map((log) => <li key={log.id}>{formatDate(log.createdAt)} - {log.status} for {(log.banks || CURRENT_BANKS).join(", ")}{log.failedBanks?.length ? ` (failed: ${log.failedBanks.join(", ")})` : ""}</li>)}
               </ul>
             )}
           </section>

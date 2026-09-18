@@ -142,6 +142,7 @@ Full breakdown with per-member weekly assignments in `docs/TrustHome_PH_Versioni
 - Document review filters casual fraud (fake IDs, stolen photos) — it is **not** a legal title search.
 - TrustHome does not custody deposit funds; protection comes from a public, permanent dispute-flag system, not fund escrow.
 - The bank-acquired property catalog depends on manually-mapped scraper selectors per bank, refreshed on a fixed schedule — not a live data partnership with any bank.
+- The current live catalog scope is Metrobank only. Landbank and BDO are future scraper integrations; the UI should not imply that they are currently supported.
 - Uploaded documents (Cloudinary, unsigned preset) are unlisted but not cryptographically private.
 
 These are intentional, disclosed scope decisions — see the SWOT analysis and System Build Plan for the reasoning behind each one.
