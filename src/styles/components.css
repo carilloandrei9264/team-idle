@@ -1,11 +1,11 @@
-/* Shared primitives — import once in main.jsx, after tokens.css:
-   import './styles/tokens.css'; import './styles/components.css'; */
+/* Shared primitives — import once in main.jsx, after tokens.css            */
 
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
 .btn {
   height: 44px;
   border-radius: var(--radius-control);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   display: inline-flex;
@@ -14,90 +14,147 @@
   gap: var(--space-2);
   border: 1px solid transparent;
   text-decoration: none;
-  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  transition: var(--transition-base);
+  position: relative;
+  overflow: hidden;
 }
-.btn--block {
-  width: 100%;
-}
+
+/* Primary: blue→violet gradient */
 .btn--primary {
-  background: var(--color-primary);
+  background: var(--gradient-primary);
   color: var(--color-white);
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+  /* Gradient doesn't animate — use a pseudo overlay for hover brightness */
 }
+
+.btn--primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0);
+  transition: background 0.2s ease;
+  border-radius: inherit;
+}
+
+.btn--primary:hover:not(:disabled)::after {
+  background: rgba(255,255,255,0.10);
+}
+
 .btn--primary:hover:not(:disabled) {
-  background: var(--color-primary-dark);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.36);
+  transform: scale(1.02);
 }
+
+/* Secondary: glass-white with blue border */
 .btn--secondary {
-  background: var(--color-white);
-  border-color: var(--color-neutral-200);
-  color: var(--color-neutral-900);
+  background: rgba(255, 255, 255, 0.80);
+  border-color: #BFDBFE;          /* blue-200 */
+  color: #1D4ED8;                 /* blue-700 */
+  backdrop-filter: blur(4px);
 }
+
 .btn--secondary:hover:not(:disabled) {
-  border-color: var(--color-neutral-600);
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+  transform: scale(1.01);
 }
+
+html.dark .btn--secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #93C5FD;               /* blue-300 */
+}
+
+html.dark .btn--secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.30);
+}
+
+/* Danger */
 .btn--danger {
   background: var(--color-danger);
   color: var(--color-white);
 }
+
 .btn--danger:hover:not(:disabled) {
   background: #B91C1C;
+  transform: scale(1.02);
 }
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+
+/* Shared states */
+.btn--block   { width: 100%; }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none !important; }
 .btn:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
+/* Spinner */
 .btn__spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.4);
+  border: 2px solid rgba(255,255,255,0.35);
   border-top-color: var(--color-white);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
-/* Status badges */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+
+/* ── Badges ──────────────────────────────────────────────────────────────── */
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px var(--space-2);
+  padding: 3px var(--space-2);
   border-radius: var(--radius-pill);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
+
 .badge--verified {
-  background: var(--color-success-bg);
-  color: var(--color-success);
+  background: #EFF6FF;      /* blue-50 */
+  color: #1D4ED8;           /* blue-700 */
+  border: 1px solid #BFDBFE;
 }
+
+html.dark .badge--verified {
+  background: rgba(37,99,235,0.20);
+  color: #93C5FD;
+  border-color: rgba(147,197,253,0.25);
+}
+
 .badge--pending {
   background: var(--color-warning-bg);
   color: var(--color-warning);
 }
+
 .badge--danger {
   background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 
-/* Form field */
+
+/* ── Form fields ─────────────────────────────────────────────────────────── */
 .field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
+
 .field__label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-neutral-900);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
 }
+
 .field__input {
   height: 44px;
   padding: 0 var(--space-3);
@@ -106,23 +163,42 @@
   font-size: 14px;
   font-family: inherit;
   color: var(--color-neutral-900);
-  background: var(--color-white);
+  background: var(--card-bg);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+
 .field__input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px var(--color-primary-light);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
+
+html.dark .field__input {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: var(--color-neutral-200);
+  color: var(--color-neutral-900);
+}
+
+html.dark .field__input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+}
+
+html.dark .field__input::placeholder {
+  color: var(--color-neutral-400);
+}
+
 .field__input--error {
   border-color: var(--color-danger);
 }
+
 .field__error {
   font-size: 12px;
   color: var(--color-danger);
   margin: 0;
 }
 
+/* ── Booking form icon ── */
 .booking-form__icon {
   display: inline-flex;
   align-items: center;
@@ -132,5 +208,43 @@
   margin-bottom: 12px;
   border-radius: var(--radius-control);
   background: var(--color-primary-light);
-  color: var(--color-primary-dark);
+  color: var(--color-primary);
+}
+
+/* ── Panel empty state ── */
+.panel__empty {
+  color: var(--color-neutral-600);
+  font-size: 14px;
+  padding: var(--space-8);
+  text-align: center;
+}
+
+/* ── Link button ── */
+.link-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  padding: 0;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.link-button:hover {
+  color: var(--color-violet);
+}
+
+/* ── Panel title ── */
+.panel__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  margin: 0;
+}
+
+.panel__title--inline {
+  display: inline;
 }

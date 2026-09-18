@@ -13,30 +13,88 @@ html, body, #root {
   box-sizing: border-box;
 }
 
+/* ── Page background: subtle mesh gradient (light mode) ─────────────────────
+   Two radial spots (blue-100/40 top-left, violet-100/30 bottom-right)
+   over a near-white base (#F8F9FE). Creates depth without pattern noise.    */
 body {
-  background: var(--color-neutral-50);
+  /* Mesh: base + two radial overlays */
+  background-color: var(--page-bg);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 10% 5%,  rgba(219, 234, 254, 0.40) 0%, transparent 70%),
+    radial-gradient(ellipse 70% 55% at 90% 95%, rgba(237, 233, 254, 0.30) 0%, transparent 70%);
+  background-attachment: fixed;
+
   color: var(--color-neutral-900);
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background-color 0.25s ease, color 0.2s ease;
 }
 
-button,
-input,
-textarea {
+/* Dark mode: radial glow at top-center, no mesh (too noisy on dark) */
+html.dark body {
+  background-color: var(--page-bg);
+  background-image:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(37, 99, 235, 0.12) 0%, transparent 65%);
+  background-attachment: fixed;
+}
+
+button, input, textarea {
   font: inherit;
 }
 
-button,
-a {
+button, a {
   -webkit-tap-highlight-color: transparent;
 }
 
-h1,
-h2,
-h3,
-p {
+h1, h2, h3, p {
   margin: 0;
+}
+
+/* ── Gradient text utility ───────────────────────────────────────────────────
+   Used on key words in headings. Apply class + aria-label on the parent.    */
+.gradient-text {
+  background: var(--gradient-text);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* ── Card hover top-line ─────────────────────────────────────────────────────
+   Add .card-hover-line to any card. Creates a gradient top border on hover
+   via a pseudo-element so it doesn't disturb the card's border-box.         */
+.card-hover-line {
+  position: relative;
+}
+
+.card-hover-line::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gradient-primary-r);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 1;
+}
+
+.card-hover-line:hover::before {
+  opacity: 1;
+}
+
+/* ── Section stagger fade-in ─────────────────────────────────────────────────
+   Applied via JS/framer-motion — these classes are fallback for no-JS.      */
+.fade-up {
+  animation: fade-up-in 0.4s ease-out both;
+}
+
+@keyframes fade-up-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
