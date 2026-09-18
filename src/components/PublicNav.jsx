@@ -77,6 +77,9 @@ export default function PublicNav() {
             <Link to="/my-listings" className="btn btn--secondary public-nav__cta">
               My Listings
             </Link>
+            <Link to="/my-bookings" className="btn btn--secondary public-nav__cta">
+              My Bookings
+            </Link>
             <div className="public-nav__profile" ref={menuRef}>
               <button
                 type="button"

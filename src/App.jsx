@@ -11,6 +11,7 @@ import EditListing from "./pages/EditListing";
 import BookingRequest from "./pages/BookingRequest";
 import MyBookings from "./pages/MyBookings";
 import BookingRequests from "./pages/BookingRequests";
+import ManageBookingRequests from "./pages/ManageBookingRequests";
 import RatingForm from "./pages/RatingForm";
 import RaiseDispute from "./pages/RaiseDispute";
 import BankPropertyDetail from "./pages/BankPropertyDetail";
@@ -41,6 +42,7 @@ function App() {
         <Route path="/listings/:listingId/book" element={<RequireAuth><BookingRequest /></RequireAuth>} />
         <Route path="/my-bookings" element={<RequireAuth><MyBookings /></RequireAuth>} />
         <Route path="/booking-requests" element={<RequireAuth><BookingRequests /></RequireAuth>} />
+        <Route path="/manage-bookings" element={<RequireAuth><ManageBookingRequests /></RequireAuth>} />
         <Route path="/bookings/:bookingId/review" element={<RequireAuth><RatingForm /></RequireAuth>} />
         <Route path="/bookings/:bookingId/dispute" element={<RequireAuth><RaiseDispute /></RequireAuth>} />
           <Route path="/bank-catalog/:propertyId" element={<BankPropertyDetail />} />

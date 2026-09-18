@@ -26,9 +26,10 @@ everywhere — you're not locked into Linux:
 | **Windows, no code running 24/7** | Use built-in **Task Scheduler** to run `python scraper.py` daily. No extra software needed. |
 | **Deployed for your defense/demo** | Use a free **GitHub Actions** scheduled workflow (included below) — GitHub runs it in the cloud on a timer, so nothing needs to stay on locally at all. |
 
-For your capstone demo day, the realistic setup is: GitHub Actions runs the scraper
-automatically in the background before your defense, **plus** a manual "Run Scraper Now"
-button in your admin panel so you can trigger it live if a panelist asks to see it work.
+For your capstone demo day, the realistic setup is: GitHub Actions runs the scraper and
+trust-score refresh automatically in the background before your defense, **plus** a manual
+"Run Scraper Now" button backed by `worker.py` so you can trigger it live if a panelist asks
+to see it work.
 
 ## Setup (in VS Code)
 
@@ -44,15 +45,16 @@ python scraper.py --dry-run landbank metrobank  # parse sources without Firestor
 ## Files
 
 - `database.py` — connects to Firestore and handles insert/update/delisting logic,
-  keyed by document ID (`{bank}_{reference_no}`).
+   keyed by document ID (`{bank}_{reference_no}`).
 - `scraper.py` — one function per bank (`scrape_landbank()`, `scrape_metrobank()`,
-  `scrape_bdo()`). Each returns a list of normalized property dicts.
+   `scrape_bdo()`). Each returns a list of normalized property dicts.
 - `worker.py` — consumes `scraperJobs` created by the admin panel and runs requested banks.
+- `trust_scores.py` — recomputes the public trust-score cache with the same Admin SDK credential, without Cloud Functions.
 - `scheduler.py` — runs the scraper automatically every N hours, for local testing
-  without Task Scheduler or GitHub Actions.
-- `.github/workflows/scrape.yml` — GitHub Actions config that runs the scraper on a
-   schedule in the cloud. Add the service-account JSON as a GitHub Actions secret named
-   `FIREBASE_SERVICE_ACCOUNT`; the workflow passes it through the environment.
+   without Task Scheduler or GitHub Actions.
+- `.github/workflows/scrape.yml` — GitHub Actions config that runs the scraper and
+   trust-score refresh on a schedule in the cloud. Add the service-account JSON as a
+   GitHub Actions secret named `FIREBASE_SERVICE_ACCOUNT`; the workflow passes it through the environment.
 
 ## ⚠️ Before this actually works, you must do this one manual step per bank
 

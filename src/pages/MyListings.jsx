@@ -34,6 +34,7 @@ export default function MyListings() {
             <Plus size={16} strokeWidth={2.5} aria-hidden="true" />
             Create listing
           </Link>
+          <Link to="/manage-bookings" className="btn btn--secondary">Manage requests</Link>
         </header>
         {loading ? <p className="user-page__empty">Loading your listings...</p> : listings.length === 0 ? (
           <div className="user-page__empty">

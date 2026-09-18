@@ -78,21 +78,27 @@ service cloud.firestore {
         && request.resource.data.ownerId != request.auth.uid
         && request.resource.data.status == 'Pending'
         && request.resource.data.startDate < request.resource.data.endDate
-        && request.resource.data.listingId is string;
+        && request.resource.data.listingId is string
+        && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.verificationStatus == 'verified'
+        && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.ownerId == request.resource.data.ownerId;
       allow update: if isAdmin()
         || (isActiveUser() && resource.data.renterId == request.auth.uid
           && resource.data.status in ['Pending', 'Confirmed']
           && request.resource.data.status == 'Cancelled')
         || (isActiveUser() && resource.data.ownerId == request.auth.uid
           && resource.data.status == 'Pending'
-          && request.resource.data.status in ['Confirmed', 'Declined']);
+          && request.resource.data.status in ['Confirmed', 'Declined', 'Cancelled'])
+        || (isActiveUser() && resource.data.renterId == request.auth.uid
+          && resource.data.status in ['Confirmed', 'Completed']
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['depositReference', 'updatedAt']));
       allow delete: if false;
     }
 
     match /ratings/{ratingId} {
       allow read: if true;
       allow create: if isActiveUser()
-        && request.resource.data.reviewerId == request.auth.uid
+  && (request.resource.data.raterId == request.auth.uid || request.resource.data.reviewerId == request.auth.uid)
         && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.renterId == request.auth.uid
         && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status == 'Completed'
         && request.resource.data.score >= 1
