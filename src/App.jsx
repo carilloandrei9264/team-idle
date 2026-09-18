@@ -8,6 +8,14 @@ import BankCatalog from "./pages/BankCatalog";
 import CreateListing from "./pages/CreateListing";
 import ListingDetail from "./pages/ListingDetail";
 import EditListing from "./pages/EditListing";
+import BookingRequest from "./pages/BookingRequest";
+import MyBookings from "./pages/MyBookings";
+import BookingRequests from "./pages/BookingRequests";
+import RatingForm from "./pages/RatingForm";
+import RaiseDispute from "./pages/RaiseDispute";
+import BankPropertyDetail from "./pages/BankPropertyDetail";
+import PublicProfile from "./pages/PublicProfile";
+import SavedSearches from "./pages/SavedSearches";
 import AdminLayout from "./admin/AdminLayout";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminListings from "./admin/AdminListings";
@@ -30,6 +38,14 @@ function App() {
         <Route path="/listings/new" element={<RequireAuth><CreateListing /></RequireAuth>} />
         <Route path="/listings/:listingId" element={<ListingDetail />} />
         <Route path="/listings/:listingId/edit" element={<RequireAuth><EditListing /></RequireAuth>} />
+        <Route path="/listings/:listingId/book" element={<RequireAuth><BookingRequest /></RequireAuth>} />
+        <Route path="/my-bookings" element={<RequireAuth><MyBookings /></RequireAuth>} />
+        <Route path="/booking-requests" element={<RequireAuth><BookingRequests /></RequireAuth>} />
+        <Route path="/bookings/:bookingId/review" element={<RequireAuth><RatingForm /></RequireAuth>} />
+        <Route path="/bookings/:bookingId/dispute" element={<RequireAuth><RaiseDispute /></RequireAuth>} />
+        <Route path="/bank-catalog/:propertyId" element={<BankPropertyDetail />} />
+        <Route path="/profiles/:userId" element={<PublicProfile />} />
+        <Route path="/saved-searches" element={<RequireAuth><SavedSearches /></RequireAuth>} />
         <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
         <Route
           path="/admin"

@@ -81,6 +81,12 @@ export default function Login() {
       data,
       { merge: true }
     );
+    await setDoc(doc(db, "publicProfiles", user.uid), {
+      userId: user.uid,
+      name: data.name,
+      ...(!existingUser.exists() ? { foundedDisputeCount: 0 } : {}),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
   }
 
   async function handleSubmit(e) {

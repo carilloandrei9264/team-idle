@@ -70,7 +70,10 @@ export default function ListingDetail() {
                 <span>Floor area <strong>{listing.floorArea ? `${listing.floorArea} sqm` : "Not specified"}</strong></span>
                 <span>Lot area <strong>{listing.lotArea ? `${listing.lotArea} sqm` : "Not specified"}</strong></span>
               </div>
-              {listing.verificationStatus === "verified" && <p className="listing-detail__verified"><ShieldCheck size={16} aria-hidden="true" /> Ownership document reviewed by TrustHome</p>}
+              {listing.verificationStatus === "verified" && <>
+                <p className="listing-detail__verified"><ShieldCheck size={16} aria-hidden="true" /> Ownership document reviewed by TrustHome</p>
+                {!isOwner && user && <Link to={`/listings/${listing.id}/book`} className="btn btn--primary">Request booking</Link>}
+              </>}
             </div>
           </article>
         )}

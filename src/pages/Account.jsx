@@ -43,6 +43,7 @@ export default function Account() {
     try {
       await updateProfile(user, { displayName: nextName });
       await setDoc(doc(db, "users", user.uid), { name: nextName }, { merge: true });
+      await setDoc(doc(db, "publicProfiles", user.uid), { userId: user.uid, name: nextName }, { merge: true });
       setMessage("Profile saved.");
     } catch {
       setError("Your profile could not be saved. Please try again.");

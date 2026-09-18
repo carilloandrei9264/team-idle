@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, increment, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { Check, X } from "lucide-react";
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
@@ -47,6 +47,12 @@ export default function AdminDisputes() {
         resolvedAt: serverTimestamp(),
         resolvedBy: user?.uid ?? null,
       });
+      if (status === "Founded" && selected.ownerId) {
+        const ownerProfile = await getDoc(doc(db, "publicProfiles", selected.ownerId));
+        if (ownerProfile.exists()) {
+          await updateDoc(doc(db, "publicProfiles", selected.ownerId), { foundedDisputeCount: increment(1) });
+        }
+      }
       setResolutionNotes("");
     } catch {
       setError("The dispute could not be updated. Please try again.");

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { ExternalLink, Landmark, MapPin } from "lucide-react";
+import { Landmark, MapPin } from "lucide-react";
+import { Link } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { db } from "../firebase";
 import { formatCurrency, numericValue } from "../lib/number";
@@ -8,6 +9,9 @@ import "./UserPages.css";
 
 const BANKS = ["landbank", "metrobank"];
 const BANK_LABELS = { landbank: "Landbank", metrobank: "Metrobank" };
+const BANK_LOGOS = {
+  metrobank: "https://web-assets.metrobank.com.ph/1753963478-logo_redesign-2025-2x.png",
+};
 
 export default function BankCatalog() {
   const [properties, setProperties] = useState([]);
@@ -68,18 +72,54 @@ export default function BankCatalog() {
 }
 
 function BankPropertyCard({ property }) {
+<<<<<<< Updated upstream
   return (
     <article className="bank-property-card">
       <div className="bank-property-card__image-wrap">
         {property.imageUrl ? <img src={property.imageUrl} alt={property.title || "Bank-acquired property"} /> : <Landmark size={30} aria-hidden="true" />}
         <span className="badge badge--verified">{BANK_LABELS[property.bank] || property.bank || "Bank property"}</span>
+=======
+  const [imageFailed, setImageFailed] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
+  const hasImage = property.imageUrl && !imageFailed;
+  const bankName = BANK_LABELS[property.bank] || property.bank || "Bank property";
+  const bankLogo = BANK_LOGOS[property.bank];
+
+  return (
+    <article className="bank-property-card">
+      <div className="bank-property-card__image-wrap">
+        {hasImage ? (
+          <img
+            src={property.imageUrl}
+            alt={property.title || "Bank-acquired property"}
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <div className="bank-property-card__image-fallback" aria-label="Property photo unavailable">
+            {bankLogo && !logoFailed ? (
+              <img
+                className="bank-property-card__bank-logo"
+                src={bankLogo}
+                alt={`${bankName} logo`}
+                onError={() => setLogoFailed(true)}
+              />
+            ) : (
+              <Landmark size={30} aria-hidden="true" />
+            )}
+            <span>{bankName}</span>
+            <small>Property photo unavailable</small>
+            <small>See the original listing for source details</small>
+          </div>
+        )}
+        <span className="badge badge--verified">{bankName}</span>
+>>>>>>> Stashed changes
       </div>
       <div className="bank-property-card__body">
         <h2>{property.title || "Untitled bank property"}</h2>
         <p className="bank-property-card__location"><MapPin size={14} aria-hidden="true" />{property.location || "Location not provided"}</p>
         <p className="bank-property-card__price">{formatCurrency(property.price)}</p>
         <p className="bank-property-card__meta">Last verified: {formatDate(property.lastSeen || property.firstSeen)}</p>
-        {property.listingUrl && <a className="btn btn--secondary bank-property-card__link" href={property.listingUrl} target="_blank" rel="noreferrer">View original listing <ExternalLink size={14} aria-hidden="true" /></a>}
+        <Link className="btn btn--primary bank-property-card__link" to={`/bank-catalog/${property.id}`}>View property and loan estimate</Link>
       </div>
     </article>
   );
