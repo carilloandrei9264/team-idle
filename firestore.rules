@@ -75,16 +75,20 @@ service cloud.firestore {
           || isAdmin());
       allow create: if isActiveUser()
         && request.resource.data.renterId == request.auth.uid
+        && request.resource.data.ownerId != request.auth.uid
         && request.resource.data.status == 'Pending'
+        && request.resource.data.startDate < request.resource.data.endDate
+        && request.resource.data.listingId is string
         && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.verificationStatus == 'verified'
         && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.ownerId == request.resource.data.ownerId;
       allow update: if isAdmin()
-        || (isActiveUser()
-          && resource.data.ownerId == request.auth.uid
+        || (isActiveUser() && resource.data.renterId == request.auth.uid
+          && resource.data.status in ['Pending', 'Confirmed']
+          && request.resource.data.status == 'Cancelled')
+        || (isActiveUser() && resource.data.ownerId == request.auth.uid
           && resource.data.status == 'Pending'
-          && request.resource.data.status in ['Confirmed', 'Cancelled'])
-        || (isActiveUser()
-          && resource.data.renterId == request.auth.uid
+          && request.resource.data.status in ['Confirmed', 'Declined', 'Cancelled'])
+        || (isActiveUser() && resource.data.renterId == request.auth.uid
           && resource.data.status in ['Confirmed', 'Completed']
           && request.resource.data.status == resource.data.status
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['depositReference', 'updatedAt']));
@@ -94,13 +98,40 @@ service cloud.firestore {
     match /ratings/{ratingId} {
       allow read: if true;
       allow create: if isActiveUser()
-        && request.resource.data.raterId == request.auth.uid
+  && (request.resource.data.raterId == request.auth.uid || request.resource.data.reviewerId == request.auth.uid)
+        && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.renterId == request.auth.uid
         && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status == 'Completed'
-        && (get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.renterId == request.auth.uid
-          || get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.ownerId == request.auth.uid)
         && request.resource.data.score >= 1
         && request.resource.data.score <= 5;
-      allow update, delete: if false;
+      allow update, delete: if isAdmin()
+        || (isActiveUser() && resource.data.reviewerId == request.auth.uid);
+    }
+
+    match /disputes/{disputeId} {
+      allow read: if isAdmin()
+        || (isActiveUser() && resource.data.raisedBy == request.auth.uid);
+      allow create: if isActiveUser()
+        && request.resource.data.raisedBy == request.auth.uid
+        && request.resource.data.status == 'Open'
+        && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.renterId == request.auth.uid
+        && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status in ['Confirmed', 'Completed']
+        && request.resource.data.ownerId == get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.ownerId;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /publicProfiles/{profileId} {
+      allow read: if true;
+      allow create, update: if isOwner(profileId) || isAdmin();
+      allow delete: if false;
+    }
+
+    match /savedSearches/{searchId} {
+      allow read, delete: if isActiveUser() && resource.data.userId == request.auth.uid;
+      allow create: if isActiveUser() && request.resource.data.userId == request.auth.uid;
+      allow update: if isActiveUser()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
     }
 
     // Trust scores are public display data; only admins/functions should write.
@@ -116,18 +147,6 @@ service cloud.firestore {
         && request.resource.data.requestedBy == request.auth.uid
         && request.resource.data.status == 'queued';
       allow update, delete: if isAdmin();
-    }
-
-    // Disputes are private workflow records. Users may create their own
-    // report; admins manage review and resolution.
-    match /disputes/{disputeId} {
-      allow read: if isAdmin()
-        || (isActiveUser() && resource.data.raisedBy == request.auth.uid);
-      allow create: if isActiveUser()
-        && request.resource.data.raisedBy == request.auth.uid
-        && request.resource.data.status == 'Open';
-      allow update: if isAdmin();
-      allow delete: if false;
     }
 
     // Admin dashboard reads.

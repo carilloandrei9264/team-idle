@@ -103,6 +103,15 @@ export default function PublicNav() {
                   <Link to="/account" role="menuitem" onClick={() => setMenuOpen(false)}>
                     Account
                   </Link>
+                  <Link to="/my-bookings" role="menuitem" onClick={() => setMenuOpen(false)}>
+                    My bookings
+                  </Link>
+                  <Link to="/booking-requests" role="menuitem" onClick={() => setMenuOpen(false)}>
+                    Booking requests
+                  </Link>
+                  <Link to="/saved-searches" role="menuitem" onClick={() => setMenuOpen(false)}>
+                    Saved searches
+                  </Link>
                   <button type="button" role="menuitem" onClick={handleSignOut}>
                     <LogOut size={16} aria-hidden="true" />
                     Log out
