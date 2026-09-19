@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
+import { hasOpenDisputeForBooking, isDisputableBookingStatus, isValidDisputeReason, normalizeDisputeReason } from "../lib/dispute";
 import "./UserPages.css";
 
 export default function RaiseDispute() {
@@ -18,17 +19,36 @@ export default function RaiseDispute() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getDocs(query(collection(db, "bookings"), where("renterId", "==", user.uid))).then((snapshot) => {
-      const item = snapshot.docs.find((entry) => entry.id === bookingId);
-      if (!item || !["Confirmed", "Completed"].includes(item.data().status)) setError("This booking cannot be disputed.");
-      else setBooking({ id: item.id, ...item.data() });
-      setLoading(false);
-    }).catch(() => { setError("The booking could not be loaded."); setLoading(false); });
+    async function loadDisputeContext() {
+      try {
+        const [bookingSnapshot, disputeSnapshot] = await Promise.all([
+          getDocs(query(collection(db, "bookings"), where("renterId", "==", user.uid))),
+          getDocs(query(collection(db, "disputes"), where("raisedBy", "==", user.uid))),
+        ]);
+        const item = bookingSnapshot.docs.find((entry) => entry.id === bookingId);
+        const userDisputes = disputeSnapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
+
+        if (!item || !isDisputableBookingStatus(item.data().status)) {
+          setError("This booking cannot be disputed.");
+        } else {
+          setBooking({ id: item.id, ...item.data() });
+          if (hasOpenDisputeForBooking(userDisputes, bookingId)) {
+            setError("An open dispute already exists for this booking.");
+          }
+        }
+      } catch {
+        setError("The booking could not be loaded.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDisputeContext();
   }, [bookingId, user.uid]);
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (reason.trim().length < 10) { setError("Please provide at least a short description of what happened."); return; }
+    if (!isValidDisputeReason(reason)) { setError("Please provide at least a short description of what happened."); return; }
     setSaving(true);
     setError("");
     try {
@@ -38,7 +58,7 @@ export default function RaiseDispute() {
         ownerId: booking.ownerId,
         raisedBy: user.uid,
         raisedByName: user.displayName || user.email,
-        reason: reason.trim(),
+        reason: normalizeDisputeReason(reason),
         status: "Open",
         createdAt: serverTimestamp(),
       });

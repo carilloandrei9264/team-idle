@@ -116,10 +116,18 @@ service cloud.firestore {
       allow create: if isActiveUser()
         && request.resource.data.raisedBy == request.auth.uid
         && request.resource.data.status == 'Open'
+        && request.resource.data.bookingId is string
+        && request.resource.data.ownerId is string
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() >= 10
         && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.renterId == request.auth.uid
         && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status in ['Confirmed', 'Completed']
         && request.resource.data.ownerId == get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.ownerId;
-      allow update: if isAdmin();
+      allow update: if isAdmin()
+        && request.resource.data.status in ['Founded', 'Dismissed']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'resolutionNotes', 'resolvedAt', 'resolvedBy'
+        ]);
       allow delete: if false;
     }
 
