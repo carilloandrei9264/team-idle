@@ -1,19 +1,20 @@
 # TrustHome PH - Current Progress Report
 
-**Snapshot date:** 2026-09-18  
-**Branch:** `feature/v0-2-trust-engine`  
-**Latest commit:** `9fc7594 Add synthetic demo data seeder`
+**Snapshot date:** 2026-09-19
+**Branch:** `features/v0-3-public-accountability`
+**Status:** v0.3 complete and validated against the live Firebase project
 
 ## Executive Summary
 
-The application has a working v0.1 foundation and most of the v0.2 trust-engine implementation. The remaining work is primarily live-environment verification, demo preparation, and one no-billing scheduling gap.
+The application has completed the v0.1 foundation, v0.2 trust engine, and v0.3 accountability and integration scope. The next milestone is v1.0 release polish, dashboards, and final QA.
 
 ## Version Status
 
 | Version | Current status | Notes |
 |---|---|---|
-| v0.1 Foundations | About 95% complete | Feature code is present; live Firebase setup, seed execution, and smoke testing remain. |
-| v0.2 Trust Engine | About 80-85% complete | Booking, ratings, reviews, and score calculation are implemented; automatic completion needs a no-billing job. |
+| v0.1 Foundations | Complete | Auth, listings, verification, search, admin, and the Metrobank integration are implemented. |
+| v0.2 Trust Engine | Complete | Booking lifecycle, ratings, trust scores, and no-billing completion automation are implemented and tested. |
+| v0.3 Accountability & Integration | Complete | Dispute review, public accountability flags, bank catalog safeguards, and loan estimates are implemented and validated. |
 
 ## v0.1 Completed
 
@@ -45,9 +46,9 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Trust-score calculation from bookings, ratings, and comparable prices
 - GitHub Actions trust-score refresh without Cloud Functions billing
 
-## The Remaining 5%
+## v0.3 Release Validation
 
-### 1. Seed the Firebase project
+### 1. Live synthetic dataset
 
 Run the synthetic dataset. It creates listings, bookings, ratings, disputes, Metrobank records, and placeholder verification documents. It does not require real IDs or papers.
 
@@ -57,9 +58,9 @@ python seed_demo_data.py --dry-run
 python seed_demo_data.py
 ```
 
-The script requires either `GOOGLE_APPLICATION_CREDENTIALS` or `FIREBASE_SERVICE_ACCOUNT_JSON`.
+The live project was seeded successfully with synthetic users, listings, bookings, ratings, disputes, public accountability data, bank properties, and trust scores.
 
-### 2. Deploy and verify Firestore rules
+### 2. Firestore rules
 
 Deploy the current rules from the repository root:
 
@@ -67,7 +68,7 @@ Deploy the current rules from the repository root:
 firebase deploy --only firestore:rules
 ```
 
-Verify these cases manually:
+The rules compiled and deployed successfully. The protected cases include:
 
 - A signed-out user can read verified listings.
 - A signed-out user cannot read pending listings.
@@ -75,7 +76,7 @@ Verify these cases manually:
 - An owner cannot approve a booking that overlaps a confirmed booking.
 - A rating can only be created for a completed booking.
 
-### 3. Run the scheduled workflow once manually
+### 3. Scheduled workflow
 
 In GitHub:
 
@@ -88,7 +89,7 @@ Confirm that:
 - `trustScores` are refreshed.
 - The `FIREBASE_SERVICE_ACCOUNT` secret is not printed in logs.
 
-### 4. Complete one smoke-test walkthrough
+### 4. Smoke-test walkthrough
 
 1. Open the public browse page.
 2. Open a verified seeded listing.
@@ -99,19 +100,16 @@ Confirm that:
 7. Inspect the seeded reviews and trust-score ordering.
 8. Open the admin listing and dispute queues.
 
-### 5. Replace the paid scheduled-function dependency
-
-The optional Firebase Functions code includes automatic transition from `Confirmed` to `Completed`, but it requires billing. For the no-billing setup, add a small Python `complete_expired_bookings.py` job and run it from the existing GitHub Actions workflow before recomputing trust scores.
-
-That is the only important functional gap left in the v0.2 workflow.
+The no-billing `complete_expired_bookings.py` job is already wired into the existing GitHub Actions workflow before trust-score recomputation.
 
 ## Validation Already Passing
 
-- `npm test`: 6 tests passed
+- `node --test`: 13 tests passed
 - `npm run lint`: passed
 - `npm run build`: passed
-- `node --check functions/index.js`: passed
-- `python -m compileall bank_scraper`: passed
+- `python -m unittest discover -p "test_*.py"`: 6 tests passed
+- Firestore rules deployment: passed
+- Live seed and trust-score recomputation: passed
 
 The production build still reports a non-blocking large JavaScript bundle warning.
 
@@ -119,11 +117,9 @@ The production build still reports a non-blocking large JavaScript bundle warnin
 
 The seed records are synthetic. Placeholder document images are visibly labeled as synthetic demo documents. No real ownership documents, IDs, passwords, or Firebase Auth users are created by the seed script.
 
-## Recommended Order
+## Next Milestone: v1.0
 
-1. Run the seed script.
-2. Deploy Firestore rules and hosting.
-3. Run the GitHub Action manually.
-4. Perform the smoke-test walkthrough.
-5. Add the no-billing expired-booking job.
-6. Freeze the demo dataset and rehearse the defense flow.
+1. Finalize admin and user dashboards.
+2. Complete cross-browser and mobile QA.
+3. Reduce the production bundle warning through route-level code splitting.
+4. Freeze the demo dataset and rehearse the defense flow.

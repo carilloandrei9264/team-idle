@@ -137,6 +137,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Public count-only accountability summaries. Private dispute reports
+    // remain readable only by the reporter and admins.
+    match /publicAccountability/{userId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /savedSearches/{searchId} {
       allow read, delete: if isActiveUser() && resource.data.userId == request.auth.uid;
       allow create: if isActiveUser() && request.resource.data.userId == request.auth.uid;
