@@ -52,6 +52,7 @@ python seed_demo_data.py                        # write synthetic demo data to F
    `scrape_bdo()`). Each returns a list of normalized property dicts.
 - `worker.py` — consumes `scraperJobs` created by the admin panel and runs requested banks.
 - `trust_scores.py` — recomputes the public trust-score cache with the same Admin SDK credential, without Cloud Functions.
+- `complete_expired_bookings.py` — marks ended confirmed bookings as `Completed` without any paid Firebase Functions runtime.
 - `seed_demo_data.py` — writes repeatable synthetic listings, bookings, ratings, disputes, users, and Metrobank properties for testing.
 - `scheduler.py` — runs the scraper automatically every N hours, for local testing
    without Task Scheduler or GitHub Actions.
