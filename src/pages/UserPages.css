@@ -728,6 +728,118 @@
   padding: 0 20px;
 }
 
+.calculator-card {
+  margin-top: 28px;
+  padding: 28px;
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card);
+}
+
+.calculator-card__summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.calculator-card__metric {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-input);
+  background: var(--color-neutral-50);
+}
+
+.calculator-card__metric span {
+  color: var(--color-neutral-600);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.calculator-card__metric strong {
+  color: var(--color-neutral-900);
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 700;
+}
+
+.field__static {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-input);
+  background: var(--color-neutral-50);
+  color: var(--color-neutral-900);
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .calculator-card__summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.calculator-card {
+  margin-top: 28px;
+  padding: 28px;
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card);
+}
+
+.calculator-card__summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.calculator-card__metric {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-input);
+  background: var(--color-neutral-50);
+}
+
+.calculator-card__metric span {
+  color: var(--color-neutral-600);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.calculator-card__metric strong {
+  color: var(--color-neutral-900);
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 700;
+}
+
+.field__static {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-input);
+  background: var(--color-neutral-50);
+  color: var(--color-neutral-900);
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .calculator-card__summary {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Dark mode overrides ────────────────────────────────────────────────────
    Token re-mapping in tokens.css handles the majority of colours.
    These rules patch hard-coded values and add smooth transitions.           */
