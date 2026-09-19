@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, increment, onSnapshot, serverTimestamp, writeBatch } from "firebase/firestore";
 import { Check, X } from "lucide-react";
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
@@ -41,12 +41,20 @@ export default function AdminDisputes() {
     setSaving(true);
     setError("");
     try {
-      await updateDoc(doc(db, "disputes", selected.id), {
+      const batch = writeBatch(db);
+      batch.update(doc(db, "disputes", selected.id), {
         status,
         resolutionNotes: resolutionNotes.trim() || null,
         resolvedAt: serverTimestamp(),
         resolvedBy: user?.uid ?? null,
       });
+      if (status === "Founded" && selected.ownerId) {
+        batch.set(doc(db, "publicAccountability", selected.ownerId), {
+          foundedDisputes: increment(1),
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      }
+      await batch.commit();
       setResolutionNotes("");
     } catch {
       setError("The dispute could not be updated. Please try again.");

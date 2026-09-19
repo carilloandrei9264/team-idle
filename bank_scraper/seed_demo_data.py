@@ -149,6 +149,12 @@ def build_bank_properties():
     }
 
 
+def build_public_accountability():
+    return {
+        "demo-owner-01": {"foundedDisputes": 1, "updatedAt": NOW},
+    }
+
+
 def main(dry_run=False):
     documents = {
         "users": USERS,
@@ -156,6 +162,7 @@ def main(dry_run=False):
         "bookings": build_bookings(),
         "ratings": build_ratings(),
         "disputes": build_disputes(),
+        "publicAccountability": build_public_accountability(),
         "bankProperties": build_bank_properties(),
     }
     if dry_run:
