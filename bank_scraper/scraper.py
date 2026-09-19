@@ -228,7 +228,7 @@ def run_banks(banks=None):
             continue
         try:
             print(f"Scraping {bank_name}...")
-            listings = scrape_fn()
+            listings = validate_listings(scrape_fn())
             upsert_properties(bank_name, listings)
             successful_banks.append(bank_name)
         except Exception as e:
@@ -248,7 +248,7 @@ def dry_run(banks):
             print(f"[{bank_name}] SKIPPED: unsupported bank")
             continue
         try:
-            listings = scrape_fn()
+            listings = validate_listings(scrape_fn())
             print(f"[{bank_name}] parsed {len(listings)} properties")
             for listing in listings[:3]:
                 print(f"  - {listing.get('reference_no')}: {listing.get('title')}")
@@ -262,6 +262,22 @@ def run_all():
 
 def clean_text(value):
     return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def is_valid_listing(listing):
+    """Return whether a scraped record has the identity needed for upsert."""
+    return isinstance(listing, dict) and bool(clean_text(listing.get("reference_no")))
+
+
+def validate_listings(listings):
+    """Reject malformed rows and fail closed when a source returns no usable data."""
+    valid = [listing for listing in listings if is_valid_listing(listing)]
+    skipped = len(listings) - len(valid)
+    if skipped:
+        print(f"Skipped {skipped} malformed property records.")
+    if not valid:
+        raise RuntimeError("Scraper returned no valid property records; existing catalog was left unchanged.")
+    return valid
 
 
 def text_from(node, selector):
