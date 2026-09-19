@@ -1,0 +1,150 @@
+/* ── Footer — always dark in both modes ── */
+.site-footer {
+  background: #020617;      /* slate-950 */
+  color: #CBD5E1;
+  margin-top: auto;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle gradient accent line at very top */
+.site-footer::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(37,99,235,0.50), rgba(124,58,237,0.50), transparent);
+}
+
+.site-footer__inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 48px var(--space-4) 40px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  position: relative;
+  z-index: 1;
+}
+
+@media (min-width: 640px) {
+  .site-footer__inner { grid-template-columns: repeat(3, 1fr); gap: var(--space-8); }
+}
+
+/* Brand — "Trust" gets gradient */
+.site-footer__logo {
+  display: inline-block;
+  font-size: 20px;
+  font-weight: 800;
+  text-decoration: none;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+
+.site-footer__logo-gradient {
+  background: linear-gradient(135deg, #60A5FA, #A78BFA);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.site-footer__logo-plain {
+  color: #F1F5F9;
+}
+
+.site-footer__logo:hover .site-footer__logo-gradient {
+  background: linear-gradient(135deg, #93C5FD, #C4B5FD);
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
+.site-footer__tagline {
+  font-size: 13px;
+  line-height: 1.65;
+  color: #94A3B8;
+  margin: 0 0 8px;
+}
+
+.site-footer__sub {
+  font-size: 12px;
+  color: #64748B;
+  margin: 0;
+}
+
+/* Column headings */
+.site-footer__heading {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748B;
+  margin: 0 0 14px;
+}
+
+/* Nav links */
+.site-footer__links {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.site-footer__link {
+  font-size: 14px;
+  color: #94A3B8;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.site-footer__link:hover { color: #F1F5F9; }
+
+/* Contact column */
+.site-footer__contact { display: flex; flex-direction: column; }
+.site-footer__contact > .site-footer__link { margin-bottom: 16px; }
+
+/* Social icons */
+.site-footer__socials { display: flex; gap: 10px; }
+
+.site-footer__social-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-control);
+  border: 1px solid #1E293B;
+  color: #64748B;
+  text-decoration: none;
+  transition: var(--transition-base);
+}
+
+.site-footer__social-icon:hover {
+  background: linear-gradient(135deg, #2563EB, #7C3AED);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 4px 12px rgba(124,58,237,0.35);
+  transform: translateY(-2px);
+}
+
+.site-footer__social-icon:focus-visible {
+  outline: 2px solid #60A5FA;
+  outline-offset: 2px;
+}
+
+/* Bottom bar */
+.site-footer__bottom {
+  border-top: 1px solid #0F172A;
+  padding: 16px var(--space-4);
+  position: relative;
+  z-index: 1;
+}
+
+.site-footer__bottom p {
+  max-width: 1120px;
+  margin: 0 auto;
+  font-size: 12px;
+  color: #334155;
+  text-align: center;
+}

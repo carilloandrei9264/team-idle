@@ -5,16 +5,49 @@ import { db } from "../firebase";
 import { numericValue } from "../lib/number";
 import PublicNav from "../components/PublicNav";
 import ListingCard from "../components/ListingCard";
+import AnimatedSelect from "../components/AnimatedSelect";
 import { SlidersHorizontal } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import "./Browse.css";
 
-const PROPERTY_TYPES = ["Apartment", "House", "Condo", "Room"];
-const SORTS = [
+const PROPERTY_TYPE_OPTIONS = [
+  { value: "", label: "Any type" },
+  { value: "Apartment", label: "Apartment" },
+  { value: "House", label: "House" },
+  { value: "Condo", label: "Condo" },
+  { value: "Room", label: "Room" },
+];
+
+const SORT_OPTIONS = [
   { value: "trust", label: "Trust & Fairness score" },
   { value: "price_asc", label: "Price: Low to High" },
   { value: "price_desc", label: "Price: High to Low" },
   { value: "newest", label: "Newest" },
 ];
+
+// Stagger container + card variants for scroll-reveal
+const gridVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.07 } },
+};
+
+const cardVariants = {
+  hidden:  { opacity: 0, y: 24 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.38, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
+// Thin wrapper: gives the motion.div full height so ListingCard can fill it
+function AnimatedCard({ listing, trustScore }) {
+  return (
+    <motion.div variants={cardVariants} style={{ height: "100%" }}>
+      <ListingCard listing={listing} trustScore={trustScore} />
+    </motion.div>
+  );
+}
 
 export default function Browse() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -23,11 +56,11 @@ export default function Browse() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [city, setCity] = useState(searchParams.get("city") || "");
-  const [type, setType] = useState("");
+  const [city, setCity]       = useState(searchParams.get("city") || "");
+  const [type, setType]       = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
-  const [sort, setSort] = useState("trust");
+  const [sort, setSort]       = useState("trust");
 
   async function loadListings() {
     setError("");
@@ -38,9 +71,7 @@ export default function Browse() {
       ]);
       setAllListings(listingsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       const scoreMap = {};
-      scoresSnap.docs.forEach((d) => {
-        scoreMap[d.id] = d.data();
-      });
+      scoresSnap.docs.forEach((d) => { scoreMap[d.id] = d.data(); });
       setTrustScores(scoreMap);
     } catch {
       setError("Listings could not be loaded. Check your connection and try again.");
@@ -54,10 +85,7 @@ export default function Browse() {
     return () => clearTimeout(task);
   }, []);
 
-  // Client-side filtering: Firestore doesn't do partial-text city search,
-  // and this dataset is small enough that fetching verified listings once
-  // and filtering in the browser is simpler than a pile of composite
-  // indexes — same reasoning the System Build Plan uses for overlap checks.
+  // Client-side filtering — same rationale as before
   const results = useMemo(() => {
     let list = allListings.filter((l) => {
       if (city.trim() && !l.city?.toLowerCase().includes(city.trim().toLowerCase())) return false;
@@ -68,11 +96,9 @@ export default function Browse() {
     });
 
     list = [...list].sort((a, b) => {
-      if (sort === "price_asc") return numericValue(a.price) - numericValue(b.price);
+      if (sort === "price_asc")  return numericValue(a.price) - numericValue(b.price);
       if (sort === "price_desc") return numericValue(b.price) - numericValue(a.price);
-      if (sort === "newest") return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
-      // trust: unscored listings sink to the bottom rather than defaulting
-      // to 0-looks-broken — sorted by recency among themselves instead.
+      if (sort === "newest")     return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
       const scoreA = trustScores[a.id]?.score;
       const scoreB = trustScores[b.id]?.score;
       if (scoreA == null && scoreB == null) return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
@@ -89,17 +115,21 @@ export default function Browse() {
     setSearchParams(value.trim() ? { city: value.trim() } : {});
   }
 
+  const animationKey = `${city}-${type}-${minPrice}-${maxPrice}-${sort}`;
+
   return (
     <div className="browse">
       <PublicNav />
 
       <div className="browse__layout">
+        {/* ── Filter sidebar ── */}
         <aside className="browse__filters">
           <div className="browse__filters-heading">
             <SlidersHorizontal size={16} aria-hidden="true" />
             <h2 className="panel__title panel__title--inline">Filters</h2>
           </div>
 
+          {/* City — plain text input, no dropdown */}
           <div className="field">
             <label className="field__label" htmlFor="city">City</label>
             <input
@@ -111,16 +141,19 @@ export default function Browse() {
             />
           </div>
 
+          {/* Property type — animated custom select */}
           <div className="field">
             <label className="field__label" htmlFor="type">Property type</label>
-            <select id="type" className="field__input" value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="">Any type</option>
-              {PROPERTY_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
+            <AnimatedSelect
+              id="type"
+              value={type}
+              onChange={setType}
+              options={PROPERTY_TYPE_OPTIONS}
+              placeholder="Any type"
+            />
           </div>
 
+          {/* Price range — plain number inputs */}
           <div className="browse__price-row">
             <div className="field">
               <label className="field__label" htmlFor="minPrice">Min price</label>
@@ -147,28 +180,32 @@ export default function Browse() {
           </div>
         </aside>
 
+        {/* ── Results panel ── */}
         <main className="browse__results">
           <div className="browse__results-header">
             <p className="browse__count">
               {loading ? "Loading…" : `${results.length} listing${results.length === 1 ? "" : "s"}`}
             </p>
+            {/* Sort — animated custom select */}
             <div className="field browse__sort">
-              <label className="field__label" htmlFor="sort">Sort by</label>
-              <select id="sort" className="field__input" value={sort} onChange={(e) => setSort(e.target.value)}>
-                {SORTS.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
+              <label className="field__label browse__sort-label" htmlFor="sort">Sort by</label>
+              <AnimatedSelect
+                id="sort"
+                value={sort}
+                onChange={setSort}
+                options={SORT_OPTIONS}
+              />
             </div>
           </div>
 
           {error ? (
             <div className="browse__empty" role="alert">
               <p>{error}</p>
-              <button type="button" className="btn btn--secondary" onClick={() => {
-                setLoading(true);
-                loadListings();
-              }}>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => { setLoading(true); loadListings(); }}
+              >
                 Try again
               </button>
             </div>
@@ -181,11 +218,24 @@ export default function Browse() {
               </p>
             </div>
           ) : (
-            <div className="browse__grid">
-              {results.map((listing) => (
-                <ListingCard key={listing.id} listing={listing} trustScore={trustScores[listing.id]} />
-              ))}
-            </div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={animationKey}
+                className="browse__grid"
+                variants={gridVariants}
+                initial="hidden"
+                animate="visible"
+                exit={{ opacity: 0 }}
+              >
+                {results.map((listing) => (
+                  <AnimatedCard
+                    key={listing.id}
+                    listing={listing}
+                    trustScore={trustScores[listing.id]}
+                  />
+                ))}
+              </motion.div>
+            </AnimatePresence>
           )}
         </main>
       </div>

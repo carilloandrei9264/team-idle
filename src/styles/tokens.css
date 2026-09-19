@@ -1,44 +1,115 @@
-/* TrustHome PH — design tokens
-   Single source of truth for the team's design system (Design Guide, Part B).
-   Import once in main.jsx, before App.css: `import './styles/tokens.css'` */
+/* TrustHome PH — design tokens v2
+   Blue → Violet gradient design system.
+   Import once in main.jsx before App.css.                                   */
 
 :root {
-  /* Color */
-  --color-primary: #2563EB;
-  --color-primary-dark: #1E40AF;
-  --color-primary-light: #DBEAFE;
-  --color-success: #16A34A;
-  --color-success-bg: #DCFCE7;
-  --color-warning: #D97706;
-  --color-warning-bg: #FEF3C7;
-  --color-danger: #DC2626;
-  --color-danger-bg: #FEE2E2;
-  --color-neutral-900: #111827;
-  --color-neutral-600: #4B5563;
-  --color-neutral-200: #E5E7EB;
-  --color-neutral-50: #F9FAFB;
-  --color-white: #FFFFFF;
+  /* ── Primary palette ── */
+  --color-primary:       #2563EB;   /* blue-600 */
+  --color-primary-dark:  #1E40AF;   /* blue-800 */
+  --color-primary-light: #DBEAFE;   /* blue-100 */
 
-  /* Type */
+  /* ── Violet accent ── */
+  --color-violet:        #7C3AED;   /* violet-600 */
+  --color-violet-light:  #EDE9FE;   /* violet-100 */
+
+  /* ── Cyan accent ── */
+  --color-cyan:          #22D3EE;   /* cyan-400 */
+
+  /* ── Gradient (used as inline background-image or via var) ── */
+  --gradient-primary:    linear-gradient(135deg, #2563EB 0%, #7C3AED 100%);
+  --gradient-primary-r:  linear-gradient(to right, #2563EB, #7C3AED);
+  --gradient-text:       linear-gradient(135deg, #2563EB, #7C3AED);
+
+  /* ── Status ── */
+  --color-success:    #16A34A;
+  --color-success-bg: #DCFCE7;
+  --color-warning:    #D97706;
+  --color-warning-bg: #FEF3C7;
+  --color-danger:     #DC2626;
+  --color-danger-bg:  #FEE2E2;
+
+  /* ── Neutrals ── */
+  --color-neutral-900: #0F172A;   /* slate-900 — primary text */
+  --color-neutral-600: #475569;   /* slate-600 — body text */
+  --color-neutral-400: #94A3B8;   /* slate-400 — muted text */
+  --color-neutral-200: #E2E8F0;   /* slate-200 — borders */
+  --color-neutral-100: #F1F5F9;   /* slate-100 — subtle bg */
+  --color-neutral-50:  #F8F9FE;   /* near-white page bg */
+  --color-white:       #FFFFFF;
+
+  /* ── Page surface ── */
+  --page-bg: #F8F9FE;
+
+  /* ── Card surface ── */
+  --card-bg:     rgba(255, 255, 255, 0.85);
+  --card-border: rgba(255, 255, 255, 0.6);
+
+  /* ── Type ── */
   --font-sans: "Plus Jakarta Sans", "Segoe UI", sans-serif;
 
-  /* Spacing (4px scale) */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-6: 24px;
-  --space-8: 32px;
+  /* ── Spacing (4px scale) ── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-6:  24px;
+  --space-8:  32px;
   --space-12: 48px;
   --space-16: 64px;
 
-  /* Radius */
-  --radius-control: 8px;   /* buttons, cards */
-  --radius-input: 6px;
-  --radius-pill: 999px;
-  --radius-modal: 12px;
+  /* ── Radius ── */
+  --radius-control: 12px;   /* cards, buttons — rounded-xl */
+  --radius-card:    16px;   /* larger cards — rounded-2xl */
+  --radius-input:   8px;    /* inputs, small elements */
+  --radius-pill:    999px;
+  --radius-modal:   16px;
 
-  /* Elevation */
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --shadow-raised: 0 4px 12px rgba(17, 24, 39, 0.08);
+  /* ── Shadows ── */
+  --shadow-card:   0 2px 8px rgba(37, 99, 235, 0.08), 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-raised: 0 8px 24px rgba(37, 99, 235, 0.12), 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-xl:     0 16px 40px rgba(37, 99, 235, 0.16), 0 4px 12px rgba(0,0,0,0.08);
+
+  /* ── Transition ── */
+  --transition-base: all 0.3s ease;
+}
+
+/* ── Dark mode overrides ──────────────────────────────────────────────────── */
+html.dark {
+  /* Surfaces */
+  --color-white:       #1E293B;   /* slate-800 — card bg */
+  --color-neutral-50:  #020617;   /* slate-950 — page bg */
+  --color-neutral-100: #0F172A;   /* slate-900 */
+  --color-neutral-200: #1E293B;   /* slate-800 — borders */
+  --color-neutral-400: #64748B;   /* slate-500 — muted */
+  --color-neutral-600: #94A3B8;   /* slate-400 — body text */
+  --color-neutral-900: #F1F5F9;   /* slate-100 — primary text */
+
+  --page-bg: #020617;
+
+  /* Card surface — slightly translucent on dark */
+  --card-bg:     rgba(30, 41, 59, 0.80);
+  --card-border: rgba(255, 255, 255, 0.08);
+
+  /* Primary accent — lighter for dark bg */
+  --color-primary:       #60A5FA;  /* blue-400 */
+  --color-primary-dark:  #93C5FD;  /* blue-300 */
+  --color-primary-light: #1E3A5F;  /* deep navy tint */
+  --color-violet:        #A78BFA;  /* violet-400 */
+  --color-violet-light:  #1E1B4B;  /* violet-950 */
+
+  /* Dark gradient text uses lighter stops for WCAG AA on slate-950 */
+  --gradient-text: linear-gradient(135deg, #60A5FA, #A78BFA);
+
+  /* Status */
+  --color-success:    #4ADE80;
+  --color-success-bg: #052E16;
+  --color-warning:    #FCD34D;
+  --color-warning-bg: #292524;
+  --color-danger:     #F87171;
+  --color-danger-bg:  #2D0A0A;
+
+  /* Shadows — contained, no glow in dark */
+  --shadow-card:   0 2px 8px rgba(0, 0, 0, 0.4),  0 1px 3px rgba(0,0,0,0.3);
+  --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.5),  0 2px 8px rgba(0,0,0,0.3);
+  --shadow-xl:     0 16px 40px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0,0,0,0.4);
 }

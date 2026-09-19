@@ -74,10 +74,29 @@
   border-radius: var(--radius-control);
 }
 
-.bank-catalog__count {
+/*
+  Fix: count is now inside a results-header row so it sits flush above the
+  grid as a section label, right-aligned to match the grid's right edge.
+*/
+.bank-catalog__results-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   margin-bottom: 12px;
+}
+
+.bank-catalog__count {
   color: var(--color-neutral-600);
   font-size: 13px;
+  margin: 0;
+}
+
+/* Note below filter row */
+.bank-catalog__note {
+  margin: -8px 0 20px;
+  font-size: 12px;
+  color: var(--color-neutral-600);
+  font-style: italic;
 }
 
 .bank-catalog__grid {
@@ -707,4 +726,77 @@
 .listing-detail__booking-cta {
   margin-top: 24px;
   padding: 0 20px;
+}
+
+/* ── Dark mode overrides ────────────────────────────────────────────────────
+   Token re-mapping in tokens.css handles the majority of colours.
+   These rules patch hard-coded values and add smooth transitions.           */
+
+html.dark .user-page {
+  background: var(--color-neutral-50);
+}
+
+html.dark .bank-catalog__filters,
+html.dark .bank-property-card,
+html.dark .user-page__empty,
+html.dark .user-page__item,
+html.dark .listing-detail,
+html.dark .account-card {
+  background: var(--card-bg);
+  border-color: var(--card-border);
+  backdrop-filter: blur(8px);
+}
+
+html.dark .public-nav__menu {
+  background: var(--card-bg);
+  border-color: var(--card-border);
+}
+
+html.dark .account-summary {
+  background: #0F172A;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Smooth transitions */
+.user-page,
+.bank-property-card,
+.user-page__empty,
+.user-page__item {
+  transition: background-color 0.25s ease, border-color 0.2s ease;
+}
+
+/* Bank catalog card: radius + hover top-line to match design system */
+.bank-property-card {
+  border-radius: var(--radius-card);
+  position: relative;
+  overflow: hidden;
+}
+
+.bank-property-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gradient-primary-r);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 1;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+.bank-property-card:hover::before { opacity: 1; }
+.bank-property-card:hover {
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-4px);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+/* Price in bank property cards: gradient text */
+.bank-property-card__price {
+  background: var(--gradient-text);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-weight: 800;
 }
