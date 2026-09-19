@@ -98,11 +98,14 @@ service cloud.firestore {
     match /ratings/{ratingId} {
       allow read: if true;
       allow create: if isActiveUser()
-  && (request.resource.data.raterId == request.auth.uid || request.resource.data.reviewerId == request.auth.uid)
+        && request.resource.data.reviewerId == request.auth.uid
         && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.renterId == request.auth.uid
         && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status == 'Completed'
+        && request.resource.data.ownerId == get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.ownerId
         && request.resource.data.score >= 1
-        && request.resource.data.score <= 5;
+        && request.resource.data.score <= 5
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() >= 0;
       allow update, delete: if isAdmin()
         || (isActiveUser() && resource.data.reviewerId == request.auth.uid);
     }

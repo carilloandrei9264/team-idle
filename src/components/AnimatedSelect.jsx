@@ -55,15 +55,13 @@ export default function AnimatedSelect({
   useEffect(() => {
     if (!open) return;
     function handleClick(e) {
-      if (!wrapperRef.current?.contains(e.target)) setOpen(false);
+      if (!wrapperRef.current?.contains(e.target)) {
+        setOpen(false);
+        setFocusedIdx(-1);
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  // Reset focus index when closed
-  useEffect(() => {
-    if (!open) setFocusedIdx(-1);
   }, [open]);
 
   // Move DOM focus to the highlighted option
@@ -77,9 +75,7 @@ export default function AnimatedSelect({
     if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
       e.preventDefault();
       setOpen(true);
-      // Focus first selected or first item
-      const idx = Math.max(0, options.findIndex((o) => o.value === value));
-      setFocusedIdx(idx);
+      setFocusedIdx(Math.max(0, options.findIndex((o) => o.value === value)));
     }
   }
 
@@ -95,6 +91,7 @@ export default function AnimatedSelect({
       select(options[idx].value);
     } else if (e.key === "Escape" || e.key === "Tab") {
       setOpen(false);
+      setFocusedIdx(-1);
       wrapperRef.current?.querySelector("button")?.focus();
     }
   }
@@ -102,6 +99,7 @@ export default function AnimatedSelect({
   function select(val) {
     onChange(val);
     setOpen(false);
+    setFocusedIdx(-1);
     wrapperRef.current?.querySelector("button")?.focus();
   }
 

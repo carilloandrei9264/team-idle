@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { Clipboard, ClipboardCheck, Home, Landmark, MapPin, X } from "lucide-react";
+import { Clipboard, ClipboardCheck, MapPin, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PublicNav from "../components/PublicNav";
@@ -30,7 +30,7 @@ const cardVariants = {
 };
 
 // ── Property type → icon mapping ──────────────────────────────────────────────
-function PropertyIcon({ type, size = 36 }) {
+function PropertyIcon({ size = 36 }) {
   // Uses a consistent house SVG regardless of type so it looks intentional
   return (
     <svg
