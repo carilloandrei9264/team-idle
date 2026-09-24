@@ -49,11 +49,11 @@ export default function MyListings() {
                   <h2>{listing.title || "Untitled listing"}</h2>
                   <p>{listing.city || "Location not provided"}</p>
                   {listing.verificationStatus === "rejected" && listing.rejectionReason && (
-                    <p className="user-page__rejection">Review note: {listing.rejectionReason}</p>
+                    <p className="user-page__rejection">{listing.resubmissionRequested ? "Changes requested: " : "Review note: "}{listing.rejectionReason}</p>
                   )}
                 </Link>
                 <span className={`badge badge--${listing.verificationStatus === "verified" ? "verified" : listing.verificationStatus === "rejected" ? "danger" : "pending"}`}>
-                  {listing.verificationStatus || "pending"}
+                  {listing.resubmissionRequested ? "changes requested" : listing.verificationStatus || "pending"}
                 </span>
               </article>
             ))}

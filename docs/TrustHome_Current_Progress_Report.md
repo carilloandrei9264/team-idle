@@ -1,12 +1,12 @@
 # TrustHome PH - Current Progress Report
 
-**Snapshot date:** 2026-09-19
-**Branch:** `features/v0-3-public-accountability`
-**Status:** v0.3 complete and validated against the live Firebase project
+**Snapshot date:** 2026-09-25
+**Branch:** `features/v1-1-listing-intake`
+**Status:** v1.1 listing-intake implementation in progress
 
 ## Executive Summary
 
-The application has completed the v0.1 foundation, v0.2 trust engine, and v0.3 accountability and integration scope. The next milestone is v1.0 release polish, dashboards, and final QA.
+The application has completed the v0.1 foundation, v0.2 trust engine, and v0.3 accountability and integration scope. v1.0 is focused on release hardening and real user-flow validation. Starting with v1.1, development will follow the revised product requirements for owner intake, admin verification, booking accountability, and trust ranking.
 
 ## Version Status
 
@@ -15,6 +15,10 @@ The application has completed the v0.1 foundation, v0.2 trust engine, and v0.3 a
 | v0.1 Foundations | Complete | Auth, listings, verification, search, admin, and the Metrobank integration are implemented. |
 | v0.2 Trust Engine | Complete | Booking lifecycle, ratings, trust scores, and no-billing completion automation are implemented and tested. |
 | v0.3 Accountability & Integration | Complete | Dispute review, public accountability flags, bank catalog safeguards, and loan estimates are implemented and validated. |
+| v1.0 Release Hardening | In progress | Route splitting, error recovery, admin review fixes, Cloudinary document handling, and booking permission fixes are implemented; manual QA remains. |
+| v1.1 Requirements Alignment | In progress | Required listing fields, validation, minimum photos, and two-document intake are implemented; showing windows, edit parity, and full admin resubmission remain. |
+| v1.2 Booking Accountability | Planned | Showing windows, strict booking state machine, deposit reference logging, completion, and dispute consequences. |
+| v1.3 Trust & Marketplace Quality | Planned | Trust ranking, fairness presentation, anti-gaming review signals, and owner dashboard improvements. |
 
 ## v0.1 Completed
 
@@ -45,6 +49,21 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Firestore booking and rating rules
 - Trust-score calculation from bookings, ratings, and comparable prices
 - GitHub Actions trust-score refresh without Cloud Functions billing
+
+## v1.0 Completed And In Progress
+
+- Route-level lazy loading and accessible loading fallback
+- Top-level runtime error recovery with reload action
+- Admin dashboard loading errors and retry behavior
+- Admin listing review success/error feedback
+- Admin review rendering for uploaded photos and PDF links
+- Booking permission fix for renter requests and owner approval
+- Confirmed booking overlap protection retained during owner approval
+- Local verification: 13 frontend tests, lint, and production build passing
+
+The booking-permissions fix is currently stored on the local branch
+`features/v1-0-booking-permissions` and has been pushed to GitHub. The local
+Firebase service-account file and generated Python cache remain uncommitted.
 
 ## v0.3 Release Validation
 
@@ -117,9 +136,64 @@ The production build still reports a non-blocking large JavaScript bundle warnin
 
 The seed records are synthetic. Placeholder document images are visibly labeled as synthetic demo documents. No real ownership documents, IDs, passwords, or Firebase Auth users are created by the seed script.
 
-## Next Milestone: v1.0
+## Product Requirements Baseline
 
-1. Finalize admin and user dashboards.
-2. Complete cross-browser and mobile QA.
-3. Reduce the production bundle warning through route-level code splitting.
-4. Freeze the demo dataset and rehearse the defense flow.
+The revised TrustHome build instructions are now the product source of truth.
+Every future feature must identify the user or admin need it serves, update
+this report, pass focused tests, and document any limitation honestly.
+
+### Owner intake and verification
+
+- Required property type, address/area, bedrooms, bathrooms, size, rent, availability date, amenities, description, and showing windows
+- Minimum photo count enforced before submission
+- One ownership document plus one government photo ID
+- Admin review is a plausibility check, not a legal title search
+- Private documents remain restricted to the owner and admins
+
+### v1.1 Completed In This Slice
+
+- Added address/area, bedrooms, bathrooms, availability date, and amenities to new listing intake
+- Enforced 150-400 word descriptions
+- Enforced a minimum of 4 property photos
+- Added separate ownership-document and government-photo-ID uploads
+- Added day/time showing-window controls with at least one valid window required
+- Brought edit-listing fields, validation, showing windows, photos, and both documents into parity with creation
+- Added separate admin decisions for requested changes versus permanent rejection
+- Stored review notes and exposed changes-requested status to owners before resubmission
+- Updated the admin review queue to display both submitted documents
+- Added listing-intake validation tests
+
+### Renter booking and accountability
+
+- Browse verified listings and request a viewing or booking time
+- Pending -> Confirmed -> Completed -> Disputed state flow
+- Confirmed ranges block overlaps
+- Renter logs a deposit transaction reference after confirmation
+- Founded disputes permanently flag and suspend the responsible account/listing
+
+### Trust and marketplace quality
+
+- Only Completed bookings count toward trust score
+- Ranking uses completed bookings, ratings, and price fairness
+- Repeated self-booking patterns require manual review
+- Owners need visibility into inquiries, bookings, and listing performance
+
+## Next Milestones: v1.1+
+
+### v1.1 - Listing Intake And Verification
+
+1. Add secure document storage/delivery that does not depend on public Cloudinary raw-file delivery.
+
+### v1.2 - Booking Accountability
+
+1. Add showing availability windows.
+2. Align booking statuses with the required state machine.
+3. Add deposit transaction reference logging.
+4. Complete booking and dispute consequences.
+
+### v1.3 - Trust And Marketplace Quality
+
+1. Improve trust-score ranking and fairness explanations.
+2. Add anti-gaming review signals.
+3. Complete owner dashboard metrics.
+4. Finish cross-browser, mobile, and release QA.
