@@ -7,6 +7,44 @@
   color: var(--color-neutral-700);
   font-size: 14px;
 }
+
+.app-error {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: var(--color-neutral-50);
+}
+
+.app-error__panel {
+  width: min(100%, 460px);
+  padding: 32px;
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card);
+}
+
+.app-error__eyebrow {
+  margin: 0 0 12px;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.app-error h1 {
+  margin: 0;
+  color: var(--color-neutral-900);
+  font-size: 28px;
+}
+
+.app-error__panel > p:not(.app-error__eyebrow) {
+  margin: 12px 0 24px;
+  color: var(--color-neutral-600);
+  line-height: 1.6;
+}
 .user-home,
 .admin-placeholder {
   min-height: calc(100vh - 64px);

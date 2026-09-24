@@ -6,12 +6,15 @@ import './styles/base.css'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { ThemeProvider } from './context/ThemeProvider.jsx'
+import AppErrorBoundary from './components/AppErrorBoundary.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ThemeProvider>
       <AuthProvider>
-        <App />
+        <AppErrorBoundary>
+          <App />
+        </AppErrorBoundary>
       </AuthProvider>
     </ThemeProvider>
   </StrictMode>,
