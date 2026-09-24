@@ -8,6 +8,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
+import { getSecureDocumentBlob } from "../secureDocument";
 import { Check, X, Image as ImageIcon } from "lucide-react";
 import "./AdminListings.css";
 
@@ -229,20 +230,39 @@ export default function AdminListings() {
 }
 
 function DocumentPreview({ url, title, label = "Uploaded document" }) {
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewError, setPreviewError] = useState("");
+  const displayUrl = url?.startsWith("http") ? url : previewUrl;
+
+  useEffect(() => {
+    let objectUrl = "";
+    if (!url) return undefined;
+    if (url.startsWith("http")) {
+      return undefined;
+    }
+    getSecureDocumentBlob(url).then((blob) => {
+      objectUrl = URL.createObjectURL(blob);
+      setPreviewUrl(objectUrl);
+    }).catch(() => setPreviewError("Document preview unavailable. Open it after Storage permissions are checked."));
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [url]);
+
   if (!url) {
     return <div className="review-card__doc review-card__doc--placeholder"><ImageIcon size={28} aria-hidden="true" /><span>No document uploaded</span></div>;
   }
 
-  const isPdf = /(?:\.pdf(?:$|[?#])|[?&]resource_type=raw)/i.test(url);
+  const isPdf = /(?:\.pdf(?:$|[?#])|[?&]resource_type=raw)/i.test(url) || previewError.includes("PDF");
   return (
     <div className="review-card__document">
       <p className="review-card__label">{label}</p>
-      {isPdf ? (
-        <iframe className="review-card__pdf" src={url} title={`Ownership document for ${title || "listing"}`} />
+      {previewError ? (
+        <div className="review-card__doc review-card__doc--placeholder"><ImageIcon size={28} aria-hidden="true" /><span>{previewError}</span></div>
+      ) : isPdf ? (
+        <iframe className="review-card__pdf" src={displayUrl} title={`${label} for ${title || "listing"}`} />
       ) : (
-        <img className="review-card__doc" src={url} alt={`Ownership/ID document uploaded for ${title || "this listing"}`} />
+        displayUrl ? <img className="review-card__doc" src={displayUrl} alt={`${label} uploaded for ${title || "this listing"}`} /> : <div className="review-card__doc review-card__doc--placeholder">Loading document...</div>
       )}
-      <a className="review-card__document-link" href={url} target="_blank" rel="noreferrer">Open uploaded document</a>
+      {displayUrl && <a className="review-card__document-link" href={displayUrl} target="_blank" rel="noreferrer">Open uploaded document</a>}
     </div>
   );
 }

@@ -160,6 +160,7 @@ this report, pass focused tests, and document any limitation honestly.
 - Brought edit-listing fields, validation, showing windows, photos, and both documents into parity with creation
 - Added separate admin decisions for requested changes versus permanent rejection
 - Stored review notes and exposed changes-requested status to owners before resubmission
+- Added Firebase Storage document paths and owner/admin-only Storage rules in code
 - Updated the admin review queue to display both submitted documents
 - Added listing-intake validation tests
 
@@ -182,7 +183,7 @@ this report, pass focused tests, and document any limitation honestly.
 
 ### v1.1 - Listing Intake And Verification
 
-1. Add secure document storage/delivery that does not depend on public Cloudinary raw-file delivery.
+1. Enable Firebase Storage for `trusthome-ph`, deploy `storage.rules`, and verify owner/admin document access.
 
 ### v1.2 - Booking Accountability
 

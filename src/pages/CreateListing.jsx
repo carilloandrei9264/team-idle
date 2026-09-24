@@ -6,6 +6,7 @@ import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { countWords, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
+import { uploadSecureDocument } from "../secureDocument";
 import { uploadToCloudinary } from "../uploadImage";
 import "./UserPages.css";
 
@@ -77,8 +78,8 @@ export default function CreateListing() {
     setError("");
     try {
       const [ownershipDocumentUrl, governmentIdUrl, photoUrls] = await Promise.all([
-        uploadToCloudinary(ownershipDocument, "raw"),
-        uploadToCloudinary(governmentId),
+        uploadSecureDocument(ownershipDocument, user.uid, "new", "ownership"),
+        uploadSecureDocument(governmentId, user.uid, "new", "government-id"),
         Promise.all(photos.map((photo) => uploadToCloudinary(photo))),
       ]);
 
@@ -100,8 +101,8 @@ export default function CreateListing() {
         amenities: form.amenities,
         showingWindows: form.showingWindows,
         verificationStatus: "pending",
-        ownershipDocumentUrl,
-        governmentIdUrl,
+        ownershipDocumentPath: ownershipDocumentUrl,
+        governmentIdPath: governmentIdUrl,
         photoUrls,
         createdAt: serverTimestamp(),
       });

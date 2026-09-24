@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    match /verification/{ownerId}/{listingId}/{fileName} {
+      allow read: if isSignedIn() && (request.auth.uid == ownerId || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == ownerId;
+      allow delete: if isSignedIn() && (request.auth.uid == ownerId || isAdmin());
+    }
+  }
+}
