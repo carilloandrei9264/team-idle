@@ -46,7 +46,7 @@ export default function EditListing() {
     setSaving(true);
     setError("");
     try {
-      const verificationDocUrl = verificationDoc ? await uploadToCloudinary(verificationDoc) : undefined;
+      const verificationDocUrl = verificationDoc ? await uploadToCloudinary(verificationDoc, "raw") : undefined;
       await updateDoc(doc(db, "listings", listingId), {
         title: form.title.trim(), description: form.description.trim(), type: form.type, city: form.city.trim(), price: Number(form.price), pricePeriod: form.pricePeriod,
         floorArea: form.floorArea ? Number(form.floorArea) : null, lotArea: form.lotArea ? Number(form.lotArea) : null,
