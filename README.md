@@ -47,6 +47,8 @@ See [`docs/TrustHome_PH_System_Build_Plan.pdf`](./docs/TrustHome_PH_System_Build
 
 > **Why Cloudinary instead of Firebase Storage:** as of Feb 2026, Firebase Storage requires a linked billing account (credit card), even on the free tier. Firestore and Auth are unaffected. Cloudinary's free tier needs no card, so file uploads (listing photos, ID/ownership documents) go through Cloudinary instead. Full reasoning in [`docs/TrustHome_PH_Firebase_Setup_Plan.pdf`](./docs/TrustHome_PH_Firebase_Setup_Plan.pdf).
 
+Firebase Storage remains a possible future migration if the team later approves Blaze billing and has an appropriate payment method. It is intentionally not part of the current no-billing architecture.
+
 **Platform note:** renter/homeowner-facing pages are designed **mobile-portrait** (most users are on phones). Admin pages are designed **desktop-landscape** (admins work from a laptop). Both live in the same React codebase. Native mobile app is an explicitly planned future phase, not part of this capstone's scope.
 
 ---
@@ -156,7 +158,7 @@ Full breakdown with per-member weekly assignments in `docs/TrustHome_PH_Versioni
 - Document review filters casual fraud (fake IDs, stolen photos) — it is **not** a legal title search.
 - TrustHome does not custody deposit funds; protection comes from a public, permanent dispute-flag system, not fund escrow.
 - The bank-acquired property catalog depends on manually-mapped scraper selectors per bank, refreshed on a fixed schedule — not a live data partnership with any bank.
-- The current live catalog scope is Metrobank only. Landbank and BDO are future scraper integrations; the UI should not imply that they are currently supported.
+- The current live catalog scope is Metrobank only because it already provides a large usable property supply. Landbank and BDO are future scraper integrations; they are not currently scraped or presented as active sources.
 - Uploaded documents (Cloudinary, unsigned preset) are unlisted but not cryptographically private.
 
 These are intentional, disclosed scope decisions — see the SWOT analysis and System Build Plan for the reasoning behind each one.

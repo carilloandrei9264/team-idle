@@ -185,6 +185,8 @@ this report, pass focused tests, and document any limitation honestly.
 
 1. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
 
+Firebase Storage is documented as a future option only if the project later moves to Blaze billing with an approved payment method. BDO and Landbank are also future catalog integrations; Metrobank remains the sole active source because it already supplies a substantial catalog.
+
 ### v1.2 - Booking Accountability
 
 1. Add showing availability windows.

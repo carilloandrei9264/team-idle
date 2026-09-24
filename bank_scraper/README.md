@@ -1,6 +1,6 @@
 # Bank Property Scraper — Starter Project
 
-Scrapes publicly listed acquired/foreclosed properties from BDO, Landbank, and Metrobank
+Supports the curated scraping architecture for publicly listed acquired/foreclosed properties from BDO, Landbank, and Metrobank. Metrobank is the only active production source at present because it already provides sufficient catalog supply.
 directly into your team's **Firestore** database, using each listing's own reference
 number as part of the document ID so re-running the scraper updates instead of duplicating.
 
@@ -100,4 +100,4 @@ For the first live parser test, run only the two verified source strategies:
 python scraper.py --dry-run landbank metrobank
 ```
 
-BDO remains disabled for production scraping until its browser/API endpoint is verified.
+BDO and Landbank remain future integrations. They must not be enabled in production until their selectors/API behavior and data quality are verified. Metrobank remains the default production source.
