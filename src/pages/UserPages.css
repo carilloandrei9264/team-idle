@@ -434,6 +434,28 @@
   color: var(--color-neutral-700);
   font-size: 13px;
 }
+
+.listing-form__showing-windows {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.listing-form__showing-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) 130px auto 130px;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .listing-form__showing-row {
+    grid-template-columns: minmax(110px, 1fr) 1fr;
+  }
+  .listing-form__showing-row > span {
+    display: none;
+  }
+}
 .listing-form__upload {
   display: flex;
   flex-direction: column;

@@ -15,6 +15,7 @@ const validForm = {
   bathrooms: "1",
   availabilityDate: "2026-10-01",
   amenities: ["WiFi"],
+  showingWindows: { Monday: { enabled: true, start: "09:00", end: "17:00" } },
   description: Array(MIN_DESCRIPTION_WORDS).fill("property").join(" "),
 };
 
@@ -33,7 +34,7 @@ test("a complete listing intake passes validation", () => {
 
 test("listing validation reports missing documents, photos, and required fields", () => {
   const errors = validateListingForm({
-    form: { ...validForm, address: "", amenities: [], description: "short" },
+    form: { ...validForm, address: "", amenities: [], showingWindows: {}, description: "short" },
     photos: [],
     ownershipDocument: null,
     governmentId: null,

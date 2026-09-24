@@ -1,6 +1,7 @@
 export const MIN_LISTING_PHOTOS = 4;
 export const MIN_DESCRIPTION_WORDS = 150;
 export const MAX_DESCRIPTION_WORDS = 400;
+export const SHOWING_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export function countWords(value) {
   return String(value ?? "").trim().split(/\s+/).filter(Boolean).length;
@@ -17,6 +18,7 @@ export function validateListingForm({ form, photos, ownershipDocument, governmen
   if (!String(form.bathrooms ?? "").trim()) errors.push("Add the number of bathrooms.");
   if (!String(form.availabilityDate ?? "").trim()) errors.push("Add an availability date.");
   if (!Array.isArray(form.amenities) || form.amenities.length === 0) errors.push("Select at least one amenity.");
+  if (!hasValidShowingWindow(form.showingWindows)) errors.push("Add at least one showing window with a start and end time.");
   if (descriptionWords < MIN_DESCRIPTION_WORDS || descriptionWords > MAX_DESCRIPTION_WORDS) {
     errors.push(`Description must be between ${MIN_DESCRIPTION_WORDS} and ${MAX_DESCRIPTION_WORDS} words.`);
   }
@@ -27,4 +29,8 @@ export function validateListingForm({ form, photos, ownershipDocument, governmen
   if (!governmentId) errors.push("Upload a government-issued photo ID.");
 
   return errors;
+}
+
+export function hasValidShowingWindow(showingWindows = {}) {
+  return Object.values(showingWindows).some((window) => window?.enabled && window.start && window.end && window.start < window.end);
 }

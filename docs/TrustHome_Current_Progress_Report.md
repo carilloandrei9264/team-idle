@@ -156,6 +156,7 @@ this report, pass focused tests, and document any limitation honestly.
 - Enforced 150-400 word descriptions
 - Enforced a minimum of 4 property photos
 - Added separate ownership-document and government-photo-ID uploads
+- Added day/time showing-window controls with at least one valid window required
 - Updated the admin review queue to display both submitted documents
 - Added listing-intake validation tests
 
@@ -178,10 +179,9 @@ this report, pass focused tests, and document any limitation honestly.
 
 ### v1.1 - Listing Intake And Verification
 
-1. Add showing availability windows to listing creation and edit flows.
-2. Bring edit-listing fields and validation into parity with new listing creation.
-3. Upgrade admin review to support explicit resubmission requests and document notes.
-4. Add secure document storage/delivery that does not depend on public Cloudinary raw-file delivery.
+1. Bring edit-listing fields and validation into parity with new listing creation.
+2. Upgrade admin review to support explicit resubmission requests and document notes.
+3. Add secure document storage/delivery that does not depend on public Cloudinary raw-file delivery.
 
 ### v1.2 - Booking Accountability
 

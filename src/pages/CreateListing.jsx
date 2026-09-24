@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
-import { countWords, validateListingForm } from "../lib/listingValidation";
+import { countWords, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
 import { uploadToCloudinary } from "../uploadImage";
 import "./UserPages.css";
 
@@ -29,6 +29,7 @@ export default function CreateListing() {
     lotArea: "",
     availabilityDate: "",
     amenities: [],
+    showingWindows: Object.fromEntries(SHOWING_DAYS.map((day) => [day, { enabled: false, start: "09:00", end: "17:00" }])),
   });
   const [photos, setPhotos] = useState([]);
   const [ownershipDocument, setOwnershipDocument] = useState(null);
@@ -51,6 +52,16 @@ export default function CreateListing() {
       amenities: current.amenities.includes(amenity)
         ? current.amenities.filter((item) => item !== amenity)
         : [...current.amenities, amenity],
+    }));
+  }
+
+  function updateShowingWindow(day, field, value) {
+    setForm((current) => ({
+      ...current,
+      showingWindows: {
+        ...current.showingWindows,
+        [day]: { ...current.showingWindows[day], [field]: value },
+      },
     }));
   }
 
@@ -87,6 +98,7 @@ export default function CreateListing() {
         lotArea: form.lotArea ? Number(form.lotArea) : null,
         availabilityDate: form.availabilityDate,
         amenities: form.amenities,
+        showingWindows: form.showingWindows,
         verificationStatus: "pending",
         ownershipDocumentUrl,
         governmentIdUrl,
@@ -163,6 +175,17 @@ export default function CreateListing() {
                 <span className="field__label">Amenities</span>
                 <div className="listing-form__amenities">
                   {AMENITIES.map((amenity) => <label className="listing-form__amenity" key={amenity}><input type="checkbox" checked={form.amenities.includes(amenity)} onChange={() => toggleAmenity(amenity)} />{amenity}</label>)}
+                </div>
+              </div>
+              <div className="field listing-form__wide">
+                <span className="field__label">Showing windows</span>
+                <div className="listing-form__showing-windows">
+                  {SHOWING_DAYS.map((day) => <div className="listing-form__showing-row" key={day}>
+                    <label className="listing-form__amenity"><input type="checkbox" checked={form.showingWindows[day].enabled} onChange={(event) => updateShowingWindow(day, "enabled", event.target.checked)} />{day}</label>
+                    <input className="field__input" type="time" value={form.showingWindows[day].start} disabled={!form.showingWindows[day].enabled} onChange={(event) => updateShowingWindow(day, "start", event.target.value)} aria-label={`${day} showing start`} />
+                    <span>to</span>
+                    <input className="field__input" type="time" value={form.showingWindows[day].end} disabled={!form.showingWindows[day].enabled} onChange={(event) => updateShowingWindow(day, "end", event.target.value)} aria-label={`${day} showing end`} />
+                  </div>)}
                 </div>
               </div>
               <div className="field">

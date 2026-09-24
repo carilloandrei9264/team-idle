@@ -53,7 +53,7 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'title', 'description', 'type', 'address', 'city', 'price', 'pricePeriod',
             'bedrooms', 'bathrooms', 'floorArea', 'lotArea', 'availabilityDate',
-            'amenities', 'photoUrls', 'verificationDocUrl', 'ownershipDocumentUrl',
+            'amenities', 'showingWindows', 'photoUrls', 'verificationDocUrl', 'ownershipDocumentUrl',
             'governmentIdUrl',
             'verificationStatus', 'updatedAt'
           ])
