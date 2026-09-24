@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, serverTimestamp } from "firebase/firestore";
 import { ArrowLeft, CalendarDays } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
-import { bookingDatesOverlap, dateInputToTimestamp, dateInputValue, dateRangeIsValid } from "../lib/booking";
+import { dateInputToTimestamp, dateInputValue, dateRangeIsValid } from "../lib/booking";
 import { formatCurrency } from "../lib/number";
 import "./UserPages.css";
 
@@ -45,12 +45,6 @@ export default function BookingRequest() {
     setSubmitting(true);
     setError("");
     try {
-      const existing = await getDocs(query(collection(db, "bookings"), where("listingId", "==", listingId)));
-      const conflict = existing.docs
-        .filter((item) => ["Pending", "Confirmed"].includes(item.data().status))
-        .some((item) => bookingDatesOverlap(item.data(), requestedStart, requestedEnd));
-      if (conflict) throw new Error("These dates are unavailable. Choose another range.");
-
       await addDoc(collection(db, "bookings"), {
         listingId,
         listingTitle: listing.title || "Untitled listing",

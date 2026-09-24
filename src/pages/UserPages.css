@@ -723,6 +723,16 @@
   font-size: 13px;
 }
 
+.user-page__message {
+  margin: 0 0 20px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-input);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  font-size: 13px;
+}
+
 .listing-detail__booking-cta {
   margin-top: 24px;
   padding: 0 20px;
