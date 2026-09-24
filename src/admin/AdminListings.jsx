@@ -17,7 +17,7 @@ export default function AdminListings() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
-  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [showDecisionForm, setShowDecisionForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -64,7 +64,7 @@ export default function AdminListings() {
     }
   }
 
-  async function handleReject() {
+  async function handleDecision(decision) {
     if (!selected) return;
     setSaving(true);
     setError("");
@@ -73,13 +73,15 @@ export default function AdminListings() {
       await updateDoc(doc(db, "listings", selected.id), {
         verificationStatus: "rejected",
         rejectionReason: rejectReason.trim() || "No reason given",
+        reviewDecision: decision,
+        resubmissionRequested: decision === "changes_requested",
         verifiedAt: serverTimestamp(),
         verifiedBy: user?.uid ?? null,
       });
       setPending((current) => current.filter((listing) => listing.id !== selected.id));
       setRejectReason("");
-      setShowRejectForm(false);
-      setMessage("Listing rejected and removed from the pending review queue.");
+      setShowDecisionForm(false);
+      setMessage(decision === "changes_requested" ? "Changes requested and listing removed from the review queue." : "Listing rejected and removed from the review queue.");
     } catch {
       setError("The listing could not be rejected. Confirm that your account has admin permissions and try again.");
     } finally {
@@ -133,7 +135,7 @@ export default function AdminListings() {
                   <span className="review-card__match-hint">Compare against the document above</span>
                 </div>
 
-                {!showRejectForm ? (
+                {!showDecisionForm ? (
                   <div className="review-card__actions">
                     <button
                       type="button"
@@ -147,7 +149,7 @@ export default function AdminListings() {
                     <button
                       type="button"
                       className="btn btn--danger"
-                      onClick={() => setShowRejectForm(true)}
+                      onClick={() => setShowDecisionForm(true)}
                       disabled={saving}
                     >
                       <X size={16} aria-hidden="true" />
@@ -171,15 +173,23 @@ export default function AdminListings() {
                       <button
                         type="button"
                         className="btn btn--danger"
-                        onClick={handleReject}
+                        onClick={() => handleDecision("changes_requested")}
                         disabled={saving}
                       >
-                        Confirm reject
+                        Request changes
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn--danger"
+                        onClick={() => handleDecision("rejected")}
+                        disabled={saving}
+                      >
+                        Reject permanently
                       </button>
                       <button
                         type="button"
                         className="btn btn--secondary"
-                        onClick={() => setShowRejectForm(false)}
+                        onClick={() => setShowDecisionForm(false)}
                         disabled={saving}
                       >
                         Cancel
@@ -203,7 +213,7 @@ export default function AdminListings() {
                       className="up-next__item"
                       onClick={() => {
                         setSelectedId(l.id);
-                        setShowRejectForm(false);
+                        setShowDecisionForm(false);
                       }}
                     >
                       {l.title || "Untitled listing"} <span className="badge badge--pending">pending</span>

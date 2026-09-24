@@ -66,7 +66,7 @@ export default function EditListing() {
         price: Number(form.price), pricePeriod: form.pricePeriod, bedrooms: Number(form.bedrooms), bathrooms: Number(form.bathrooms),
         floorArea: form.floorArea ? Number(form.floorArea) : null, lotArea: form.lotArea ? Number(form.lotArea) : null,
         availabilityDate: form.availabilityDate, amenities: form.amenities, showingWindows: form.showingWindows,
-        photoUrls: [...existingPhotos, ...uploadedPhotoUrls], ownershipDocumentUrl, governmentIdUrl, verificationStatus: "pending", updatedAt: serverTimestamp(),
+        photoUrls: [...existingPhotos, ...uploadedPhotoUrls], ownershipDocumentUrl, governmentIdUrl, verificationStatus: "pending", resubmissionRequested: false, updatedAt: serverTimestamp(),
       });
       navigate(`/listings/${listingId}`, { replace: true });
     } catch (saveError) { setError(saveError.message || "Your changes could not be saved. Please try again."); } finally { setSaving(false); }

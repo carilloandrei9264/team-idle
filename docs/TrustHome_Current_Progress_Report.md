@@ -158,6 +158,8 @@ this report, pass focused tests, and document any limitation honestly.
 - Added separate ownership-document and government-photo-ID uploads
 - Added day/time showing-window controls with at least one valid window required
 - Brought edit-listing fields, validation, showing windows, photos, and both documents into parity with creation
+- Added separate admin decisions for requested changes versus permanent rejection
+- Stored review notes and exposed changes-requested status to owners before resubmission
 - Updated the admin review queue to display both submitted documents
 - Added listing-intake validation tests
 
@@ -180,8 +182,7 @@ this report, pass focused tests, and document any limitation honestly.
 
 ### v1.1 - Listing Intake And Verification
 
-1. Upgrade admin review to support explicit resubmission requests and document notes.
-2. Add secure document storage/delivery that does not depend on public Cloudinary raw-file delivery.
+1. Add secure document storage/delivery that does not depend on public Cloudinary raw-file delivery.
 
 ### v1.2 - Booking Accountability
 
