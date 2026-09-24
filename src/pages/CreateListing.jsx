@@ -48,7 +48,7 @@ export default function CreateListing() {
     setError("");
     try {
       const [verificationDocUrl, photoUrls] = await Promise.all([
-        uploadToCloudinary(verificationDoc),
+        uploadToCloudinary(verificationDoc, "raw"),
         Promise.all(photos.map((photo) => uploadToCloudinary(photo))),
       ]);
 

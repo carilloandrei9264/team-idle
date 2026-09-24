@@ -23,6 +23,7 @@ export default function AdminListings() {
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     const q = query(
@@ -52,12 +53,14 @@ export default function AdminListings() {
     if (!selected) return;
     setSaving(true);
     setError("");
+    setMessage("");
     try {
       await updateDoc(doc(db, "listings", selected.id), {
         verificationStatus: "verified",
         verifiedAt: serverTimestamp(),
         verifiedBy: user?.uid ?? null,
       });
+      setMessage("Listing approved and removed from the pending review queue.");
     } catch {
       setError("The listing could not be approved. Confirm that your account has admin permissions and try again.");
     } finally {
@@ -69,6 +72,7 @@ export default function AdminListings() {
     if (!selected) return;
     setSaving(true);
     setError("");
+    setMessage("");
     try {
       await updateDoc(doc(db, "listings", selected.id), {
         verificationStatus: "rejected",
@@ -78,6 +82,7 @@ export default function AdminListings() {
       });
       setRejectReason("");
       setShowRejectForm(false);
+      setMessage("Listing rejected and removed from the pending review queue.");
     } catch {
       setError("The listing could not be rejected. Confirm that your account has admin permissions and try again.");
     } finally {
@@ -90,6 +95,7 @@ export default function AdminListings() {
       <h1 className="listings-queue__title">Listing Review Queue</h1>
 
       {error && <p className="listings-queue__error" role="alert">{error}</p>}
+      {message && <p className="listings-queue__message" role="status">{message}</p>}
 
       {loading ? (
         <p className="panel__empty">Loading…</p>
