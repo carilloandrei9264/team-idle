@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   collection,
-  query,
-  where,
-  orderBy,
   onSnapshot,
   doc,
   updateDoc,
@@ -26,13 +23,11 @@ export default function AdminListings() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const q = query(
-      collection(db, "listings"),
-      where("verificationStatus", "==", "pending"),
-      orderBy("createdAt", "asc")
-    );
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const unsubscribe = onSnapshot(collection(db, "listings"), (snap) => {
+      const docs = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((listing) => listing.verificationStatus === "pending")
+        .sort((a, b) => timestampValue(a.createdAt) - timestampValue(b.createdAt));
       setPending(docs);
       setLoading(false);
       setError("");
@@ -60,6 +55,7 @@ export default function AdminListings() {
         verifiedAt: serverTimestamp(),
         verifiedBy: user?.uid ?? null,
       });
+      setPending((current) => current.filter((listing) => listing.id !== selected.id));
       setMessage("Listing approved and removed from the pending review queue.");
     } catch {
       setError("The listing could not be approved. Confirm that your account has admin permissions and try again.");
@@ -80,6 +76,7 @@ export default function AdminListings() {
         verifiedAt: serverTimestamp(),
         verifiedBy: user?.uid ?? null,
       });
+      setPending((current) => current.filter((listing) => listing.id !== selected.id));
       setRejectReason("");
       setShowRejectForm(false);
       setMessage("Listing rejected and removed from the pending review queue.");
@@ -237,4 +234,8 @@ function DocumentPreview({ url, title }) {
       <a className="review-card__document-link" href={url} target="_blank" rel="noreferrer">Open uploaded document</a>
     </div>
   );
+}
+
+function timestampValue(value) {
+  return value?.toMillis?.() ?? 0;
 }
