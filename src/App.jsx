@@ -1,32 +1,34 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
-import Login from "./pages/Login";
-import Home from "./pages/Home";
-import Browse from "./pages/Browse";
-import MyListings from "./pages/MyListings";
-import Account from "./pages/Account";
-import BankCatalog from "./pages/BankCatalog";
-import CreateListing from "./pages/CreateListing";
-import ListingDetail from "./pages/ListingDetail";
-import EditListing from "./pages/EditListing";
-import BookingRequest from "./pages/BookingRequest";
-import MyBookings from "./pages/MyBookings";
-import BookingRequests from "./pages/BookingRequests";
-import ManageBookingRequests from "./pages/ManageBookingRequests";
-import RatingForm from "./pages/RatingForm";
-import RaiseDispute from "./pages/RaiseDispute";
-import BankPropertyDetail from "./pages/BankPropertyDetail";
-import PublicProfile from "./pages/PublicProfile";
-import SavedSearches from "./pages/SavedSearches";
-import AdminLayout from "./admin/AdminLayout";
-import AdminDashboard from "./admin/AdminDashboard";
-import AdminListings from "./admin/AdminListings";
-import AdminDisputes from "./admin/AdminDisputes";
-import AdminUsers from "./admin/AdminUsers";
-import AdminBankCatalog from "./admin/AdminBankCatalog";
 import RequireAdmin from "./routes/RequireAdmin";
 import RequireAuth from "./routes/RequireAuth";
 import "./App.css";
+
+const Login = lazy(() => import("./pages/Login"));
+const Home = lazy(() => import("./pages/Home"));
+const Browse = lazy(() => import("./pages/Browse"));
+const MyListings = lazy(() => import("./pages/MyListings"));
+const Account = lazy(() => import("./pages/Account"));
+const BankCatalog = lazy(() => import("./pages/BankCatalog"));
+const CreateListing = lazy(() => import("./pages/CreateListing"));
+const ListingDetail = lazy(() => import("./pages/ListingDetail"));
+const EditListing = lazy(() => import("./pages/EditListing"));
+const BookingRequest = lazy(() => import("./pages/BookingRequest"));
+const MyBookings = lazy(() => import("./pages/MyBookings"));
+const BookingRequests = lazy(() => import("./pages/BookingRequests"));
+const ManageBookingRequests = lazy(() => import("./pages/ManageBookingRequests"));
+const RatingForm = lazy(() => import("./pages/RatingForm"));
+const RaiseDispute = lazy(() => import("./pages/RaiseDispute"));
+const BankPropertyDetail = lazy(() => import("./pages/BankPropertyDetail"));
+const PublicProfile = lazy(() => import("./pages/PublicProfile"));
+const SavedSearches = lazy(() => import("./pages/SavedSearches"));
+const AdminLayout = lazy(() => import("./admin/AdminLayout"));
+const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
+const AdminListings = lazy(() => import("./admin/AdminListings"));
+const AdminDisputes = lazy(() => import("./admin/AdminDisputes"));
+const AdminUsers = lazy(() => import("./admin/AdminUsers"));
+const AdminBankCatalog = lazy(() => import("./admin/AdminBankCatalog"));
 
 function App() {
   return (
@@ -38,7 +40,7 @@ function App() {
 
 function AppRoutes() {
   const location = useLocation();
-  return (
+  return <Suspense fallback={<LoadingState />}>
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<Home />} />
@@ -76,6 +78,14 @@ function AppRoutes() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </AnimatePresence>
+  </Suspense>;
+}
+
+function LoadingState() {
+  return (
+    <main className="app-loading" aria-live="polite" aria-busy="true">
+      Loading TrustHome...
+    </main>
   );
 }
 
