@@ -22,58 +22,58 @@ export default function AdminDashboard() {
   const [counts, setCounts] = useState({ pendingListings: null, openDisputes: null, totalUsers: null });
   const [activity, setActivity] = useState([]);
   const [loadingActivity, setLoadingActivity] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
 
-  async function loadCounts() {
-    const [pendingListings, openDisputes, totalUsers] = await Promise.all([
-      getCountFromServer(query(collection(db, "listings"), where("verificationStatus", "==", "pending"))),
-      getCountFromServer(query(collection(db, "disputes"), where("status", "==", "Open"))),
-      getCountFromServer(collection(db, "users")),
-    ]);
-    setCounts({
-      pendingListings: pendingListings.data().count,
-      openDisputes: openDisputes.data().count,
-      totalUsers: totalUsers.data().count,
-    });
-  }
-
-  async function loadActivity() {
+  async function loadDashboard() {
+    setDashboardError("");
     setLoadingActivity(true);
-    const [listingsSnap, disputesSnap, usersSnap] = await Promise.all([
-      getDocs(query(collection(db, "listings"), orderBy("createdAt", "desc"), limit(5))),
-      getDocs(query(collection(db, "disputes"), orderBy("createdAt", "desc"), limit(5))),
-      getDocs(query(collection(db, "users"), orderBy("createdAt", "desc"), limit(5))),
-    ]);
+    try {
+      const [pendingListings, openDisputes, totalUsers, listingsSnap, disputesSnap, usersSnap] = await Promise.all([
+        getCountFromServer(query(collection(db, "listings"), where("verificationStatus", "==", "pending"))),
+        getCountFromServer(query(collection(db, "disputes"), where("status", "==", "Open"))),
+        getCountFromServer(collection(db, "users")),
+        getDocs(query(collection(db, "listings"), orderBy("createdAt", "desc"), limit(5))),
+        getDocs(query(collection(db, "disputes"), orderBy("createdAt", "desc"), limit(5))),
+        getDocs(query(collection(db, "users"), orderBy("createdAt", "desc"), limit(5))),
+      ]);
 
-    const events = [
-      ...listingsSnap.docs.map((d) => ({
-        id: d.id,
-        at: d.data().createdAt,
-        text: `Listing "${d.data().title ?? d.id}" submitted for review`,
-      })),
-      ...disputesSnap.docs.map((d) => ({
-        id: d.id,
-        at: d.data().createdAt,
-        text: `Dispute #${d.id.slice(0, 6)} raised — ${d.data().reason ?? "no reason given"}`,
-      })),
-      ...usersSnap.docs.map((d) => ({
-        id: d.id,
-        at: d.data().createdAt,
-        text: `New user registered: ${d.data().name ?? d.data().email}`,
-      })),
-    ]
-      .filter((e) => e.at)
-      .sort((a, b) => b.at.toMillis() - a.at.toMillis())
-      .slice(0, 5);
+      setCounts({
+        pendingListings: pendingListings.data().count,
+        openDisputes: openDisputes.data().count,
+        totalUsers: totalUsers.data().count,
+      });
 
-    setActivity(events);
-    setLoadingActivity(false);
+      const events = [
+        ...listingsSnap.docs.map((d) => ({
+          id: `listing-${d.id}`,
+          at: d.data().createdAt,
+          text: `Listing "${d.data().title ?? d.id}" submitted for review`,
+        })),
+        ...disputesSnap.docs.map((d) => ({
+          id: `dispute-${d.id}`,
+          at: d.data().createdAt,
+          text: `Dispute #${d.id.slice(0, 6)} raised — ${d.data().reason ?? "no reason given"}`,
+        })),
+        ...usersSnap.docs.map((d) => ({
+          id: `user-${d.id}`,
+          at: d.data().createdAt,
+          text: `New user registered: ${d.data().name ?? d.data().email}`,
+        })),
+      ]
+        .filter((event) => event.at)
+        .sort((a, b) => b.at.toMillis() - a.at.toMillis())
+        .slice(0, 5);
+
+      setActivity(events);
+    } catch {
+      setDashboardError("The dashboard data could not be loaded. Check your connection and try again.");
+    } finally {
+      setLoadingActivity(false);
+    }
   }
 
   useEffect(() => {
-    queueMicrotask(() => {
-      loadCounts();
-      loadActivity();
-    });
+    queueMicrotask(loadDashboard);
   }, []);
 
   // Real signal, not decoration: while the team is still seeding data,
@@ -88,6 +88,15 @@ export default function AdminDashboard() {
         <h1 className="dashboard__title">Dashboard</h1>
         <p className="dashboard__date">{TODAY}</p>
       </div>
+
+      {dashboardError && (
+        <div className="dashboard__error" role="alert">
+          <span>{dashboardError}</span>
+          <button type="button" className="btn btn--secondary" onClick={loadDashboard}>
+            <RefreshCw size={16} aria-hidden="true" /> Retry
+          </button>
+        </div>
+      )}
 
       <div className="stat-row">
         <StatCard label="Pending Listings" value={counts.pendingListings} tone="warning" icon={FileCheck} />
