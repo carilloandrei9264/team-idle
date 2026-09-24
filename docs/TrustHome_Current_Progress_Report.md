@@ -1,8 +1,8 @@
 # TrustHome PH - Current Progress Report
 
 **Snapshot date:** 2026-09-25
-**Branch:** `features/v1-0-booking-permissions`
-**Status:** v1.0 hardening in progress; requirements-driven v1.1 work is next
+**Branch:** `features/v1-1-listing-intake`
+**Status:** v1.1 listing-intake implementation in progress
 
 ## Executive Summary
 
@@ -16,7 +16,7 @@ The application has completed the v0.1 foundation, v0.2 trust engine, and v0.3 a
 | v0.2 Trust Engine | Complete | Booking lifecycle, ratings, trust scores, and no-billing completion automation are implemented and tested. |
 | v0.3 Accountability & Integration | Complete | Dispute review, public accountability flags, bank catalog safeguards, and loan estimates are implemented and validated. |
 | v1.0 Release Hardening | In progress | Route splitting, error recovery, admin review fixes, Cloudinary document handling, and booking permission fixes are implemented; manual QA remains. |
-| v1.1 Requirements Alignment | Planned | Rebuild listing intake and verification around the revised owner/admin requirements. |
+| v1.1 Requirements Alignment | In progress | Required listing fields, validation, minimum photos, and two-document intake are implemented; showing windows, edit parity, and full admin resubmission remain. |
 | v1.2 Booking Accountability | Planned | Showing windows, strict booking state machine, deposit reference logging, completion, and dispute consequences. |
 | v1.3 Trust & Marketplace Quality | Planned | Trust ranking, fairness presentation, anti-gaming review signals, and owner dashboard improvements. |
 
@@ -150,6 +150,15 @@ this report, pass focused tests, and document any limitation honestly.
 - Admin review is a plausibility check, not a legal title search
 - Private documents remain restricted to the owner and admins
 
+### v1.1 Completed In This Slice
+
+- Added address/area, bedrooms, bathrooms, availability date, and amenities to new listing intake
+- Enforced 150-400 word descriptions
+- Enforced a minimum of 4 property photos
+- Added separate ownership-document and government-photo-ID uploads
+- Updated the admin review queue to display both submitted documents
+- Added listing-intake validation tests
+
 ### Renter booking and accountability
 
 - Browse verified listings and request a viewing or booking time
@@ -169,10 +178,10 @@ this report, pass focused tests, and document any limitation honestly.
 
 ### v1.1 - Listing Intake And Verification
 
-1. Add the missing required listing fields and validation.
-2. Enforce minimum photos and description length.
-3. Add government ID upload alongside the ownership document.
-4. Upgrade the admin review workflow to support approve, reject, and resubmission.
+1. Add showing availability windows to listing creation and edit flows.
+2. Bring edit-listing fields and validation into parity with new listing creation.
+3. Upgrade admin review to support explicit resubmission requests and document notes.
+4. Add secure document storage/delivery that does not depend on public Cloudinary raw-file delivery.
 
 ### v1.2 - Booking Accountability
 

@@ -51,8 +51,10 @@ service cloud.firestore {
           && isOwner(resource.data.ownerId)
           && request.resource.data.ownerId == resource.data.ownerId
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'title', 'description', 'type', 'city', 'price', 'pricePeriod',
-            'floorArea', 'lotArea', 'photoUrls', 'verificationDocUrl',
+            'title', 'description', 'type', 'address', 'city', 'price', 'pricePeriod',
+            'bedrooms', 'bathrooms', 'floorArea', 'lotArea', 'availabilityDate',
+            'amenities', 'photoUrls', 'verificationDocUrl', 'ownershipDocumentUrl',
+            'governmentIdUrl',
             'verificationStatus', 'updatedAt'
           ])
           && request.resource.data.verificationStatus == 'pending');

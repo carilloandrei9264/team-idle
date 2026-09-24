@@ -419,6 +419,21 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
+
+.listing-form__amenities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding-top: 4px;
+}
+
+.listing-form__amenity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-neutral-700);
+  font-size: 13px;
+}
 .listing-form__upload {
   display: flex;
   flex-direction: column;
