@@ -6,7 +6,6 @@ import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { countWords, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
-import { uploadSecureDocument } from "../secureDocument";
 import { uploadToCloudinary } from "../uploadImage";
 import "./UserPages.css";
 
@@ -58,8 +57,8 @@ export default function EditListing() {
     setError("");
     try {
       const [ownershipDocumentUrl, governmentIdUrl, uploadedPhotoUrls] = await Promise.all([
-        ownershipDocument ? uploadSecureDocument(ownershipDocument, user.uid, listingId, "ownership") : existingDocuments.ownership,
-        governmentId ? uploadSecureDocument(governmentId, user.uid, listingId, "government-id") : existingDocuments.governmentId,
+        ownershipDocument ? uploadToCloudinary(ownershipDocument, "raw") : existingDocuments.ownership,
+        governmentId ? uploadToCloudinary(governmentId) : existingDocuments.governmentId,
         Promise.all(newPhotos.map((photo) => uploadToCloudinary(photo))),
       ]);
       await updateDoc(doc(db, "listings", listingId), {
@@ -67,7 +66,7 @@ export default function EditListing() {
         price: Number(form.price), pricePeriod: form.pricePeriod, bedrooms: Number(form.bedrooms), bathrooms: Number(form.bathrooms),
         floorArea: form.floorArea ? Number(form.floorArea) : null, lotArea: form.lotArea ? Number(form.lotArea) : null,
         availabilityDate: form.availabilityDate, amenities: form.amenities, showingWindows: form.showingWindows,
-        photoUrls: [...existingPhotos, ...uploadedPhotoUrls], ownershipDocumentPath: ownershipDocumentUrl, governmentIdPath: governmentIdUrl, verificationStatus: "pending", resubmissionRequested: false, updatedAt: serverTimestamp(),
+        photoUrls: [...existingPhotos, ...uploadedPhotoUrls], ownershipDocumentUrl: ownershipDocumentUrl, governmentIdUrl: governmentIdUrl, verificationStatus: "pending", resubmissionRequested: false, updatedAt: serverTimestamp(),
       });
       navigate(`/listings/${listingId}`, { replace: true });
     } catch (saveError) { setError(saveError.message || "Your changes could not be saved. Please try again."); } finally { setSaving(false); }

@@ -54,7 +54,7 @@ service cloud.firestore {
             'title', 'description', 'type', 'address', 'city', 'price', 'pricePeriod',
             'bedrooms', 'bathrooms', 'floorArea', 'lotArea', 'availabilityDate',
             'amenities', 'showingWindows', 'photoUrls', 'verificationDocUrl', 'ownershipDocumentUrl',
-            'governmentIdUrl', 'ownershipDocumentPath', 'governmentIdPath', 'resubmissionRequested',
+            'governmentIdUrl', 'resubmissionRequested',
             'verificationStatus', 'updatedAt'
           ])
           && request.resource.data.verificationStatus == 'pending');
