@@ -22,6 +22,7 @@ export default function AdminListings() {
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const q = query(
@@ -33,10 +34,14 @@ export default function AdminListings() {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setPending(docs);
       setLoading(false);
+      setError("");
       // Keep the current selection if it still exists; otherwise pick the first.
       setSelectedId((current) =>
         docs.some((d) => d.id === current) ? current : docs[0]?.id ?? null
       );
+    }, () => {
+      setLoading(false);
+      setError("The review queue could not be loaded. Check your connection and Firestore index, then refresh.");
     });
     return unsubscribe;
   }, []);
@@ -46,31 +51,45 @@ export default function AdminListings() {
   async function handleApprove() {
     if (!selected) return;
     setSaving(true);
-    await updateDoc(doc(db, "listings", selected.id), {
-      verificationStatus: "verified",
-      verifiedAt: serverTimestamp(),
-      verifiedBy: user?.uid ?? null,
-    });
-    setSaving(false);
+    setError("");
+    try {
+      await updateDoc(doc(db, "listings", selected.id), {
+        verificationStatus: "verified",
+        verifiedAt: serverTimestamp(),
+        verifiedBy: user?.uid ?? null,
+      });
+    } catch {
+      setError("The listing could not be approved. Confirm that your account has admin permissions and try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleReject() {
     if (!selected) return;
     setSaving(true);
-    await updateDoc(doc(db, "listings", selected.id), {
-      verificationStatus: "rejected",
-      rejectionReason: rejectReason.trim() || "No reason given",
-      verifiedAt: serverTimestamp(),
-      verifiedBy: user?.uid ?? null,
-    });
-    setRejectReason("");
-    setShowRejectForm(false);
-    setSaving(false);
+    setError("");
+    try {
+      await updateDoc(doc(db, "listings", selected.id), {
+        verificationStatus: "rejected",
+        rejectionReason: rejectReason.trim() || "No reason given",
+        verifiedAt: serverTimestamp(),
+        verifiedBy: user?.uid ?? null,
+      });
+      setRejectReason("");
+      setShowRejectForm(false);
+    } catch {
+      setError("The listing could not be rejected. Confirm that your account has admin permissions and try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div className="listings-queue">
       <h1 className="listings-queue__title">Listing Review Queue</h1>
+
+      {error && <p className="listings-queue__error" role="alert">{error}</p>}
 
       {loading ? (
         <p className="panel__empty">Loading…</p>
@@ -89,16 +108,19 @@ export default function AdminListings() {
                 </div>
 
                 <p className="review-card__label">Uploaded ID document</p>
-                {selected.verificationDocUrl ? (
-                  <img
-                    className="review-card__doc"
-                    src={selected.verificationDocUrl}
-                    alt={`Ownership/ID document uploaded for ${selected.title || "this listing"}`}
-                  />
+                <DocumentPreview url={selected.verificationDocUrl} title={selected.title} />
+
+                <p className="review-card__label">Property photos</p>
+                {selected.photoUrls?.length ? (
+                  <div className="review-card__photos">
+                    {selected.photoUrls.map((photoUrl, index) => (
+                      <img key={photoUrl} className="review-card__photo" src={photoUrl} alt={`Property photo ${index + 1}`} />
+                    ))}
+                  </div>
                 ) : (
                   <div className="review-card__doc review-card__doc--placeholder">
                     <ImageIcon size={28} aria-hidden="true" />
-                    <span>No document uploaded</span>
+                    <span>No property photos uploaded</span>
                   </div>
                 )}
 
@@ -189,6 +211,24 @@ export default function AdminListings() {
           </aside>
         </div>
       )}
+    </div>
+  );
+}
+
+function DocumentPreview({ url, title }) {
+  if (!url) {
+    return <div className="review-card__doc review-card__doc--placeholder"><ImageIcon size={28} aria-hidden="true" /><span>No document uploaded</span></div>;
+  }
+
+  const isPdf = /(?:\.pdf(?:$|[?#])|[?&]resource_type=raw)/i.test(url);
+  return (
+    <div className="review-card__document">
+      {isPdf ? (
+        <iframe className="review-card__pdf" src={url} title={`Ownership document for ${title || "listing"}`} />
+      ) : (
+        <img className="review-card__doc" src={url} alt={`Ownership/ID document uploaded for ${title || "this listing"}`} />
+      )}
+      <a className="review-card__document-link" href={url} target="_blank" rel="noreferrer">Open uploaded document</a>
     </div>
   );
 }
