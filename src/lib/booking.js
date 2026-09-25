@@ -1,6 +1,17 @@
 import { Timestamp } from "firebase/firestore";
 
-export const BOOKING_STATUSES = ["Pending", "Confirmed", "Completed", "Disputed", "Cancelled", "Declined"];
+export const BOOKING_STATUSES = ["Pending", "Confirmed", "Completed", "Disputed"];
+
+export const BOOKING_TRANSITIONS = {
+  Pending: ["Confirmed"],
+  Confirmed: ["Completed", "Disputed"],
+  Completed: ["Disputed"],
+  Disputed: [],
+};
+
+export function canTransitionBookingStatus(currentStatus, nextStatus) {
+  return BOOKING_TRANSITIONS[currentStatus]?.includes(nextStatus) || false;
+}
 
 export function dateRangeIsValid(startDate, endDate) {
   return Boolean(startDate && endDate && endDate > startDate);
