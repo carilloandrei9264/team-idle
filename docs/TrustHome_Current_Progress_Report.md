@@ -151,6 +151,26 @@ The no-billing `complete_expired_bookings.py` job is already wired into the exis
 
 Notifications are in-app only. Email, SMS, and push delivery are outside the current no-billing MVP scope.
 
+## Backend Readiness Assessment
+
+### Implemented
+
+- Firebase Authentication and Firestore persistence for users, listings, bookings, ratings, disputes, trust scores, bank properties, saved searches, and notifications
+- Cloudinary upload flow for listing photos and verification documents
+- Firestore access rules for verified listing visibility, booking ownership, ratings, disputes, admin queues, trust scores, and notifications
+- Python `firebase-admin` scraper writes and deterministic bank-property upserts
+- GitHub Actions automation for scraping, expired-booking completion, and trust-score recomputation without Cloud Functions billing
+- Booking overlap checks, trust-score calculations, fairness labels, anti-gaming signals, and notification event writes
+
+### Still required before calling the backend release-ready
+
+- Deploy the latest `firestore.rules`; the notification rules are currently only in the repository
+- Run live security tests for direct Firestore writes, especially booking confirmation, notification creation, dispute resolution, and private document access
+- Run the renter-owner-admin notification smoke test against the deployed project
+- Keep the GitHub Actions secret and service-account handling verified; the current automation depends on that workflow rather than deployed Cloud Functions
+- Treat notification delivery as best effort: the main booking, dispute, or review action remains successful if creating its notification fails
+- Confirm the client-side overlap check and Firestore rules together against malicious/direct writes; the current no-billing architecture keeps overlap computation in application code rather than a server transaction
+
 ## Validation Already Passing
 
 - `node --test`: 21 tests passed
