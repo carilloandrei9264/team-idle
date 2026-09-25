@@ -1,12 +1,12 @@
 # TrustHome PH - Current Progress Report
 
 **Snapshot date:** 2026-09-25
-**Branch:** `features/v1-1-listing-intake`
-**Status:** v1.1 listing-intake implementation in progress
+**Branch:** `features/v1-3-notifications`
+**Status:** v1.3 marketplace-quality and notification implementation complete; release QA and Firebase deployment remain
 
 ## Executive Summary
 
-The application has completed the v0.1 foundation, v0.2 trust engine, and v0.3 accountability and integration scope. v1.0 is focused on release hardening and real user-flow validation. Starting with v1.1, development will follow the revised product requirements for owner intake, admin verification, booking accountability, and trust ranking.
+The application has completed the v0.1 foundation, v0.2 trust engine, v0.3 accountability and integration scope, and the v1.1-v1.3 requirements-alignment slices. The current focus is release QA, Firebase rules deployment, and validating the complete notification, booking, verification, and trust-score flows against the live synthetic dataset.
 
 ## Version Status
 
@@ -15,10 +15,10 @@ The application has completed the v0.1 foundation, v0.2 trust engine, and v0.3 a
 | v0.1 Foundations | Complete | Auth, listings, verification, search, admin, and the Metrobank integration are implemented. |
 | v0.2 Trust Engine | Complete | Booking lifecycle, ratings, trust scores, and no-billing completion automation are implemented and tested. |
 | v0.3 Accountability & Integration | Complete | Dispute review, public accountability flags, bank catalog safeguards, and loan estimates are implemented and validated. |
-| v1.0 Release Hardening | In progress | Route splitting, error recovery, admin review fixes, Cloudinary document handling, and booking permission fixes are implemented; manual QA remains. |
-| v1.1 Requirements Alignment | In progress | Required listing fields, validation, minimum photos, and two-document intake are implemented; showing windows, edit parity, and full admin resubmission remain. |
-| v1.2 Booking Accountability | Planned | Showing windows, strict booking state machine, deposit reference logging, completion, and dispute consequences. |
-| v1.3 Trust & Marketplace Quality | Planned | Trust ranking, fairness presentation, anti-gaming review signals, and owner dashboard improvements. |
+| v1.0 Release Hardening | Complete with QA remaining | Route splitting, error recovery, admin review fixes, Cloudinary document handling, and booking permission fixes are implemented. |
+| v1.1 Requirements Alignment | Complete | Required listing fields, validation, minimum photos, two-document intake, showing windows, edit parity, and admin resubmission are implemented. |
+| v1.2 Booking Accountability | Complete | Strict four-state booking workflow, overlap protection, deposit reference logging, completion, dispute consequences, and pending-request decline are implemented. |
+| v1.3 Trust & Marketplace Quality | Complete with release QA remaining | Fairness scoring, anti-gaming signals, owner dashboard, trust-score scraper integration, and user/admin notifications are implemented. |
 
 ## v0.1 Completed
 
@@ -121,12 +121,42 @@ Confirm that:
 
 The no-billing `complete_expired_bookings.py` job is already wired into the existing GitHub Actions workflow before trust-score recomputation.
 
+## v1.2-v1.3 Completed
+
+### Booking accountability
+
+- Enforced the MVP booking statuses `Pending`, `Confirmed`, `Completed`, and `Disputed`
+- Added owner confirmation and pending-request decline without introducing forbidden status values
+- Added deposit transaction-reference logging
+- Added renter/owner completion actions and preserved dispute eligibility
+- Updated Firestore rules for status transitions and pending-request deletion
+
+### Trust and marketplace quality
+
+- Added price-fairness scoring using same-city, same-type, within-20%-size-band comparables
+- Added `Above market`, `At market`, `Below market`, and `Insufficient data` labels
+- Added repeated self-booking detection for three completed bookings within 30 days
+- Added scraper-side `manualReviewRequired` and `selfBookingPatternCount` trust-score fields
+- Added mobile-first owner dashboard with listing, inquiry, booking, and completed-stay metrics
+- Added listing-detail trust score and price-fairness presentation
+
+### Notifications
+
+- Added `/notifications` inbox with unread counts and mark-read controls
+- Added notification bell to user and admin navigation
+- Added owner alerts for listing review decisions and new booking requests
+- Added renter alerts for booking confirmations
+- Added dispute submission alerts for admins and resolution alerts for reporters
+- Added Firestore rules for user-scoped notifications and admin broadcast notifications
+
+Notifications are in-app only. Email, SMS, and push delivery are outside the current no-billing MVP scope.
+
 ## Validation Already Passing
 
-- `node --test`: 13 tests passed
+- `node --test`: 21 tests passed
 - `npm run lint`: passed
 - `npm run build`: passed
-- `python -m unittest discover -p "test_*.py"`: 6 tests passed
+- `python -m unittest discover -s bank_scraper -p "test_*.py"`: 9 tests passed
 - Firestore rules deployment: passed
 - Live seed and trust-score recomputation: passed
 
@@ -179,24 +209,12 @@ this report, pass focused tests, and document any limitation honestly.
 - Repeated self-booking patterns require manual review
 - Owners need visibility into inquiries, bookings, and listing performance
 
-## Next Milestones: v1.1+
+## Next Milestones: Release QA
 
-### v1.1 - Listing Intake And Verification
-
-1. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
+1. Deploy the updated Firestore rules, including notification access rules, to the live Firebase project.
+2. Run the notification smoke test with a renter, owner, and admin account.
+3. Verify notification reads, booking confirmation, listing approval, and dispute resolution in the deployed build.
+4. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
+5. Finish cross-browser, mobile, and release QA.
 
 Firebase Storage is documented as a future option only if the project later moves to Blaze billing with an approved payment method. BDO and Landbank are also future catalog integrations; Metrobank remains the sole active source because it already supplies a substantial catalog.
-
-### v1.2 - Booking Accountability
-
-1. Add showing availability windows.
-2. Align booking statuses with the required state machine.
-3. Add deposit transaction reference logging.
-4. Complete booking and dispute consequences.
-
-### v1.3 - Trust And Marketplace Quality
-
-1. Improve trust-score ranking and fairness explanations.
-2. Add anti-gaming review signals.
-3. Complete owner dashboard metrics.
-4. Finish cross-browser, mobile, and release QA.
