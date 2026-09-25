@@ -85,16 +85,21 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.ownerId == request.resource.data.ownerId;
       allow update: if isAdmin()
         || (isActiveUser() && resource.data.renterId == request.auth.uid
-          && resource.data.status in ['Pending', 'Confirmed']
-          && request.resource.data.status == 'Cancelled')
+          && resource.data.status == 'Confirmed'
+          && request.resource.data.status in ['Completed', 'Disputed'])
         || (isActiveUser() && resource.data.ownerId == request.auth.uid
           && resource.data.status == 'Pending'
-          && request.resource.data.status in ['Confirmed', 'Declined', 'Cancelled'])
+          && request.resource.data.status == 'Confirmed')
+        || (isActiveUser() && resource.data.ownerId == request.auth.uid
+          && resource.data.status == 'Confirmed'
+          && request.resource.data.status == 'Completed')
         || (isActiveUser() && resource.data.renterId == request.auth.uid
-          && resource.data.status in ['Confirmed', 'Completed']
-          && request.resource.data.status == resource.data.status
+          && resource.data.status == 'Confirmed'
+          && request.resource.data.status == 'Confirmed'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['depositReference', 'updatedAt']));
-      allow delete: if false;
+      allow delete: if isActiveUser()
+        && resource.data.ownerId == request.auth.uid
+        && resource.data.status == 'Pending';
     }
 
     match /ratings/{ratingId} {

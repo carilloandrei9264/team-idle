@@ -160,6 +160,7 @@ this report, pass focused tests, and document any limitation honestly.
 - Brought edit-listing fields, validation, showing windows, photos, and both documents into parity with creation
 - Added separate admin decisions for requested changes versus permanent rejection
 - Stored review notes and exposed changes-requested status to owners before resubmission
+- Kept verification documents on Cloudinary to avoid requiring Firebase Blaze billing
 - Updated the admin review queue to display both submitted documents
 - Added listing-intake validation tests
 
@@ -182,7 +183,9 @@ this report, pass focused tests, and document any limitation honestly.
 
 ### v1.1 - Listing Intake And Verification
 
-1. Add secure document storage/delivery that does not depend on public Cloudinary raw-file delivery.
+1. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
+
+Firebase Storage is documented as a future option only if the project later moves to Blaze billing with an approved payment method. BDO and Landbank are also future catalog integrations; Metrobank remains the sole active source because it already supplies a substantial catalog.
 
 ### v1.2 - Booking Accountability
 

@@ -1,6 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { datesOverlap, hasConfirmedConflict, isValidDateRange } from "./booking.js";
+import { BOOKING_STATUSES, canTransitionBookingStatus, datesOverlap, hasConfirmedConflict, isValidDateRange } from "./booking.js";
+
+test("booking status machine contains only the required MVP statuses", () => {
+  assert.deepEqual(BOOKING_STATUSES, ["Pending", "Confirmed", "Completed", "Disputed"]);
+  assert.equal(canTransitionBookingStatus("Pending", "Confirmed"), true);
+  assert.equal(canTransitionBookingStatus("Pending", "Completed"), false);
+  assert.equal(canTransitionBookingStatus("Confirmed", "Completed"), true);
+  assert.equal(canTransitionBookingStatus("Confirmed", "Disputed"), true);
+  assert.equal(canTransitionBookingStatus("Completed", "Disputed"), true);
+  assert.equal(canTransitionBookingStatus("Disputed", "Confirmed"), false);
+});
 
 test("overlap uses half-open date intervals", () => {
   assert.equal(datesOverlap("2026-09-01", "2026-09-05", "2026-09-05", "2026-09-08"), false);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { collection, doc, getDocs, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
-import { Check, X } from "lucide-react";
+import { collection, deleteDoc, doc, getDocs, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
+import { Check } from "lucide-react";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
@@ -15,9 +15,9 @@ export default function ManageBookingRequests() {
   const [message, setMessage] = useState("");
 
   useEffect(() => onSnapshot(
-    query(collection(db, "bookings"), where("ownerId", "==", user.uid), where("status", "==", "Pending")),
+    query(collection(db, "bookings"), where("ownerId", "==", user.uid)),
     (snapshot) => {
-      setRequests(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+      setRequests(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).filter((item) => ["Pending", "Confirmed"].includes(item.status)));
       setLoading(false);
     },
     () => {
@@ -38,13 +38,24 @@ export default function ManageBookingRequests() {
         if (hasConfirmedConflict(confirmedBookings, request.startDate, request.endDate)) throw new Error("BOOKING_CONFLICT");
         await updateDoc(doc(db, "bookings", request.id), { status, updatedAt: serverTimestamp(), confirmedAt: serverTimestamp() });
         setMessage("Booking request confirmed.");
-      } else {
-        await updateDoc(doc(db, "bookings", request.id), { status, updatedAt: serverTimestamp() });
-        setMessage("Booking request declined.");
+      } else if (status === "Completed") {
+        await updateDoc(doc(db, "bookings", request.id), { status, updatedAt: serverTimestamp(), completedAt: serverTimestamp() });
+        setMessage("Booking marked as completed.");
       }
     } catch (updateError) {
       const code = updateError?.code ? ` (${updateError.code})` : "";
       setError(updateError.message === "BOOKING_CONFLICT" ? "This request overlaps an existing confirmed booking." : `${updateError.message || "The booking request could not be updated."}${code}`);
+    }
+  }
+
+  async function declineRequest(request) {
+    setError("");
+    setMessage("");
+    try {
+      await deleteDoc(doc(db, "bookings", request.id));
+      setMessage("Booking request declined.");
+    } catch (updateError) {
+      setError(updateError.message || "The booking request could not be declined.");
     }
   }
 
@@ -56,14 +67,14 @@ export default function ManageBookingRequests() {
         {error && <p className="user-page__form-error" role="alert">{error}</p>}
         {message && <p className="user-page__message" role="status">{message}</p>}
         {loading ? <p className="user-page__empty">Loading requests...</p> : requests.length === 0 ? <div className="user-page__empty"><h2>No pending requests</h2><p>New renter requests for your verified listings will appear here.</p></div> : (
-          <div className="user-page__list">{requests.map((request) => <RequestItem key={request.id} request={request} onUpdate={updateRequest} />)}</div>
+          <div className="user-page__list">{requests.map((request) => <RequestItem key={request.id} request={request} onUpdate={updateRequest} onDecline={declineRequest} />)}</div>
         )}
       </main>
     </div>
   );
 }
 
-function RequestItem({ request, onUpdate }) {
+function RequestItem({ request, onUpdate, onDecline }) {
   const [saving, setSaving] = useState(false);
   async function update(status) {
     setSaving(true);
@@ -73,7 +84,7 @@ function RequestItem({ request, onUpdate }) {
   return (
     <article className="user-page__item booking-item">
       <div className="user-page__item-link"><h2>{request.listingTitle || "Listing"}</h2><p>{formatDate(request.startDate)} to {formatDate(request.endDate)}</p><p>Renter: {request.renterId}</p></div>
-      <div className="booking-item__actions"><button type="button" className="btn btn--primary" onClick={() => update("Confirmed")} disabled={saving}><Check size={15} aria-hidden="true" /> Confirm</button><button type="button" className="btn btn--secondary" onClick={() => update("Cancelled")} disabled={saving}><X size={15} aria-hidden="true" /> Decline</button></div>
+      <div className="booking-item__actions">{request.status === "Pending" && <><button type="button" className="btn btn--primary" onClick={() => update("Confirmed")} disabled={saving}><Check size={15} aria-hidden="true" /> Confirm</button><button type="button" className="btn btn--danger" onClick={() => onDecline(request)} disabled={saving}>Decline</button></>}{request.status === "Confirmed" && <button type="button" className="btn btn--primary" onClick={() => update("Completed")} disabled={saving}><Check size={15} aria-hidden="true" /> Mark completed</button>}</div>
     </article>
   );
 }

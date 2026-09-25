@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, doc, getDocs, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
@@ -44,14 +44,24 @@ export default function BookingRequests() {
         return;
       }
 
-      await updateDoc(doc(db, "bookings", request.id), {
-        status,
-        updatedAt: serverTimestamp(),
-      });
-      setMessage("Booking request declined.");
+      setMessage("This request is waiting for confirmation.");
     } catch (decisionError) {
       const code = decisionError?.code ? ` (${decisionError.code})` : "";
       setError(`${decisionError.message || "The booking request could not be updated."}${code}`);
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function decline(request) {
+    setSavingId(request.id);
+    setError("");
+    setMessage("");
+    try {
+      await deleteDoc(doc(db, "bookings", request.id));
+      setMessage("Booking request declined.");
+    } catch (decisionError) {
+      setError(`${decisionError.message || "The booking request could not be declined."}`);
     } finally {
       setSavingId(null);
     }
@@ -85,7 +95,7 @@ export default function BookingRequests() {
                   <span className={`badge badge--${statusTone(request.status)}`}>{request.status}</span>
                   {request.status === "Pending" && <>
                     <button type="button" className="btn btn--primary" onClick={() => decide(request, "Confirmed")} disabled={savingId === request.id}>Approve</button>
-                    <button type="button" className="btn btn--danger" onClick={() => decide(request, "Declined")} disabled={savingId === request.id}>Decline</button>
+                    <button type="button" className="btn btn--danger" onClick={() => decline(request)} disabled={savingId === request.id}>Decline</button>
                   </>}
                 </div>
               </article>
@@ -98,4 +108,4 @@ export default function BookingRequests() {
 }
 
 function sortByCreatedAt(a, b) { return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0); }
-function statusTone(status) { return status === "Confirmed" || status === "Completed" ? "verified" : status === "Declined" || status === "Cancelled" ? "danger" : "pending"; }
+function statusTone(status) { return status === "Confirmed" || status === "Completed" ? "verified" : status === "Disputed" ? "danger" : "pending"; }

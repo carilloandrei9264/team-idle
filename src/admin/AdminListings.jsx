@@ -238,9 +238,9 @@ function DocumentPreview({ url, title, label = "Uploaded document" }) {
     <div className="review-card__document">
       <p className="review-card__label">{label}</p>
       {isPdf ? (
-        <iframe className="review-card__pdf" src={url} title={`Ownership document for ${title || "listing"}`} />
+        <iframe className="review-card__pdf" src={url} title={`${label} for ${title || "listing"}`} />
       ) : (
-        <img className="review-card__doc" src={url} alt={`Ownership/ID document uploaded for ${title || "this listing"}`} />
+        <img className="review-card__doc" src={url} alt={`${label} uploaded for ${title || "this listing"}`} />
       )}
       <a className="review-card__document-link" href={url} target="_blank" rel="noreferrer">Open uploaded document</a>
     </div>
