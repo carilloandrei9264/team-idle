@@ -9,6 +9,7 @@ const Login = lazy(() => import("./pages/Login"));
 const Home = lazy(() => import("./pages/Home"));
 const Browse = lazy(() => import("./pages/Browse"));
 const MyListings = lazy(() => import("./pages/MyListings"));
+const MyDashboard = lazy(() => import("./pages/MyDashboard"));
 const Account = lazy(() => import("./pages/Account"));
 const BankCatalog = lazy(() => import("./pages/BankCatalog"));
 const CreateListing = lazy(() => import("./pages/CreateListing"));
@@ -48,6 +49,7 @@ function AppRoutes() {
         <Route path="/bank-catalog" element={<BankCatalog />} />
         <Route path="/login" element={<Login />} />
         <Route path="/my-listings" element={<RequireAuth><MyListings /></RequireAuth>} />
+        <Route path="/dashboard" element={<RequireAuth><MyDashboard /></RequireAuth>} />
         <Route path="/listings/new" element={<RequireAuth><CreateListing /></RequireAuth>} />
         <Route path="/listings/:listingId" element={<ListingDetail />} />
         <Route path="/listings/:listingId/edit" element={<RequireAuth><EditListing /></RequireAuth>} />
