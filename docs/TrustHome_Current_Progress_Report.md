@@ -1,12 +1,14 @@
 # TrustHome PH - Current Progress Report
 
 **Snapshot date:** 2026-09-25
-**Branch:** `features/v1-3-notifications`
-**Status:** v1.3 marketplace-quality and notification implementation complete; release QA and Firebase deployment remain
+**Branch:** `features/frontend-updated-integrated`
+**Status:** Updated frontend design integrated with v1.3 notifications/dashboard; release QA and Firebase deployment remain
 
 ## Executive Summary
 
 The application has completed the v0.1 foundation, v0.2 trust engine, v0.3 accountability and integration scope, and the v1.1-v1.3 requirements-alignment slices. The current focus is release QA, Firebase rules deployment, and validating the complete notification, booking, verification, and trust-score flows against the live synthetic dataset.
+
+The `frontend-updated` branch has been integrated into this branch. Its refreshed home, catalog, navigation, and responsive styling are preserved alongside the owner dashboard and notification flows.
 
 ## Version Status
 
@@ -150,6 +152,26 @@ The no-billing `complete_expired_bookings.py` job is already wired into the exis
 - Added Firestore rules for user-scoped notifications and admin broadcast notifications
 
 Notifications are in-app only. Email, SMS, and push delivery are outside the current no-billing MVP scope.
+
+## Backend Readiness Assessment
+
+### Implemented
+
+- Firebase Authentication and Firestore persistence for users, listings, bookings, ratings, disputes, trust scores, bank properties, saved searches, and notifications
+- Cloudinary upload flow for listing photos and verification documents
+- Firestore access rules for verified listing visibility, booking ownership, ratings, disputes, admin queues, trust scores, and notifications
+- Python `firebase-admin` scraper writes and deterministic bank-property upserts
+- GitHub Actions automation for scraping, expired-booking completion, and trust-score recomputation without Cloud Functions billing
+- Booking overlap checks, trust-score calculations, fairness labels, anti-gaming signals, and notification event writes
+
+### Still required before calling the backend release-ready
+
+- Deploy the latest `firestore.rules`; the notification rules are currently only in the repository
+- Run live security tests for direct Firestore writes, especially booking confirmation, notification creation, dispute resolution, and private document access
+- Run the renter-owner-admin notification smoke test against the deployed project
+- Keep the GitHub Actions secret and service-account handling verified; the current automation depends on that workflow rather than deployed Cloud Functions
+- Treat notification delivery as best effort: the main booking, dispute, or review action remains successful if creating its notification fails
+- Confirm the client-side overlap check and Firestore rules together against malicious/direct writes; the current no-billing architecture keeps overlap computation in application code rather than a server transaction
 
 ## Validation Already Passing
 
