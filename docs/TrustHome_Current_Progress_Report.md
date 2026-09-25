@@ -1,12 +1,14 @@
 # TrustHome PH - Current Progress Report
 
 **Snapshot date:** 2026-09-25
-**Branch:** `features/v1-3-notifications`
-**Status:** v1.3 marketplace-quality and notification implementation complete; release QA and Firebase deployment remain
+**Branch:** `features/frontend-updated-integrated`
+**Status:** Updated frontend design integrated with v1.3 notifications/dashboard; release QA and Firebase deployment remain
 
 ## Executive Summary
 
 The application has completed the v0.1 foundation, v0.2 trust engine, v0.3 accountability and integration scope, and the v1.1-v1.3 requirements-alignment slices. The current focus is release QA, Firebase rules deployment, and validating the complete notification, booking, verification, and trust-score flows against the live synthetic dataset.
+
+The `frontend-updated` branch has been integrated into this branch. Its refreshed home, catalog, navigation, and responsive styling are preserved alongside the owner dashboard and notification flows.
 
 ## Version Status
 
