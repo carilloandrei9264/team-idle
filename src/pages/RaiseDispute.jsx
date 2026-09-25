@@ -6,6 +6,7 @@ import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { hasOpenDisputeForBooking, isDisputableBookingStatus, isValidDisputeReason, normalizeDisputeReason } from "../lib/dispute";
+import { ADMIN_NOTIFICATION_RECIPIENT, createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./UserPages.css";
 
 export default function RaiseDispute() {
@@ -52,7 +53,7 @@ export default function RaiseDispute() {
     setSaving(true);
     setError("");
     try {
-      await addDoc(collection(db, "disputes"), {
+      const disputeRef = await addDoc(collection(db, "disputes"), {
         bookingId,
         bookingTitle: booking.listingTitle,
         ownerId: booking.ownerId,
@@ -62,6 +63,20 @@ export default function RaiseDispute() {
         status: "Open",
         createdAt: serverTimestamp(),
       });
+      try {
+        await createNotification(db, {
+          recipientId: ADMIN_NOTIFICATION_RECIPIENT,
+          createdBy: user.uid,
+          type: NOTIFICATION_TYPES.DISPUTE_UPDATE,
+          title: "New dispute submitted",
+          message: `${user.displayName || user.email} submitted a dispute for ${booking.listingTitle || "a booking"}.`,
+          link: "/admin/disputes",
+          entityId: disputeRef.id,
+          entityType: "booking",
+        });
+      } catch {
+        // The dispute remains submitted if notification delivery is unavailable.
+      }
       navigate("/my-bookings", { replace: true });
     } catch { setError("Your dispute could not be submitted."); } finally { setSaving(false); }
   }

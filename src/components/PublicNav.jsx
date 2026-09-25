@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { ChevronDown, LogOut, Menu, Moon, Sun, X } from "lucide-react";
 import { useAuth } from "../context/useAuth";
 import { useTheme } from "../context/useTheme";
+import NotificationBell from "./NotificationBell";
 import "./PublicNav.css";
 
 const LINKS = [
@@ -124,6 +125,7 @@ export default function PublicNav() {
           {/* Auth */}
           {user ? (
             <>
+              <NotificationBell />
               <Link to="/my-listings" className="btn btn--secondary public-nav__cta">
                 My Listings
               </Link>

@@ -3,11 +3,12 @@ import {
   collection,
   onSnapshot,
   doc,
-  updateDoc,
   serverTimestamp,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
+import { NOTIFICATION_TYPES } from "../lib/notifications";
 import { Check, X, Image as ImageIcon } from "lucide-react";
 import "./AdminListings.css";
 
@@ -50,11 +51,25 @@ export default function AdminListings() {
     setError("");
     setMessage("");
     try {
-      await updateDoc(doc(db, "listings", selected.id), {
+      const batch = writeBatch(db);
+      batch.update(doc(db, "listings", selected.id), {
         verificationStatus: "verified",
         verifiedAt: serverTimestamp(),
         verifiedBy: user?.uid ?? null,
       });
+      batch.set(doc(collection(db, "notifications")), {
+        recipientId: selected.ownerId,
+        createdBy: user?.uid ?? null,
+        type: NOTIFICATION_TYPES.LISTING_REVIEW,
+        title: "Listing approved",
+        message: `${selected.title || "Your listing"} is now verified and visible in search.`,
+        link: "/my-listings",
+        entityId: selected.id,
+        entityType: "listing",
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+      await batch.commit();
       setPending((current) => current.filter((listing) => listing.id !== selected.id));
       setMessage("Listing approved and removed from the pending review queue.");
     } catch {
@@ -70,7 +85,8 @@ export default function AdminListings() {
     setError("");
     setMessage("");
     try {
-      await updateDoc(doc(db, "listings", selected.id), {
+      const batch = writeBatch(db);
+      batch.update(doc(db, "listings", selected.id), {
         verificationStatus: "rejected",
         rejectionReason: rejectReason.trim() || "No reason given",
         reviewDecision: decision,
@@ -78,6 +94,19 @@ export default function AdminListings() {
         verifiedAt: serverTimestamp(),
         verifiedBy: user?.uid ?? null,
       });
+      batch.set(doc(collection(db, "notifications")), {
+        recipientId: selected.ownerId,
+        createdBy: user?.uid ?? null,
+        type: NOTIFICATION_TYPES.LISTING_REVIEW,
+        title: decision === "changes_requested" ? "Changes requested for your listing" : "Listing review update",
+        message: `${selected.title || "Your listing"}: ${rejectReason.trim() || "No reason given"}`,
+        link: "/my-listings",
+        entityId: selected.id,
+        entityType: "listing",
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+      await batch.commit();
       setPending((current) => current.filter((listing) => listing.id !== selected.id));
       setRejectReason("");
       setShowDecisionForm(false);

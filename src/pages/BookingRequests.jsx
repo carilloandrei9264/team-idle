@@ -4,6 +4,7 @@ import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { bookingDatesOverlap, formatBookingDate } from "../lib/booking";
+import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./UserPages.css";
 
 export default function BookingRequests() {
@@ -40,6 +41,20 @@ export default function BookingRequests() {
           updatedAt: serverTimestamp(),
           confirmedAt: serverTimestamp(),
         });
+        try {
+          await createNotification(db, {
+            recipientId: request.renterId,
+            createdBy: user.uid,
+            type: NOTIFICATION_TYPES.BOOKING_UPDATE,
+            title: "Booking request confirmed",
+            message: `${request.listingTitle || "Your booking"} has been confirmed by the owner.`,
+            link: "/my-bookings",
+            entityId: request.id,
+            entityType: "booking",
+          });
+        } catch {
+          // The booking update remains valid if notification delivery is unavailable.
+        }
         setMessage("Booking request confirmed.");
         return;
       }

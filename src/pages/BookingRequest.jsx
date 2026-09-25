@@ -7,6 +7,7 @@ import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { dateInputToTimestamp, dateInputValue, dateRangeIsValid } from "../lib/booking";
 import { formatCurrency } from "../lib/number";
+import { ADMIN_NOTIFICATION_RECIPIENT, createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./UserPages.css";
 
 export default function BookingRequest() {
@@ -45,7 +46,7 @@ export default function BookingRequest() {
     setSubmitting(true);
     setError("");
     try {
-      await addDoc(collection(db, "bookings"), {
+      const bookingRef = await addDoc(collection(db, "bookings"), {
         listingId,
         listingTitle: listing.title || "Untitled listing",
         listingPhotoUrl: listing.photoUrls?.[0] || null,
@@ -61,6 +62,30 @@ export default function BookingRequest() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      try {
+        await createNotification(db, {
+          recipientId: listing.ownerId,
+          createdBy: user.uid,
+          type: NOTIFICATION_TYPES.BOOKING_REQUEST,
+          title: "New booking request",
+          message: `${profile?.name || user.displayName || user.email} requested ${listing.title || "your listing"}.`,
+          link: "/booking-requests",
+          entityId: bookingRef.id,
+          entityType: "booking",
+        });
+        await createNotification(db, {
+          recipientId: ADMIN_NOTIFICATION_RECIPIENT,
+          createdBy: user.uid,
+          type: NOTIFICATION_TYPES.BOOKING_REQUEST,
+          title: "New booking request",
+          message: `${profile?.name || user.displayName || user.email} requested ${listing.title || "a listing"}.`,
+          link: "/admin",
+          entityId: bookingRef.id,
+          entityType: "booking",
+        });
+      } catch {
+        // The booking remains valid if notification delivery is temporarily unavailable.
+      }
       navigate("/my-bookings", { replace: true });
     } catch (submitError) {
       setError(submitError.message || "Your booking request could not be submitted.");

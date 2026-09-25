@@ -159,6 +159,31 @@ service cloud.firestore {
         && request.resource.data.userId == resource.data.userId;
     }
 
+    match /notifications/{notificationId} {
+      allow read, update: if isActiveUser()
+        && (resource.data.recipientId == request.auth.uid || isAdmin());
+      allow create: if isActiveUser()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.recipientId is string
+        && request.resource.data.title is string
+        && request.resource.data.message is string
+        && request.resource.data.read == false
+        && (isAdmin()
+          || request.resource.data.recipientId == request.auth.uid
+          || (request.resource.data.entityType == 'booking'
+            && request.resource.data.entityId is string
+            && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.renterId == request.auth.uid
+            && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.ownerId == request.resource.data.recipientId)
+          || (request.resource.data.entityType == 'booking'
+            && request.resource.data.entityId is string
+            && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.ownerId == request.auth.uid
+            && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.renterId == request.resource.data.recipientId)
+          || (request.resource.data.recipientId == '__admins__'
+            && request.resource.data.type in ['booking_request', 'dispute_update']));
+      allow delete: if isActiveUser()
+        && (resource.data.recipientId == request.auth.uid || isAdmin());
+    }
+
     // Trust scores are public display data; only admins/functions should write.
     match /trustScores/{scoreId} {
       allow read: if true;

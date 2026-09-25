@@ -3,6 +3,7 @@ import { collection, doc, increment, onSnapshot, serverTimestamp, writeBatch } f
 import { Check, X } from "lucide-react";
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
+import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./AdminData.css";
 
 export default function AdminDisputes() {
@@ -55,6 +56,22 @@ export default function AdminDisputes() {
         }, { merge: true });
       }
       await batch.commit();
+      try {
+        await createNotification(db, {
+          recipientId: selected.raisedBy,
+          createdBy: user?.uid,
+          type: NOTIFICATION_TYPES.DISPUTE_UPDATE,
+          title: status === "Founded" ? "Dispute founded" : "Dispute dismissed",
+          message: status === "Founded"
+            ? "Your report was founded. The responsible account has been flagged."
+            : "Your report was reviewed and dismissed by the TrustHome team.",
+          link: "/my-bookings",
+          entityId: selected.bookingId,
+          entityType: "booking",
+        });
+      } catch {
+        // The dispute resolution remains valid if notification delivery is unavailable.
+      }
       setResolutionNotes("");
     } catch {
       setError("The dispute could not be updated. Please try again.");
