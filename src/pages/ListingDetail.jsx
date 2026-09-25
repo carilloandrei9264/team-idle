@@ -15,6 +15,7 @@ export default function ListingDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [ratings, setRatings] = useState([]);
+  const [trustScore, setTrustScore] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -22,9 +23,16 @@ export default function ListingDetail() {
       if (!active) return;
       if (snapshot.exists()) {
         setListing({ id: snapshot.id, ...snapshot.data() });
-        getDocs(query(collection(db, "ratings"), where("listingId", "==", listingId)))
-          .then((ratingsSnapshot) => setRatings(ratingsSnapshot.docs.map((item) => item.data())))
-          .catch(() => setRatings([]));
+        Promise.all([
+          getDocs(query(collection(db, "ratings"), where("listingId", "==", listingId))),
+          getDoc(doc(db, "trustScores", listingId)),
+        ]).then(([ratingsSnapshot, trustScoreSnapshot]) => {
+          setRatings(ratingsSnapshot.docs.map((item) => item.data()));
+          setTrustScore(trustScoreSnapshot.exists() ? trustScoreSnapshot.data() : null);
+        }).catch(() => {
+          setRatings([]);
+          setTrustScore(null);
+        });
       }
       else setError("This listing could not be found.");
       setLoading(false);
@@ -64,6 +72,10 @@ export default function ListingDetail() {
                 {isOwner && <Link to={`/listings/${listing.id}/edit`} className="btn btn--secondary"><Pencil size={15} aria-hidden="true" /> Edit</Link>}
               </div>
               <p className="listing-detail__price">{formatCurrency(listing.price)} <span>/{listing.pricePeriod || "month"}</span></p>
+              <div className="listing-detail__facts" aria-label="Trust and fairness summary">
+                <span>Trust score <strong>{trustScore ? `${(Number(trustScore.score) * 5).toFixed(1)} / 5` : "Building history"}</strong></span>
+                <span>Price fairness <strong>{trustScore?.priceFairnessLabel || "Insufficient data"}</strong></span>
+              </div>
               <p className="listing-detail__description">{listing.description || "No description provided."}</p>
               {listing.verificationStatus === "rejected" && listing.rejectionReason && (
                 <div className="listing-detail__rejection" role="alert">
