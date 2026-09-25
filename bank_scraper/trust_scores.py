@@ -14,6 +14,8 @@ except ImportError:
 
 WEIGHTS = {"booking": 0.4, "rating": 0.4, "fairness": 0.2}
 BATCH_SIZE = 450
+SELF_BOOKING_THRESHOLD = 3
+SELF_BOOKING_WINDOW_DAYS = 30
 
 
 def recompute_trust_scores():
@@ -22,10 +24,16 @@ def recompute_trust_scores():
         {"id": item.id, **item.to_dict()}
         for item in db.collection("listings").where("verificationStatus", "==", "verified").stream()
     ]
-    completed = [item.to_dict() for item in db.collection("bookings").where("status", "==", "Completed").stream()]
+    completed = [{"id": item.id, **item.to_dict()} for item in db.collection("bookings").where("status", "==", "Completed").stream()]
     ratings = [item.to_dict() for item in db.collection("ratings").stream()]
     completed_by_listing = group_by(completed, "listingId")
     ratings_by_listing = group_by(ratings, "listingId")
+    self_booking_patterns = detect_self_booking_patterns(completed)
+    flagged_booking_ids = {
+        booking_id
+        for pattern in self_booking_patterns
+        for booking_id in pattern["booking_ids"]
+    }
     now = datetime.now(timezone.utc)
     writes = []
 
@@ -51,6 +59,11 @@ def recompute_trust_scores():
             "completedBookingsCount": len(listing_bookings),
             "avgRating": average_rating,
             "priceFairnessLabel": fairness_label,
+            "manualReviewRequired": any(item.get("id") in flagged_booking_ids for item in listing_bookings),
+            "selfBookingPatternCount": sum(
+                1 for pattern in self_booking_patterns
+                if any(item.get("id") in pattern["booking_ids"] for item in listing_bookings)
+            ),
             "computedAt": now,
         }))
 
@@ -67,7 +80,7 @@ def calculate_fairness(listing, listings):
     listing_area = float(listing.get("floorArea") or 0)
     listing_price = float(listing.get("price") or 0)
     if listing_area <= 0 or listing_price <= 0:
-        return 0.5, "Not enough data"
+        return 0, "Insufficient data"
 
     comparable_prices = []
     for candidate in listings:
@@ -81,7 +94,7 @@ def calculate_fairness(listing, listings):
             comparable_prices.append(candidate_price / candidate_area)
 
     if not comparable_prices:
-        return 0.5, "Not enough data"
+        return 0, "Insufficient data"
 
     comparable_prices.sort()
     median = comparable_prices[len(comparable_prices) // 2]
@@ -99,6 +112,45 @@ def booking_weight(booking, now):
         return 0
     months_ago = (now.timestamp() - end_date.timestamp()) / (60 * 60 * 24 * 30)
     return 1 if months_ago <= 6 else 0.5
+
+
+def detect_self_booking_patterns(bookings, threshold=SELF_BOOKING_THRESHOLD, window_days=SELF_BOOKING_WINDOW_DAYS):
+    grouped = {}
+    for booking in bookings:
+        if booking.get("status") != "Completed" or not booking.get("renterId") or not booking.get("ownerId"):
+            continue
+        booking_date = as_datetime(booking.get("endDate") or booking.get("createdAt"))
+        if booking_date is None:
+            continue
+        key = (booking["renterId"], booking["ownerId"])
+        grouped.setdefault(key, []).append((booking, booking_date))
+
+    patterns = []
+    window = window_days * 24 * 60 * 60
+    for key, entries in grouped.items():
+        entries.sort(key=lambda item: item[1])
+        largest_window = []
+        for index, (_, start) in enumerate(entries):
+            candidate = [item for item in entries[index:] if (item[1] - start).total_seconds() <= window]
+            if len(candidate) > len(largest_window):
+                largest_window = candidate
+        if len(largest_window) >= threshold:
+            patterns.append({
+                "key": f"{key[0]}:{key[1]}",
+                "booking_ids": [booking.get("id") for booking, _ in largest_window if booking.get("id")],
+                "count": len(largest_window),
+            })
+    return patterns
+
+
+def as_datetime(value):
+    if isinstance(value, datetime):
+        return value
+    if hasattr(value, "to_datetime"):
+        return value.to_datetime()
+    if hasattr(value, "timestamp"):
+        return datetime.fromtimestamp(value.timestamp(), timezone.utc)
+    return None
 
 
 def group_by(items, key):
