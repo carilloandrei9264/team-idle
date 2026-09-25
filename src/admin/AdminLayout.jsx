@@ -10,6 +10,7 @@ import {
   Landmark,
 } from "lucide-react";
 import { useAuth } from "../context/useAuth";
+import NotificationBell from "../components/NotificationBell";
 import "./AdminLayout.css";
 
 const NAV_ITEMS = [
@@ -90,6 +91,7 @@ export default function AdminLayout({ adminName = "Admin" }) {
 
       <div className="admin-main">
         <header className="admin-topbar">
+          <NotificationBell className="admin-topbar__notifications" />
           <div className="admin-profile" ref={profileMenuRef}>
             <button
               type="button"

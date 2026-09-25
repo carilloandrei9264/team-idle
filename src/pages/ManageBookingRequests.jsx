@@ -5,6 +5,7 @@ import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { hasConfirmedConflict, toDate } from "../lib/booking";
+import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./UserPages.css";
 
 export default function ManageBookingRequests() {
@@ -37,6 +38,20 @@ export default function ManageBookingRequests() {
           .map((item) => item.data());
         if (hasConfirmedConflict(confirmedBookings, request.startDate, request.endDate)) throw new Error("BOOKING_CONFLICT");
         await updateDoc(doc(db, "bookings", request.id), { status, updatedAt: serverTimestamp(), confirmedAt: serverTimestamp() });
+        try {
+          await createNotification(db, {
+            recipientId: request.renterId,
+            createdBy: user.uid,
+            type: NOTIFICATION_TYPES.BOOKING_UPDATE,
+            title: "Booking request confirmed",
+            message: `${request.listingTitle || "Your booking"} has been confirmed by the owner.`,
+            link: "/my-bookings",
+            entityId: request.id,
+            entityType: "booking",
+          });
+        } catch {
+          // The booking update remains valid if notification delivery is unavailable.
+        }
         setMessage("Booking request confirmed.");
       } else if (status === "Completed") {
         await updateDoc(doc(db, "bookings", request.id), { status, updatedAt: serverTimestamp(), completedAt: serverTimestamp() });

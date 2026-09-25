@@ -107,6 +107,21 @@ html.dark .public-nav--scrolled {
   gap: var(--space-2);
 }
 
+.notification-bell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--color-neutral-600);
+  border-radius: var(--radius-pill);
+}
+
+.notification-bell:hover,
+.notification-bell:focus-visible { color: var(--color-primary); background: var(--color-primary-light); }
+.notification-bell__count { position: absolute; top: 2px; right: 0; min-width: 18px; height: 18px; padding: 0 4px; border-radius: var(--radius-pill); color: var(--color-white); background: var(--color-danger); font-size: 10px; font-weight: 700; line-height: 18px; text-align: center; }
+.admin-topbar__notifications { margin-right: var(--space-3); }
+
 /* ── Theme toggle — icon animates on swap ── */
 .public-nav__theme-toggle {
   display: inline-flex;
