@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { Clipboard, ClipboardCheck, MapPin, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  collection, getCountFromServer, getDocs, limit, orderBy, query, startAfter, where,
+} from "firebase/firestore";
+import { ChevronLeft, ChevronRight, Clipboard, ClipboardCheck, MapPin, SlidersHorizontal, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PublicNav from "../components/PublicNav";
@@ -9,6 +11,26 @@ import { formatCurrency, numericValue } from "../lib/number";
 import { BANK_LABELS, CURRENT_BANKS } from "../lib/bankCatalog";
 import "./UserPages.css";
 import "./BankCatalog.css";
+
+const PAGE_SIZE = 12;
+
+// Budget slider range. Dragging the top thumb all the way to the end means
+// "no upper limit" (mirrors how the numeric Max field being empty behaves).
+const SLIDER_MAX = 50_000_000;
+const SLIDER_STEP = 100_000;
+
+function formatCompactPrice(value) {
+  if (value >= SLIDER_MAX) return "₱50M+";
+  if (!value) return "₱0";
+  return `₱${new Intl.NumberFormat("en-PH", { notation: "compact", maximumFractionDigits: 1 }).format(value)}`;
+}
+
+// Firestore has no "contains" query, so the scraper stores lowercase word prefixes
+// in `searchKeywords`. We search on the longest word (3+ letters) the visitor typed.
+function searchWord(text) {
+  const words = String(text || "").toLowerCase().match(/[a-z0-9ñ]{3,}/g) || [];
+  return words.sort((a, b) => b.length - a.length)[0] || "";
+}
 
 // ── Framer Motion variants ────────────────────────────────────────────────────
 
@@ -208,6 +230,8 @@ const BankPropertyCard = ({ property, onKeyNav }) => {
             alt={property.title || "Bank-acquired property"}
             className="bp-card__image"
             loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
             onError={() => setImgError(true)}
           />
         ) : (
@@ -221,6 +245,14 @@ const BankPropertyCard = ({ property, onKeyNav }) => {
       {/* ── Body ── */}
       <div className="bp-card__body">
         <h2 className="bp-card__title">{property.title || "Untitled bank property"}</h2>
+
+        {(property.floorArea || property.lotArea) && (
+          <div className="bp-card__stats">
+            {property.floorArea && <span>{property.floorArea} floor area</span>}
+            {property.floorArea && property.lotArea && <span aria-hidden="true">·</span>}
+            {property.lotArea && <span>{property.lotArea} lot area</span>}
+          </div>
+        )}
 
         {/* Address — flex-1 so it pushes footer to bottom; line-clamp-3 */}
         <div className="bp-card__location-row">
@@ -286,43 +318,115 @@ function BackToTop() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function BankCatalog() {
-  const [properties, setProperties] = useState([]);
   const [bank, setBank]             = useState("");
   const [city, setCity]             = useState("");
   const [maxPrice, setMaxPrice]     = useState("");
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState("");
   const gridRef = useRef(null);
   const location = useLocation();
 
-  useEffect(() => onSnapshot(
-    query(collection(db, "bankProperties"), where("status", "==", "active")),
-    (snapshot) => {
-      setProperties(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-      setError("");
-    },
-    () => {
-      setLoading(false);
-      setError("The bank property catalog could not be loaded. Please try again later.");
-    }
-  ), []);
+  // Filters are debounced so typing doesn't fire a query per keystroke
+  const [minPrice, setMinPrice] = useState("");
+  const sliderMin = numericValue(minPrice, 0);
+  const sliderMax = maxPrice ? numericValue(maxPrice, SLIDER_MAX) : SLIDER_MAX;
+  const [sort, setSort] = useState("price-asc");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [cityTerm, setCityTerm] = useState("");
+  const [minTerm, setMinTerm] = useState("");
+  const [maxTerm, setMaxTerm] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => { setCityTerm(city); setMinTerm(minPrice); setMaxTerm(maxPrice); }, 400);
+    return () => clearTimeout(t);
+  }, [city, minPrice, maxPrice]);
 
-  const results = useMemo(() => properties.filter((p) => {
-    if (String(p.status || "active").toLowerCase() !== "active") return false;
-    if (bank && String(p.bank || "").toLowerCase() !== bank) return false;
-    if (city.trim() && !String(p.location || "").toLowerCase().includes(city.trim().toLowerCase())) return false;
-    if (maxPrice && numericValue(p.price) > numericValue(maxPrice)) return false;
-    return true;
-  }), [bank, city, maxPrice, properties]);
+  // Mobile filter drawer: lock page scroll, close on Escape or when resized to desktop
+  useEffect(() => {
+    if (!filtersOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const mq = window.matchMedia("(min-width: 900px)");
+    const onKey = (e) => { if (e.key === "Escape") setFiltersOpen(false); };
+    const onResize = () => { if (mq.matches) setFiltersOpen(false); };
+    document.addEventListener("keydown", onKey);
+    mq.addEventListener("change", onResize);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
+      mq.removeEventListener("change", onResize);
+    };
+  }, [filtersOpen]);
 
-  const isFiltered = Boolean(bank || city.trim() || maxPrice);
-  const animationKey = `${bank}-${city}-${maxPrice}`;
+  const cityWord = searchWord(cityTerm);
+  const minLimit = numericValue(minTerm, 0); // 0 = no limit
+  const maxLimit = numericValue(maxTerm, 0);
+  const filterKey = `${bank}|${cityWord}|${minLimit}|${maxLimit}|${sort}`;
+
+  // Cursor pagination: Firestore can't jump to page N, so we remember the last
+  // document of every page we've visited and start the next query after it.
+  const [pageState, setPageState] = useState({ key: filterKey, page: 0 });
+  const page = pageState.key === filterKey ? pageState.page : 0;
+  const requestKey = `${filterKey}#${page}`;
+  const cursors = useRef({ key: filterKey, docs: [] });
+  const [result, setResult] = useState({ key: "", items: [], total: 0, error: "" });
+  const loading = result.key !== requestKey;
+
+  useEffect(() => {
+    if (cursors.current.key !== filterKey) cursors.current = { key: filterKey, docs: [] };
+    let cancelled = false;
+    const base = [
+      where("status", "==", "active"),
+      ...(bank ? [where("bank", "==", bank)] : []),
+      ...(cityWord ? [where("searchKeywords", "array-contains", cityWord)] : []),
+      minLimit ? where("price", ">=", minLimit) : where("price", ">", 0),
+      ...(maxLimit ? [where("price", "<=", maxLimit)] : []),
+    ];
+    const col = collection(db, "bankProperties");
+    const after = cursors.current.docs[page - 1];
+
+    Promise.all([
+      getDocs(query(col, ...base, orderBy("price", sort === "price-desc" ? "desc" : "asc"), ...(after ? [startAfter(after)] : []), limit(PAGE_SIZE))),
+      page === 0 ? getCountFromServer(query(col, ...base)) : null,
+    ])
+      .then(([snap, count]) => {
+        if (cancelled) return;
+        cursors.current.docs[page] = snap.docs[snap.docs.length - 1];
+        setResult((prev) => ({
+          key: requestKey,
+          items: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+          total: count ? count.data().count : prev.total,
+          error: "",
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setResult({ key: requestKey, items: [], total: 0, error: "The bank property catalog could not be loaded. Please try again later." });
+        }
+      });
+    return () => { cancelled = true; };
+  }, [bank, cityWord, minLimit, maxLimit, sort, page, filterKey, requestKey]);
+
+  const results = result.items;
+  const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
+
+  function goToPage(next) {
+    setPageState({ key: filterKey, page: next });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const isFiltered = Boolean(bank || cityWord || minLimit || maxLimit);
+
+  // Active-filter chips (built from the raw inputs so they react instantly)
+  const budgetLabel = minPrice && maxPrice
+    ? `${formatCurrency(minPrice)} – ${formatCurrency(maxPrice)}`
+    : minPrice ? `From ${formatCurrency(minPrice)}` : `Up to ${formatCurrency(maxPrice)}`;
+  const chips = [
+    bank && { label: BANK_LABELS[bank] || bank, clear: () => setBank("") },
+    city.trim() && { label: `Location: ${city.trim()}`, clear: () => setCity("") },
+    (minPrice || maxPrice) && { label: budgetLabel, clear: () => { setMinPrice(""); setMaxPrice(""); } },
+  ].filter(Boolean);
 
   function clearFilters() {
-    setBank("");
-    setCity("");
-    setMaxPrice("");
+    setBank(""); setCity(""); setMinPrice(""); setMaxPrice("");
+    setCityTerm(""); setMinTerm(""); setMaxTerm("");
   }
 
   // ── Keyboard navigation: arrow keys move focus between cards ──────────────
@@ -366,95 +470,185 @@ export default function BankCatalog() {
           with the original bank listing before making a decision.
         </p>
 
-        {/* ── Filters ── */}
-        <section className="bank-catalog__filters" aria-label="Filter bank properties">
-          <div className="field">
-            <label className="field__label" htmlFor="bank-filter">Bank</label>
-            <select
-              id="bank-filter"
-              className="field__input"
-              value={bank}
-              onChange={(e) => setBank(e.target.value)}
-            >
-              <option value="">All banks</option>
-              {CURRENT_BANKS.map((name) => (
-                <option key={name} value={name}>{BANK_LABELS[name]}</option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label className="field__label" htmlFor="bank-city-filter">City or location</label>
-            <input
-              id="bank-city-filter"
-              className="field__input"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="e.g. Laguna"
-            />
-          </div>
-          <div className="field">
-            <label className="field__label" htmlFor="bank-price-filter">Maximum price</label>
-            <input
-              id="bank-price-filter"
-              className="field__input"
-              type="number"
-              min="0"
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value)}
-              placeholder="No limit"
-            />
-          </div>
-        </section>
-
         <p className="bank-catalog__note">
           Currently showing Metrobank listings — more banks coming soon
         </p>
 
-        {/* ── Content area ── */}
-        {loading ? (
-          // Loading skeleton — 3 pulsing placeholder cards
-          <div className="bank-catalog__grid" aria-busy="true" aria-label="Loading properties">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-        ) : error ? (
-          <div className="user-page__empty" role="alert"><p>{error}</p></div>
-        ) : results.length === 0 ? (
-          <EmptyState onClear={clearFilters} />
-        ) : (
-          <>
-            {/* Live result count badge */}
-            <div className="bank-catalog__results-header">
-              <ResultCountBadge count={results.length} filtered={isFiltered} />
+        <div className="bc-layout">
+          {/* ── Filters: sidebar on desktop, slide-in drawer on mobile ── */}
+          <aside className={`bc-filters${filtersOpen ? " bc-filters--open" : ""}`} aria-label="Filters">
+            <div className="bc-filters__head">
+              <h2><SlidersHorizontal size={15} aria-hidden="true" /> Filters</h2>
+              {chips.length > 0 && (
+                <button type="button" className="bc-filters__clear" onClick={clearFilters}>Clear all</button>
+              )}
+              <button type="button" className="bc-filters__close" onClick={() => setFiltersOpen(false)} aria-label="Close filters">
+                <X size={18} aria-hidden="true" />
+              </button>
             </div>
 
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={animationKey}
-                ref={gridRef}
-                className="bank-catalog__grid"
-                variants={gridVariants}
-                initial="hidden"
-                animate="visible"
-                exit={{ opacity: 0, transition: { duration: 0.12 } }}
-              >
-                {results.map((property) => (
-                  <motion.div
-                    key={property.id}
-                    variants={cardVariants}
-                    style={{ height: "100%" }}
-                  >
-                    <BankPropertyCard
-                      property={property}
-                      onKeyNav={handleCardKeyNav}
+            <div className="bc-filters__body">
+              <div className="field">
+                <label className="field__label" htmlFor="bank-filter">Bank</label>
+                <select id="bank-filter" className="field__input" value={bank} onChange={(e) => setBank(e.target.value)}>
+                  <option value="">All banks</option>
+                  {CURRENT_BANKS.map((name) => (
+                    <option key={name} value={name}>{BANK_LABELS[name]}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field">
+                <label className="field__label" htmlFor="bank-city-filter">Location</label>
+                <input
+                  id="bank-city-filter"
+                  className="field__input"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="City or province, e.g. Laguna"
+                />
+              </div>
+
+              <fieldset className="bc-filters__budget">
+                <legend className="field__label">Budget (₱)</legend>
+
+                <div className="bc-slider">
+                  <div className="bc-slider__track" aria-hidden="true" />
+                  {/* Only show the filled segment once a thumb has actually moved —
+                      otherwise a full-width bar reads as "filtered" when it isn't. */}
+                  {(sliderMin > 0 || sliderMax < SLIDER_MAX) && (
+                    <div
+                      className="bc-slider__fill"
+                      aria-hidden="true"
+                      style={{
+                        left: `${(sliderMin / SLIDER_MAX) * 100}%`,
+                        right: `${100 - (sliderMax / SLIDER_MAX) * 100}%`,
+                      }}
                     />
-                  </motion.div>
+                  )}
+                  <input
+                    type="range" className="bc-slider__input" min={0} max={SLIDER_MAX} step={SLIDER_STEP}
+                    value={sliderMin} aria-label="Minimum price"
+                    onChange={(e) => {
+                      const next = Math.min(Number(e.target.value), sliderMax - SLIDER_STEP);
+                      setMinPrice(next > 0 ? String(next) : "");
+                    }}
+                  />
+                  <input
+                    type="range" className="bc-slider__input" min={0} max={SLIDER_MAX} step={SLIDER_STEP}
+                    value={sliderMax} aria-label="Maximum price"
+                    onChange={(e) => {
+                      const next = Math.max(Number(e.target.value), sliderMin + SLIDER_STEP);
+                      setMaxPrice(next < SLIDER_MAX ? String(next) : "");
+                    }}
+                  />
+                </div>
+                <p className="bc-slider__labels" aria-hidden="true">
+                  <span>{formatCompactPrice(sliderMin)}</span>
+                  <span>{formatCompactPrice(sliderMax)}</span>
+                </p>
+
+                <div className="bc-filters__range">
+                  <input className="field__input" type="number" min="0" inputMode="numeric" placeholder="Min"
+                    aria-label="Minimum price, exact amount" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} />
+                  <span aria-hidden="true">to</span>
+                  <input className="field__input" type="number" min="0" inputMode="numeric" placeholder="Max"
+                    aria-label="Maximum price, exact amount" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
+                </div>
+              </fieldset>
+            </div>
+
+            <div className="bc-filters__foot">
+              <button type="button" className="btn btn--primary" onClick={() => setFiltersOpen(false)}>
+                {loading ? "Show results" : `Show ${result.total} propert${result.total === 1 ? "y" : "ies"}`}
+              </button>
+            </div>
+          </aside>
+          {filtersOpen && <div className="bc-scrim" onClick={() => setFiltersOpen(false)} />}
+
+          <div className="bc-results">
+            <div className="bc-toolbar">
+              <button
+                type="button"
+                className="btn btn--secondary bc-toolbar__filters"
+                onClick={() => {
+                  // Belt-and-suspenders: on desktop the sidebar is always visible and
+                  // this button is CSS-hidden, but if that ever gets out of sync (stale
+                  // CSS, a resize mid-interaction), don't lock page scroll for a drawer
+                  // that has no visible way to close again.
+                  if (window.matchMedia("(min-width: 900px)").matches) return;
+                  setFiltersOpen(true);
+                }}
+              >
+                <SlidersHorizontal size={16} aria-hidden="true" />
+                Filters
+                {chips.length > 0 && <span className="bc-toolbar__badge">{chips.length}</span>}
+              </button>
+              {result.key && !result.error && <ResultCountBadge count={result.total} filtered={isFiltered} />}
+              <label className="bc-toolbar__sort">
+                <span>Sort by</span>
+                <select className="field__input" value={sort} onChange={(e) => setSort(e.target.value)}>
+                  <option value="price-asc">Price: low to high</option>
+                  <option value="price-desc">Price: high to low</option>
+                </select>
+              </label>
+            </div>
+
+            {chips.length > 0 && (
+              <ul className="bc-chips" aria-label="Active filters">
+                {chips.map((c) => (
+                  <li key={c.label}>
+                    <button type="button" className="bc-chip" onClick={c.clear} aria-label={`Remove filter: ${c.label}`}>
+                      {c.label}<X size={12} aria-hidden="true" />
+                    </button>
+                  </li>
                 ))}
-              </motion.div>
-            </AnimatePresence>
-          </>
-        )}
+              </ul>
+            )}
+
+            {loading ? (
+              <div className="bank-catalog__grid" aria-busy="true" aria-label="Loading properties">
+                {Array.from({ length: 6 }, (_, i) => <SkeletonCard key={i} />)}
+              </div>
+            ) : result.error ? (
+              <div className="user-page__empty" role="alert"><p>{result.error}</p></div>
+            ) : results.length === 0 ? (
+              <EmptyState onClear={clearFilters} />
+            ) : (
+              <>
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={requestKey}
+                    ref={gridRef}
+                    className="bank-catalog__grid"
+                    variants={gridVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                  >
+                    {results.map((property) => (
+                      <motion.div key={property.id} variants={cardVariants} style={{ height: "100%" }}>
+                        <BankPropertyCard property={property} onKeyNav={handleCardKeyNav} />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </AnimatePresence>
+
+                {totalPages > 1 && (
+                  <nav className="bc-pager" aria-label="Pagination">
+                    <button type="button" className="btn btn--secondary" disabled={page === 0} onClick={() => goToPage(page - 1)}>
+                      <ChevronLeft size={16} aria-hidden="true" /> Previous
+                    </button>
+                    <span className="bc-pager__info" aria-live="polite">Page {page + 1} of {totalPages}</span>
+                    <button type="button" className="btn btn--secondary" disabled={page + 1 >= totalPages} onClick={() => goToPage(page + 1)}>
+                      Next <ChevronRight size={16} aria-hidden="true" />
+                    </button>
+                  </nav>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </main>
 
       <BackToTop />
