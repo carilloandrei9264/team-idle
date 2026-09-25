@@ -157,7 +157,7 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 - `npm run lint`: passed
 - `npm run build`: passed
 - `python -m unittest discover -s bank_scraper -p "test_*.py"`: 9 tests passed
-- Firestore rules deployment: passed
+- Previous Firestore rules deployment: passed; notification-rule deployment pending
 - Live seed and trust-score recomputation: passed
 
 The production build still reports a non-blocking large JavaScript bundle warning.
