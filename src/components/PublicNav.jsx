@@ -127,6 +127,9 @@ export default function PublicNav() {
               <Link to="/my-listings" className="btn btn--secondary public-nav__cta">
                 My Listings
               </Link>
+              <Link to="/dashboard" className="btn btn--secondary public-nav__cta">
+                Dashboard
+              </Link>
               <Link to="/my-bookings" className="btn btn--secondary public-nav__cta">
                 My Bookings
               </Link>
@@ -151,6 +154,7 @@ export default function PublicNav() {
                       <span>{user.email}</span>
                     </div>
                     <Link to="/account" role="menuitem" onClick={() => setMenuOpen(false)}>Account</Link>
+                    <Link to="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>Dashboard</Link>
                     <Link to="/my-bookings" role="menuitem" onClick={() => setMenuOpen(false)}>My bookings</Link>
                     <Link to="/booking-requests" role="menuitem" onClick={() => setMenuOpen(false)}>Booking requests</Link>
                     <Link to="/saved-searches" role="menuitem" onClick={() => setMenuOpen(false)}>Saved searches</Link>
