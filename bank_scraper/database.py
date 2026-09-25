@@ -14,6 +14,8 @@ Setup required before this works:
 3. Keep it outside this repository; set GOOGLE_APPLICATION_CREDENTIALS to its absolute path, or provide the JSON through FIREBASE_SERVICE_ACCOUNT_JSON. For local-only testing you may place serviceAccountKey.json in this folder because it is ignored by Git. **Never commit or share this file** — it is a full admin credential.
 """
 
+from __future__ import annotations  # lets list[dict]-style hints run on Python 3.8
+
 import json
 import os
 import re
@@ -80,6 +82,7 @@ def upsert_properties(bank: str, scraped_listings: list[dict]):
                 "referenceNo": item["reference_no"],
                 "title": item.get("title"),
                 "location": item.get("location"),
+                "searchKeywords": location_keywords(item.get("location")),
                 "price": item.get("price"),
                 "floorArea": item.get("floor_area"),
                 "lotArea": item.get("lot_area"),
@@ -141,3 +144,15 @@ def timestamp_value(value):
 def safe_document_id(bank, reference_no):
     """Create a deterministic Firestore-safe ID while preserving source referenceNo."""
     return re.sub(r"[^A-Za-z0-9_-]", "_", f"{bank}_{reference_no}")[:1500]
+
+
+def location_keywords(location):
+    """Lowercase word prefixes (3+ letters) so the site can search with array-contains.
+    'Laguna' -> lag, lagu, lagun, laguna. Firestore has no 'contains' query."""
+    keywords = []
+    for word in re.findall(r"[a-z0-9ñ]+", str(location or "").lower()):
+        for end in range(3, len(word) + 1):
+            prefix = word[:end]
+            if prefix not in keywords:
+                keywords.append(prefix)
+    return keywords[:150]

@@ -16,13 +16,13 @@ Run this file directly to scrape all three banks once and save to the database:
     python scraper.py
 """
 
+from __future__ import annotations  # lets list[dict]-style hints run on Python 3.8
+
 import time
-import io
 import re
 import argparse
 from urllib.parse import urljoin
 
-import pdfplumber
 import requests
 from bs4 import BeautifulSoup
 
@@ -42,6 +42,9 @@ DEFAULT_BANKS = ["metrobank"]
 
 LANDBANK_URL = "https://www.landbank.com/property-for-sale"
 METROBANK_URL = "https://www.metrobank.com.ph/assets-for-sale/properties"
+METROBANK_API_URL = "https://www.metrobank.com.ph/.netlify/functions/ropa-request/assets"
+METROBANK_IMAGE_BASE = "https://metrobank-ropa-prod.s3.ap-southeast-1.amazonaws.com"
+METROBANK_PAGE_SIZE = 12  # matches the size Metrobank's own site requests; larger values 500'd
 
 
 # ---------------------------------------------------------------------------
@@ -98,59 +101,82 @@ def scrape_landbank() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# METROBANK
+# METROBANK — the listing page loads its data from a JSON API rather than
+# rendering server-side, so we call that API directly instead of scraping
+# HTML or downloading the property-list PDF. Found via DevTools -> Network:
+#   GET /.netlify/functions/ropa-request/assets?page=N&order=newest&display=50
+# Each property record already includes a numeric `defaultImage` id that
+# maps straight onto the S3 bucket Metrobank serves photos from, so no
+# second request per property is needed for images.
 # ---------------------------------------------------------------------------
 def scrape_metrobank() -> list[dict]:
-    response = requests.get(METROBANK_URL, headers=HEADERS, timeout=30)
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, "html.parser")
-    pdf_link = find_pdf_link(soup, METROBANK_URL)
-    if not pdf_link:
-        raise RuntimeError("Metrobank property-list PDF link was not found.")
-
-    pdf_response = requests.get(pdf_link, headers=HEADERS, timeout=60)
-    pdf_response.raise_for_status()
-    return parse_metrobank_pdf(pdf_response.content)
-
-
-def parse_metrobank_pdf(content: bytes) -> list[dict]:
     listings = []
-    header_indexes = None
-    with pdfplumber.open(io.BytesIO(content)) as pdf:
-        for page in pdf.pages:
-            for row in page.extract_tables() or []:
-                if not row:
-                    continue
-                rows = [[clean_text(value or "") for value in values] for values in row]
-                header_row_index = next((index for index, values in enumerate(rows) if is_header_row(values)), None)
-                if header_row_index is not None:
-                    headers = [value.lower() for value in rows[header_row_index]]
-                    header_indexes = {header: index for index, header in enumerate(headers) if header}
-                    data_rows = rows[header_row_index + 1:]
-                elif header_indexes:
-                    data_rows = rows
-                else:
-                    continue
-                for cells in data_rows:
-                    if len(cells) < 4 or is_header_row(cells) or not cells[0].isdigit():
-                        continue
-                    reference_no = value_for_header(cells, header_indexes, "property") or cells[0]
-                    if not reference_no or reference_no.lower() in {"n/a", "-"}:
-                        continue
-                    listings.append({
-                        "reference_no": reference_no,
-                        "title": value_for_header(cells, header_indexes, "category") or "Metrobank acquired property",
-                        "location": " ".join(
-                            value_for_header(cells, header_indexes, field) or ""
-                            for field in ("address", "city", "province")
-                        ).strip(),
-                        "price": parse_amount(value_for_header(cells, header_indexes, "price")),
-                        "floor_area": value_for_header(cells, header_indexes, "floor"),
-                        "lot_area": value_for_header(cells, header_indexes, "lot"),
-                        "listing_url": f"https://www.metrobank.com.ph/assets-for-sale/properties/details?id={reference_no}",
-                        "image_url": None,
-                    })
+    page = 1
+    while True:
+        page_items, row_count = fetch_metrobank_page(page)
+        if not page_items:
+            break
+        listings.extend(metrobank_item_to_listing(item) for item in page_items)
+        if len(listings) >= row_count or len(page_items) < METROBANK_PAGE_SIZE:
+            break
+        page += 1
+        time.sleep(REQUEST_DELAY_SECONDS)
     return listings
+
+
+def fetch_metrobank_page(page: int, attempts: int = 3) -> tuple[list[dict], int]:
+    # The API occasionally 500s on an otherwise-valid page; a couple of
+    # retries with backoff gets past transient failures without a human
+    # having to notice and re-run the whole scrape.
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        try:
+            response = requests.get(
+                METROBANK_API_URL,
+                params={"page": page, "order": "newest", "display": METROBANK_PAGE_SIZE},
+                headers={**HEADERS, "Accept": "application/json", "Referer": METROBANK_URL},
+                timeout=30,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            return payload.get("result", []), payload.get("rowCount", 0)
+        except requests.HTTPError as error:
+            last_error = error
+            status = error.response.status_code if error.response is not None else None
+            if status and status < 500:
+                raise  # a 4xx means something's wrong with the request itself — don't retry
+        except (requests.Timeout, requests.ConnectionError) as error:
+            # A slow or dropped connection is worth retrying — it says nothing
+            # about whether the request itself was valid.
+            last_error = error
+        if attempt < attempts:
+            print(f"  [metrobank] page {page} attempt {attempt} failed ({last_error!r}), retrying...")
+            time.sleep(attempt * 3)
+    raise last_error
+
+
+def metrobank_item_to_listing(item: dict) -> dict:
+    reference_no = item.get("propAcctNo")
+    location = clean_text(", ".join(filter(None, [
+        item.get("address") or item.get("city"), item.get("province"),
+    ]))) or None
+    image_id = item.get("defaultImage")
+    return {
+        "reference_no": reference_no,
+        "title": clean_text(" ".join(filter(None, [item.get("propCategory"), item.get("propType")]))) or "Metrobank acquired property",
+        "location": location,
+        "price": item.get("price"),  # already a plain number from the API
+        "floor_area": format_area(item.get("floorArea"), item.get("floorAreaUnit")),
+        "lot_area": format_area(item.get("lotArea"), item.get("lotUnit")),
+        "listing_url": f"https://www.metrobank.com.ph/assets-for-sale/properties/details?id={reference_no}",
+        "image_url": f"{METROBANK_IMAGE_BASE}/{image_id}" if image_id else None,
+    }
+
+
+def format_area(value, unit):
+    if value in (None, ""):
+        return None
+    return f"{value} {unit}".strip() if unit else str(value)
 
 
 # ---------------------------------------------------------------------------
