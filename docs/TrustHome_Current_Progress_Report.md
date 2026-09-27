@@ -1,14 +1,15 @@
 # TrustHome PH - Current Progress Report
 
-**Snapshot date:** 2026-09-25
-**Branch:** `features/frontend-updated-integrated`
-**Status:** Updated frontend design integrated with v1.3 notifications/dashboard; release QA and Firebase deployment remain
+**Snapshot date:** 2026-09-27
+**GitHub baseline:** `dev` at `565ea87` (PR #34 merged)
+**Documentation branch:** `docs/current-progress-2026-09-27`
+**Status:** v1.0-v1.3 feature scope is implemented and merged to `dev`; live release QA and latest Firestore-rules deployment remain
 
 ## Executive Summary
 
-The application has completed the v0.1 foundation, v0.2 trust engine, v0.3 accountability and integration scope, and the v1.1-v1.3 requirements-alignment slices. The current focus is release QA, Firebase rules deployment, and validating the complete notification, booking, verification, and trust-score flows against the live synthetic dataset.
+The v0.1-v0.3 foundation and v1.0-v1.3 implementation slices are present on GitHub `dev`. This includes the updated responsive frontend, owner dashboard, booking accountability, trust/fairness calculations, anti-gaming signals, and in-app notifications. Remaining work is primarily deployment and live-project verification rather than missing core MVP features.
 
-The `frontend-updated` branch has been integrated into this branch. Its refreshed home, catalog, navigation, and responsive styling are preserved alongside the owner dashboard and notification flows.
+PR #34 merged `features/frontend-updated-integrated` into `dev` on 2026-09-27. The refreshed home, catalog, navigation, and responsive styling are included alongside the dashboard and notification flows.
 
 ## Version Status
 
@@ -17,10 +18,10 @@ The `frontend-updated` branch has been integrated into this branch. Its refreshe
 | v0.1 Foundations | Complete | Auth, listings, verification, search, admin, and the Metrobank integration are implemented. |
 | v0.2 Trust Engine | Complete | Booking lifecycle, ratings, trust scores, and no-billing completion automation are implemented and tested. |
 | v0.3 Accountability & Integration | Complete | Dispute review, public accountability flags, bank catalog safeguards, and loan estimates are implemented and validated. |
-| v1.0 Release Hardening | Complete with QA remaining | Route splitting, error recovery, admin review fixes, Cloudinary document handling, and booking permission fixes are implemented. |
+| v1.0 Release Hardening | Implemented; release QA remains | Route splitting, error recovery, admin review fixes, Cloudinary document handling, booking permission fixes, and the frontend refresh are merged to `dev`. |
 | v1.1 Requirements Alignment | Complete | Required listing fields, validation, minimum photos, two-document intake, showing windows, edit parity, and admin resubmission are implemented. |
 | v1.2 Booking Accountability | Complete | Strict four-state booking workflow, overlap protection, deposit reference logging, completion, dispute consequences, and pending-request decline are implemented. |
-| v1.3 Trust & Marketplace Quality | Complete with release QA remaining | Fairness scoring, anti-gaming signals, owner dashboard, trust-score scraper integration, and user/admin notifications are implemented. |
+| v1.3 Trust & Marketplace Quality | Implemented; release QA remains | Fairness scoring, anti-gaming signals, owner dashboard, trust-score scraper integration, and user/admin notifications are merged to `dev`. |
 
 ## v0.1 Completed
 
@@ -52,20 +53,14 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Trust-score calculation from bookings, ratings, and comparable prices
 - GitHub Actions trust-score refresh without Cloud Functions billing
 
-## v1.0 Completed And In Progress
+## v1.0 Release Hardening
 
 - Route-level lazy loading and accessible loading fallback
 - Top-level runtime error recovery with reload action
-- Admin dashboard loading errors and retry behavior
-- Admin listing review success/error feedback
+- Admin dashboard loading errors/retry and listing-review feedback
 - Admin review rendering for uploaded photos and PDF links
-- Booking permission fix for renter requests and owner approval
-- Confirmed booking overlap protection retained during owner approval
-- Local verification: 13 frontend tests, lint, and production build passing
-
-The booking-permissions fix is currently stored on the local branch
-`features/v1-0-booking-permissions` and has been pushed to GitHub. The local
-Firebase service-account file and generated Python cache remain uncommitted.
+- Booking permission checks retained during renter requests and owner approval
+- Current frontend validation: 21 tests, lint, and production build pass (large-bundle warning remains)
 
 ## v0.3 Release Validation
 
@@ -89,7 +84,7 @@ Deploy the current rules from the repository root:
 firebase deploy --only firestore:rules
 ```
 
-The rules compiled and deployed successfully. The protected cases include:
+An earlier version of the rules compiled and deployed successfully. The latest repository rules include additional booking and notification protections; their deployment to the live Firebase project has not been confirmed. The protected cases covered by the repository rules include:
 
 - A signed-out user can read verified listings.
 - A signed-out user cannot read pending listings.
@@ -103,7 +98,7 @@ In GitHub:
 
 `Actions -> Scrape Bank Listings -> Run workflow`
 
-Confirm that:
+The workflow is configured to run the scraper, expired-booking completion, and trust-score recomputation. Re-run it against the live project and confirm that:
 
 - Metrobank data reaches `bankProperties`.
 - `lastSeen` appears on catalog entries.
@@ -166,7 +161,7 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 
 ### Still required before calling the backend release-ready
 
-- Deploy the latest `firestore.rules`; the notification rules are currently only in the repository
+- Deploy the latest `firestore.rules`; the current notification-rule deployment is not confirmed
 - Run live security tests for direct Firestore writes, especially booking confirmation, notification creation, dispute resolution, and private document access
 - Run the renter-owner-admin notification smoke test against the deployed project
 - Keep the GitHub Actions secret and service-account handling verified; the current automation depends on that workflow rather than deployed Cloud Functions
@@ -179,8 +174,8 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 - `npm run lint`: passed
 - `npm run build`: passed
 - `python -m unittest discover -s bank_scraper -p "test_*.py"`: 9 tests passed
-- Previous Firestore rules deployment: passed; notification-rule deployment pending
-- Live seed and trust-score recomputation: passed
+- Earlier Firestore rules deployment: passed; deployment of the current rules is unverified
+- Synthetic data seeding and trust-score recomputation were previously run successfully; rerun as part of release smoke testing
 
 The production build still reports a non-blocking large JavaScript bundle warning.
 
@@ -229,14 +224,17 @@ this report, pass focused tests, and document any limitation honestly.
 - Only Completed bookings count toward trust score
 - Ranking uses completed bookings, ratings, and price fairness
 - Repeated self-booking patterns require manual review
-- Owners need visibility into inquiries, bookings, and listing performance
+- Owner dashboard summarizes listings, pending requests, confirmed bookings, and completed stays
+- Public listing details display trust score and price-fairness label
+- Refreshed Home, Bank Catalog, and responsive navigation were merged through PR #34
 
-## Next Milestones: Release QA
+## Remaining Work: Release QA
 
-1. Deploy the updated Firestore rules, including notification access rules, to the live Firebase project.
+1. Deploy the current Firestore rules, including notification access rules, to the live Firebase project.
 2. Run the notification smoke test with a renter, owner, and admin account.
 3. Verify notification reads, booking confirmation, listing approval, and dispute resolution in the deployed build.
-4. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
-5. Finish cross-browser, mobile, and release QA.
+4. Run direct-write/security checks for booking transitions, notification creation, dispute review, and private documents.
+5. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
+6. Finish cross-browser, mobile, and final release QA.
 
-Firebase Storage is documented as a future option only if the project later moves to Blaze billing with an approved payment method. BDO and Landbank are also future catalog integrations; Metrobank remains the sole active source because it already supplies a substantial catalog.
+Firebase Storage remains a future migration only if billing is approved. BDO and Landbank remain future catalog integrations; Metrobank is the active bank source. These are intentionally excluded from the current implementation-completion assessment.
