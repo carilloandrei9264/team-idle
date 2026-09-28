@@ -2,8 +2,8 @@
 
 **Snapshot date:** 2026-09-28
 **GitHub baseline:** `dev` at `565ea87` (PR #34 merged)
-**Current feature branch:** `features/v1-3-admin-notification-separation`
-**Status:** v1.0-v1.3 implementation is merged to `dev`; admin/user notification separation is implemented on this feature branch, pending merge and live Firebase verification
+**Current feature branch:** `features/v1-3-navigation-settings`
+**Status:** v1.0-v1.3 implementation is merged to `dev`; notification separation and navigation/settings improvements are on feature branches, pending merge and release verification
 
 ## Executive Summary
 
@@ -21,7 +21,7 @@ PR #34 merged `features/frontend-updated-integrated` into `dev` on 2026-09-27. T
 | v1.0 Release Hardening | Implemented; release QA remains | Route splitting, error recovery, admin review fixes, Cloudinary document handling, booking permission fixes, and the frontend refresh are merged to `dev`. |
 | v1.1 Requirements Alignment | Complete | Required listing fields, validation, minimum photos, two-document intake, showing windows, edit parity, and admin resubmission are implemented. |
 | v1.2 Booking Accountability | Implemented; workflow follow-up required | Booking transitions, overlap protection, deposit references, and completion are present; presentation feedback identified duplicate completion controls and a dispute-state alignment gap. |
-| v1.3 Trust & Marketplace Quality | Implemented; follow-up in progress | Fairness scoring, anti-gaming signals, owner dashboard, trust-score scraper integration, notifications, and refreshed frontend are merged to `dev`; role-separated notification inboxes are on the current feature branch. |
+| v1.3 Trust & Marketplace Quality | Implemented; follow-up in progress | Fairness scoring, anti-gaming signals, owner dashboard, trust-score scraper integration, notifications, and refreshed frontend are merged to `dev`; notification separation and navigation/settings improvements are on feature branches. |
 
 ## v0.1 Completed
 
@@ -250,6 +250,16 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 **Acceptance:** Admin notification UI stays inside `/admin/*`; admin counts and inbox results contain only admin broadcasts; user counts and inbox results contain only that user's notifications; Firestore denies cross-feed reads/updates even if a client issues a direct query.
 
+### P2 - Simplify the navigation and move theme controls into Settings
+
+**Finding:** The desktop header repeated My Listings, Dashboard, and My Bookings actions that are already available in the account menu. Theme controls also appeared in both the desktop header and mobile drawer.
+
+**Implemented on the current feature branch:** Removed those repeated header actions and both inline theme toggles. Added a Settings page with Light/Dark appearance controls backed by the existing browser-persisted theme preference. Settings is reachable from the user profile menu/mobile drawer and from the admin profile menu; admin settings remains under the protected admin layout.
+
+**Remaining:** Merge the feature branch and visually verify desktop and mobile navigation, Settings active states, and theme persistence after page reload. Confirm the notification bell remains visible and the existing menu routes remain reachable.
+
+**Acceptance:** Header contains only primary navigation, notifications, and profile/menu controls; all existing account destinations remain reachable from the menu; Light/Dark preference can be changed in Settings and persists after reload for both user and admin shells.
+
 ### P1 - Remove duplicate manual completion actions
 
 **Finding:** Both the renter's My Bookings page and the owner's Manage Booking Requests page currently offer `Mark completed`. The scheduled `complete_expired_bookings.py` job also completes expired confirmed bookings; the existing workflow runs it weekly.
@@ -293,12 +303,13 @@ All six requests are feasible within the current React + Firebase architecture. 
 ## Remaining Work: Release QA
 
 1. Diagnose and close the admin login/access issue, including direct-route and Firestore-rule tests.
-2. Approve the single completion authority and the dispute operating/appeal policy.
-3. Implement and test the description, owner-listing, and dispute-flow improvements above.
-4. Decide the map provider and location-precision policy before implementation.
-5. Deploy the current Firestore rules, including notification access rules, to the live Firebase project.
-6. Run renter-owner-admin smoke tests and direct-write security checks for booking transitions, notifications, dispute review, and private documents.
-7. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
-8. Finish cross-browser, mobile, and final release QA.
+2. Merge and smoke-test the notification separation and navigation/settings feature branches.
+3. Approve the single completion authority and the dispute operating/appeal policy.
+4. Implement and test the description, owner-listing, and dispute-flow improvements above.
+5. Decide the map provider and location-precision policy before implementation.
+6. Deploy the current Firestore rules, including notification access rules, to the live Firebase project.
+7. Run renter-owner-admin smoke tests and direct-write security checks for booking transitions, notifications, dispute review, and private documents.
+8. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
+9. Finish cross-browser, mobile, and final release QA.
 
 Firebase Storage remains a future migration only if billing is approved. BDO and Landbank remain future catalog integrations; Metrobank is the active bank source. These are intentionally excluded from the current implementation-completion assessment.
