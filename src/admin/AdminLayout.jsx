@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 import {
   ChevronDown,
   Bell,
@@ -112,6 +112,7 @@ export default function AdminLayout({ adminName = "Admin" }) {
                   <strong>{displayName}</strong>
                   <span>{user?.email || "Admin account"}</span>
                 </div>
+                <Link to="/admin/settings" role="menuitem" onClick={() => setProfileOpen(false)}>Settings</Link>
                 <button type="button" className="admin-profile__logout" role="menuitem" onClick={handleSignOut}>
                   <LogOut size={16} aria-hidden="true" />
                   Log out

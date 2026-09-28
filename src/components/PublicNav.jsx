@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
   Bell, Bookmark, Building2, CalendarCheck, ChevronDown, Home, Inbox, Landmark, LayoutDashboard,
-  LogOut, Menu, Moon, Search, Sun, UserRound, X,
+  LogOut, Menu, Search, Settings as SettingsIcon, UserRound, X,
 } from "lucide-react";
 import { useAuth } from "../context/useAuth";
-import { useTheme } from "../context/useTheme";
 import NotificationBell from "./NotificationBell";
 import "./PublicNav.css";
 
@@ -23,6 +22,7 @@ const MEMBER_LINKS = [
   { to: "/booking-requests", label: "Booking requests", icon: Inbox },
   { to: "/notifications", label: "Notifications", icon: Bell },
   { to: "/saved-searches", label: "Saved searches", icon: Bookmark },
+  { to: "/settings", label: "Settings", icon: SettingsIcon },
   { to: "/account", label: "Account", icon: UserRound },
 ];
 
@@ -42,7 +42,6 @@ function Avatar({ user, profile, className = "" }) {
 
 export default function PublicNav() {
   const { user, profile, signOut } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -115,28 +114,9 @@ export default function PublicNav() {
           </nav>
 
           <div className="public-nav__actions">
-            {/* Desktop-only: theme toggle + auth (phones get these in the drawer) */}
-            <button
-              type="button"
-              className="public-nav__theme-toggle"
-              onClick={toggleTheme}
-              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-              title={theme === "dark" ? "Light mode" : "Dark mode"}
-            >
-              <span
-                className="public-nav__theme-icon"
-                style={{ transform: theme === "dark" ? "rotate(180deg)" : "rotate(0deg)" }}
-              >
-                {theme === "dark" ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
-              </span>
-            </button>
-
             {user ? (
               <>
                 <NotificationBell />
-                <Link to="/my-listings" className="btn btn--secondary public-nav__cta">My Listings</Link>
-                <Link to="/dashboard" className="btn btn--secondary public-nav__cta">Dashboard</Link>
-                <Link to="/my-bookings" className="btn btn--secondary public-nav__cta">My Bookings</Link>
                 <div className="public-nav__profile" ref={menuRef}>
                   <button
                     type="button"
@@ -156,6 +136,9 @@ export default function PublicNav() {
                         <span>{user.email}</span>
                       </div>
                       <Link to="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>Dashboard</Link>
+                      <Link to="/my-listings" role="menuitem" onClick={() => setMenuOpen(false)}>My listings</Link>
+                      <Link to="/my-bookings" role="menuitem" onClick={() => setMenuOpen(false)}>My bookings</Link>
+                      <Link to="/settings" role="menuitem" onClick={() => setMenuOpen(false)}>Settings</Link>
                       <Link to="/account" role="menuitem" onClick={() => setMenuOpen(false)}>Account</Link>
                       <Link to="/notifications" role="menuitem" onClick={() => setMenuOpen(false)}>Notifications</Link>
                       <Link to="/my-bookings" role="menuitem" onClick={() => setMenuOpen(false)}>My bookings</Link>
@@ -264,11 +247,6 @@ export default function PublicNav() {
           </nav>
 
           <div className="nav-drawer__foot">
-            <button type="button" className="nav-drawer__link" onClick={toggleTheme}>
-              {theme === "dark" ? <Sun size={19} aria-hidden="true" /> : <Moon size={19} aria-hidden="true" />}
-              Dark mode
-              <span className="nav-drawer__switch" data-on={theme === "dark"} aria-hidden="true" />
-            </button>
             {user && (
               <button type="button" className="nav-drawer__link nav-drawer__link--danger" onClick={handleSignOut}>
                 <LogOut size={19} aria-hidden="true" />

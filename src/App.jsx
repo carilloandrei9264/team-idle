@@ -25,6 +25,7 @@ const BankPropertyDetail = lazy(() => import("./pages/BankPropertyDetail"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const SavedSearches = lazy(() => import("./pages/SavedSearches"));
 const Notifications = lazy(() => import("./pages/Notifications"));
+const Settings = lazy(() => import("./pages/Settings"));
 const AdminLayout = lazy(() => import("./admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
 const AdminNotifications = lazy(() => import("./admin/AdminNotifications"));
@@ -65,6 +66,7 @@ function AppRoutes() {
           <Route path="/profiles/:userId" element={<PublicProfile />} />
           <Route path="/saved-searches" element={<RequireAuth><SavedSearches /></RequireAuth>} />
           <Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} />
+        <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
         <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
         <Route
           path="/admin"
@@ -76,6 +78,7 @@ function AppRoutes() {
         >
           <Route index element={<AdminDashboard />} />
           <Route path="notifications" element={<AdminNotifications />} />
+          <Route path="settings" element={<Settings adminMode />} />
           <Route path="listings" element={<AdminListings />} />
           <Route path="disputes" element={<AdminDisputes />} />
           <Route path="users" element={<AdminUsers />} />
