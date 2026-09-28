@@ -159,9 +159,17 @@ service cloud.firestore {
         && request.resource.data.userId == resource.data.userId;
     }
 
+    function canAccessNotification(recipientId) {
+      return isActiveUser()
+        && ((isAdmin() && recipientId == '__admins__')
+          || (!isAdmin() && recipientId == request.auth.uid));
+    }
+
     match /notifications/{notificationId} {
-      allow read, update: if isActiveUser()
-        && (resource.data.recipientId == request.auth.uid || isAdmin());
+      allow read: if canAccessNotification(resource.data.recipientId);
+      allow update: if canAccessNotification(resource.data.recipientId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read is bool;
       allow create: if isActiveUser()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.recipientId is string
@@ -179,9 +187,18 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.ownerId == request.auth.uid
             && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.renterId == request.resource.data.recipientId)
           || (request.resource.data.recipientId == '__admins__'
-            && request.resource.data.type in ['booking_request', 'dispute_update']));
-      allow delete: if isActiveUser()
-        && (resource.data.recipientId == request.auth.uid || isAdmin());
+            && request.resource.data.type == 'booking_request'
+            && request.resource.data.entityType == 'booking'
+            && request.resource.data.entityId is string
+            && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.renterId == request.auth.uid
+            && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.status == 'Pending')
+          || (request.resource.data.recipientId == '__admins__'
+            && request.resource.data.type == 'dispute_update'
+            && request.resource.data.entityType == 'dispute'
+            && request.resource.data.entityId is string
+            && get(/databases/$(database)/documents/disputes/$(request.resource.data.entityId)).data.raisedBy == request.auth.uid
+            && get(/databases/$(database)/documents/disputes/$(request.resource.data.entityId)).data.status == 'Open'));
+      allow delete: if canAccessNotification(resource.data.recipientId);
     }
 
     // Trust scores are public display data; only admins/functions should write.

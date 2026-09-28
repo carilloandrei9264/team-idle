@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import {
   ChevronDown,
+  Bell,
   LayoutDashboard,
   Home,
   LogOut,
@@ -15,6 +16,7 @@ import "./AdminLayout.css";
 
 const NAV_ITEMS = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/admin/notifications", label: "Notifications", icon: Bell },
   { to: "/admin/listings", label: "Listings", icon: Home },
   { to: "/admin/disputes", label: "Disputes", icon: ShieldAlert },
   { to: "/admin/users", label: "Users", icon: Users },

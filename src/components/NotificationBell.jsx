@@ -4,30 +4,26 @@ import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
-import { ADMIN_NOTIFICATION_RECIPIENT, sortNotifications } from "../lib/notifications";
+import { notificationInboxPath, notificationRecipientForRole } from "../lib/notifications";
 
 export default function NotificationBell({ className = "" }) {
-  const { user, profile } = useAuth();
+  const { user, profile, loading } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const userId = user?.uid;
 
   useEffect(() => {
-    if (!user) return undefined;
-    const notificationMap = new Map();
-    const recipients = [user.uid];
-    if (profile?.role === "admin") recipients.push(ADMIN_NOTIFICATION_RECIPIENT);
-    const unsubscribe = recipients.map((recipientId) => onSnapshot(
+    if (loading || !userId) return undefined;
+    const recipientId = notificationRecipientForRole(profile?.role, userId);
+    if (!recipientId) return undefined;
+    return onSnapshot(
       query(collection(db, "notifications"), where("recipientId", "==", recipientId)),
-      (snapshot) => {
-        snapshot.docs.forEach((item) => notificationMap.set(item.id, { id: item.id, ...item.data() }));
-        setUnreadCount(sortNotifications([...notificationMap.values()]).filter((item) => item.read !== true).length);
-      },
+      (snapshot) => setUnreadCount(snapshot.docs.filter((item) => item.data().read !== true).length),
       () => setUnreadCount(0)
-    ));
-    return () => unsubscribe.forEach((stop) => stop());
-  }, [profile?.role, user]);
+    );
+  }, [loading, profile?.role, userId]);
 
   return (
-    <Link to="/notifications" className={`notification-bell ${className}`} aria-label={unreadCount ? `${unreadCount} unread notifications` : "Notifications"} title="Notifications">
+    <Link to={notificationInboxPath(profile?.role)} className={`notification-bell ${className}`} aria-label={unreadCount ? `${unreadCount} unread notifications` : "Notifications"} title="Notifications">
       <Bell size={18} aria-hidden="true" />
       {unreadCount > 0 && <span className="notification-bell__count">{unreadCount > 99 ? "99+" : unreadCount}</span>}
     </Link>
