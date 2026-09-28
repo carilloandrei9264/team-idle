@@ -1,13 +1,13 @@
 # TrustHome PH - Current Progress Report
 
-**Snapshot date:** 2026-09-27
+**Snapshot date:** 2026-09-28
 **GitHub baseline:** `dev` at `565ea87` (PR #34 merged)
 **Documentation branch:** `docs/current-progress-2026-09-27`
-**Status:** v1.0-v1.3 feature scope is implemented and merged to `dev`; live release QA and latest Firestore-rules deployment remain
+**Status:** v1.0-v1.3 implementation is merged to `dev`; presentation findings are captured below, with live release QA and latest Firestore-rules deployment remaining
 
 ## Executive Summary
 
-The v0.1-v0.3 foundation and v1.0-v1.3 implementation slices are present on GitHub `dev`. This includes the updated responsive frontend, owner dashboard, booking accountability, trust/fairness calculations, anti-gaming signals, and in-app notifications. Remaining work is primarily deployment and live-project verification rather than missing core MVP features.
+The v0.1-v0.3 foundation and v1.0-v1.3 implementation slices are present on GitHub `dev`. The team has now identified follow-up issues during its system presentation: admin login routing, duplicate completion controls, listing-description requirements, owner listing visibility, property maps, and the dispute operating process. The feasibility and proposed next steps are recorded below.
 
 PR #34 merged `features/frontend-updated-integrated` into `dev` on 2026-09-27. The refreshed home, catalog, navigation, and responsive styling are included alongside the dashboard and notification flows.
 
@@ -20,8 +20,8 @@ PR #34 merged `features/frontend-updated-integrated` into `dev` on 2026-09-27. T
 | v0.3 Accountability & Integration | Complete | Dispute review, public accountability flags, bank catalog safeguards, and loan estimates are implemented and validated. |
 | v1.0 Release Hardening | Implemented; release QA remains | Route splitting, error recovery, admin review fixes, Cloudinary document handling, booking permission fixes, and the frontend refresh are merged to `dev`. |
 | v1.1 Requirements Alignment | Complete | Required listing fields, validation, minimum photos, two-document intake, showing windows, edit parity, and admin resubmission are implemented. |
-| v1.2 Booking Accountability | Complete | Strict four-state booking workflow, overlap protection, deposit reference logging, completion, dispute consequences, and pending-request decline are implemented. |
-| v1.3 Trust & Marketplace Quality | Implemented; release QA remains | Fairness scoring, anti-gaming signals, owner dashboard, trust-score scraper integration, and user/admin notifications are merged to `dev`. |
+| v1.2 Booking Accountability | Implemented; workflow follow-up required | Booking transitions, overlap protection, deposit references, and completion are present; presentation feedback identified duplicate completion controls and a dispute-state alignment gap. |
+| v1.3 Trust & Marketplace Quality | Implemented; UX follow-up required | Fairness scoring, anti-gaming signals, owner dashboard, trust-score scraper integration, notifications, and refreshed frontend are merged to `dev`. |
 
 ## v0.1 Completed
 
@@ -228,13 +228,67 @@ this report, pass focused tests, and document any limitation honestly.
 - Public listing details display trust score and price-fairness label
 - Refreshed Home, Bank Catalog, and responsive navigation were merged through PR #34
 
+## Post-Presentation Findings (2026-09-28)
+
+All six requests are feasible within the current React + Firebase architecture. The items below are a proposed backlog, not changes already implemented. Prioritize the access-control diagnosis and dispute policy before visual enhancements.
+
+### P0 - Diagnose admin login and prove the access boundary
+
+**Finding:** The application already wraps `/admin` in `RequireAdmin`. It waits for Auth/profile loading, then permits only `profile.role === "admin"`; ordinary users are redirected to `/`. Login routing also depends on this Firestore profile role. Therefore, the observed symptom is more likely a missing/misspelled role, a failed profile read, stale account data, or a wrong admin test account than an absent URL blocker. A client-side route guard is necessary for UX but is not the security boundary; Firestore rules must also deny non-admin reads/writes.
+
+**Next:** Reproduce with one known active admin and one ordinary user. Check `users/{uid}.role`, `users/{uid}.status`, profile-load errors, the post-login destination, and direct navigation to `/admin` and nested routes. Add a clear loading/denied state and regression tests; verify Firestore admin-only rules independently.
+
+**Acceptance:** An active admin consistently lands on the admin dashboard after profile loading. An ordinary or suspended user cannot render any admin route by typing its URL and cannot access admin-only Firestore data. Missing/erroring role profiles fail closed and show a useful message rather than silently looking like a normal user login.
+
+### P1 - Remove duplicate manual completion actions
+
+**Finding:** Both the renter's My Bookings page and the owner's Manage Booking Requests page currently offer `Mark completed`. The scheduled `complete_expired_bookings.py` job also completes expired confirmed bookings; the existing workflow runs it weekly.
+
+**Recommendation:** Pick one manual confirmer. For this marketplace, prefer the renter confirming that the viewing/stay happened, with scheduled completion as the fallback after the end date. Remove the owner's duplicate button, or record a deliberate team decision for the opposite ownership. Do not remove the automatic fallback without replacing it.
+
+**Acceptance:** A booking has one clearly named manual completion action, appears completed once, triggers the expected review prompt/trust-score path, and remains disputable under the agreed time window. Verify the job cadence is acceptable; weekly automation can leave an expired booking confirmed for several days.
+
+### P1 - Make the description length target optional, not the description itself
+
+**Finding:** The description field is currently required and validation rejects fewer than 150 or more than 400 words. This matches the existing implementation but not the requested lighter intake.
+
+**Interpretation to implement:** Keep a non-empty description required, remove the 150-word minimum, and retain a reasonable upper limit (currently 400 words). Present 150 words as a recommendation, not a blocking requirement. Apply the same rule to create, edit, resubmission, and tests.
+
+**Acceptance:** Empty/whitespace-only descriptions are rejected; concise factual descriptions below 150 words can be submitted; descriptions over the agreed maximum are rejected with inline guidance.
+
+### P1 - Improve owner listing visibility
+
+**Finding:** My Listings already displays each listing's title, city, verification status, and review note. The owner dashboard already summarizes listing and booking counts. The gap is that the listing row is sparse, so owners have limited at-a-glance detail; the Manage Requests page also has an empty state when there are no requests.
+
+**Next:** Enrich the existing My Listings cards rather than adding another page: show thumbnail, price, property type, verification/review state, and clear View/Edit actions; show pending request count per listing and link directly to that listing's requests. Keep exact address and verification documents private.
+
+**Acceptance:** Owners can distinguish listings and see status, key details, review feedback, and relevant request counts on mobile without entering each page. Empty states explain that no requests are waiting and provide a useful next action.
+
+### P2 - Add a property map with location privacy
+
+**Feasibility:** Yes. Listings currently store address/city text but no coordinates or map component. A map needs coordinates, a map provider, and a decision about geocoding. Google Maps requires a configured API key and may require billing; Leaflet with OpenStreetMap tiles is a no-key alternative subject to tile-provider usage policies.
+
+**Recommendation:** Prototype Leaflet/OpenStreetMap first to preserve the no-billing goal. Store latitude/longitude and a location precision value; display an approximate neighborhood/city pin publicly and keep the exact address hidden until a confirmed booking, consistent with the existing privacy requirement. Do not send private ID/document data to a map provider.
+
+**Acceptance:** Owners can set or confirm a pin, edit it, and see a preview; renters can see the disclosed approximate location on listing detail; invalid coordinates are rejected; existing listings without coordinates continue to work without a broken map.
+
+### P1 - Define and implement the dispute operating process
+
+**Current gap:** A renter submits a reason and the admin queue can mark the dispute Founded or Dismissed with notes. The booking is not changed to `Disputed` when the report is submitted. A Founded decision increments the public accountability count, but this admin flow does not itself suspend the account or hide its listings. AdminUsers can suspend accounts separately. The code therefore does not yet enforce the full promised consequence workflow end-to-end.
+
+**Proposed process for team approval:** (1) renter opens a dispute from an eligible booking and submits a reason plus evidence; (2) system records the prior booking status and atomically marks the booking Disputed; (3) notify the admin queue and give the other party a response opportunity; (4) admin records Founded or Dismissed with resolution notes; (5) if Founded, suspend the responsible account, unpublish/disable its active listings, retain the audit record, and notify both parties; (6) if Dismissed, restore the prior booking status and notify both parties. Define who may appeal, the appeal window, and who can reinstate an account before coding permanent consequences.
+
+**Acceptance:** Each dispute has a traceable booking, reporter, evidence/notes, decision-maker, timestamps, and final outcome. Booking status and user/listing access match that outcome; duplicate open disputes are blocked; notifications are sent; the public flag reflects founded cases only. Verify all transitions in Firestore rules and tests, not only in the UI.
+
 ## Remaining Work: Release QA
 
-1. Deploy the current Firestore rules, including notification access rules, to the live Firebase project.
-2. Run the notification smoke test with a renter, owner, and admin account.
-3. Verify notification reads, booking confirmation, listing approval, and dispute resolution in the deployed build.
-4. Run direct-write/security checks for booking transitions, notification creation, dispute review, and private documents.
-5. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
-6. Finish cross-browser, mobile, and final release QA.
+1. Diagnose and close the admin login/access issue, including direct-route and Firestore-rule tests.
+2. Approve the single completion authority and the dispute operating/appeal policy.
+3. Implement and test the description, owner-listing, and dispute-flow improvements above.
+4. Decide the map provider and location-precision policy before implementation.
+5. Deploy the current Firestore rules, including notification access rules, to the live Firebase project.
+6. Run renter-owner-admin smoke tests and direct-write security checks for booking transitions, notifications, dispute review, and private documents.
+7. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
+8. Finish cross-browser, mobile, and final release QA.
 
 Firebase Storage remains a future migration only if billing is approved. BDO and Landbank remain future catalog integrations; Metrobank is the active bank source. These are intentionally excluded from the current implementation-completion assessment.
