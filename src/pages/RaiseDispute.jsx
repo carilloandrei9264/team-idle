@@ -72,7 +72,7 @@ export default function RaiseDispute() {
           message: `${user.displayName || user.email} submitted a dispute for ${booking.listingTitle || "a booking"}.`,
           link: "/admin/disputes",
           entityId: disputeRef.id,
-          entityType: "booking",
+          entityType: "dispute",
         });
       } catch {
         // The dispute remains submitted if notification delivery is unavailable.

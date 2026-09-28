@@ -1,14 +1,15 @@
 # TrustHome PH - Current Progress Report
 
-**Snapshot date:** 2026-09-25
-**Branch:** `features/frontend-updated-integrated`
-**Status:** Updated frontend design integrated with v1.3 notifications/dashboard; release QA and Firebase deployment remain
+**Snapshot date:** 2026-09-28
+**GitHub baseline:** `dev` at `565ea87` (PR #34 merged)
+**Current feature branch:** `features/v1-3-admin-notification-separation`
+**Status:** v1.0-v1.3 implementation is merged to `dev`; admin/user notification separation is implemented on this feature branch, pending merge and live Firebase verification
 
 ## Executive Summary
 
-The application has completed the v0.1 foundation, v0.2 trust engine, v0.3 accountability and integration scope, and the v1.1-v1.3 requirements-alignment slices. The current focus is release QA, Firebase rules deployment, and validating the complete notification, booking, verification, and trust-score flows against the live synthetic dataset.
+The v0.1-v0.3 foundation and v1.0-v1.3 implementation slices are present on GitHub `dev`. The team has now identified follow-up issues during its system presentation: admin login routing, duplicate completion controls, listing-description requirements, owner listing visibility, property maps, and the dispute operating process. The feasibility and proposed next steps are recorded below.
 
-The `frontend-updated` branch has been integrated into this branch. Its refreshed home, catalog, navigation, and responsive styling are preserved alongside the owner dashboard and notification flows.
+PR #34 merged `features/frontend-updated-integrated` into `dev` on 2026-09-27. The refreshed home, catalog, navigation, and responsive styling are included alongside the dashboard and notification flows.
 
 ## Version Status
 
@@ -17,10 +18,10 @@ The `frontend-updated` branch has been integrated into this branch. Its refreshe
 | v0.1 Foundations | Complete | Auth, listings, verification, search, admin, and the Metrobank integration are implemented. |
 | v0.2 Trust Engine | Complete | Booking lifecycle, ratings, trust scores, and no-billing completion automation are implemented and tested. |
 | v0.3 Accountability & Integration | Complete | Dispute review, public accountability flags, bank catalog safeguards, and loan estimates are implemented and validated. |
-| v1.0 Release Hardening | Complete with QA remaining | Route splitting, error recovery, admin review fixes, Cloudinary document handling, and booking permission fixes are implemented. |
+| v1.0 Release Hardening | Implemented; release QA remains | Route splitting, error recovery, admin review fixes, Cloudinary document handling, booking permission fixes, and the frontend refresh are merged to `dev`. |
 | v1.1 Requirements Alignment | Complete | Required listing fields, validation, minimum photos, two-document intake, showing windows, edit parity, and admin resubmission are implemented. |
-| v1.2 Booking Accountability | Complete | Strict four-state booking workflow, overlap protection, deposit reference logging, completion, dispute consequences, and pending-request decline are implemented. |
-| v1.3 Trust & Marketplace Quality | Complete with release QA remaining | Fairness scoring, anti-gaming signals, owner dashboard, trust-score scraper integration, and user/admin notifications are implemented. |
+| v1.2 Booking Accountability | Implemented; workflow follow-up required | Booking transitions, overlap protection, deposit references, and completion are present; presentation feedback identified duplicate completion controls and a dispute-state alignment gap. |
+| v1.3 Trust & Marketplace Quality | Implemented; follow-up in progress | Fairness scoring, anti-gaming signals, owner dashboard, trust-score scraper integration, notifications, and refreshed frontend are merged to `dev`; role-separated notification inboxes are on the current feature branch. |
 
 ## v0.1 Completed
 
@@ -52,20 +53,14 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Trust-score calculation from bookings, ratings, and comparable prices
 - GitHub Actions trust-score refresh without Cloud Functions billing
 
-## v1.0 Completed And In Progress
+## v1.0 Release Hardening
 
 - Route-level lazy loading and accessible loading fallback
 - Top-level runtime error recovery with reload action
-- Admin dashboard loading errors and retry behavior
-- Admin listing review success/error feedback
+- Admin dashboard loading errors/retry and listing-review feedback
 - Admin review rendering for uploaded photos and PDF links
-- Booking permission fix for renter requests and owner approval
-- Confirmed booking overlap protection retained during owner approval
-- Local verification: 13 frontend tests, lint, and production build passing
-
-The booking-permissions fix is currently stored on the local branch
-`features/v1-0-booking-permissions` and has been pushed to GitHub. The local
-Firebase service-account file and generated Python cache remain uncommitted.
+- Booking permission checks retained during renter requests and owner approval
+- Current frontend validation: 23 tests, lint, and production build pass (large-bundle warning remains)
 
 ## v0.3 Release Validation
 
@@ -89,7 +84,7 @@ Deploy the current rules from the repository root:
 firebase deploy --only firestore:rules
 ```
 
-The rules compiled and deployed successfully. The protected cases include:
+An earlier version of the rules compiled and deployed successfully. The latest repository rules include additional booking and notification protections; their deployment to the live Firebase project has not been confirmed. The protected cases covered by the repository rules include:
 
 - A signed-out user can read verified listings.
 - A signed-out user cannot read pending listings.
@@ -103,7 +98,7 @@ In GitHub:
 
 `Actions -> Scrape Bank Listings -> Run workflow`
 
-Confirm that:
+The workflow is configured to run the scraper, expired-booking completion, and trust-score recomputation. Re-run it against the live project and confirm that:
 
 - Metrobank data reaches `bankProperties`.
 - `lastSeen` appears on catalog entries.
@@ -166,7 +161,7 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 
 ### Still required before calling the backend release-ready
 
-- Deploy the latest `firestore.rules`; the notification rules are currently only in the repository
+- Deploy the latest `firestore.rules`; the current notification-rule deployment is not confirmed
 - Run live security tests for direct Firestore writes, especially booking confirmation, notification creation, dispute resolution, and private document access
 - Run the renter-owner-admin notification smoke test against the deployed project
 - Keep the GitHub Actions secret and service-account handling verified; the current automation depends on that workflow rather than deployed Cloud Functions
@@ -175,12 +170,12 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 
 ## Validation Already Passing
 
-- `node --test`: 21 tests passed
+- `node --test`: 23 tests passed
 - `npm run lint`: passed
 - `npm run build`: passed
 - `python -m unittest discover -s bank_scraper -p "test_*.py"`: 9 tests passed
-- Previous Firestore rules deployment: passed; notification-rule deployment pending
-- Live seed and trust-score recomputation: passed
+- Earlier Firestore rules deployment: passed; deployment of the current rules is unverified
+- Synthetic data seeding and trust-score recomputation were previously run successfully; rerun as part of release smoke testing
 
 The production build still reports a non-blocking large JavaScript bundle warning.
 
@@ -229,14 +224,81 @@ this report, pass focused tests, and document any limitation honestly.
 - Only Completed bookings count toward trust score
 - Ranking uses completed bookings, ratings, and price fairness
 - Repeated self-booking patterns require manual review
-- Owners need visibility into inquiries, bookings, and listing performance
+- Owner dashboard summarizes listings, pending requests, confirmed bookings, and completed stays
+- Public listing details display trust score and price-fairness label
+- Refreshed Home, Bank Catalog, and responsive navigation were merged through PR #34
 
-## Next Milestones: Release QA
+## Post-Presentation Findings (2026-09-28)
 
-1. Deploy the updated Firestore rules, including notification access rules, to the live Firebase project.
-2. Run the notification smoke test with a renter, owner, and admin account.
-3. Verify notification reads, booking confirmation, listing approval, and dispute resolution in the deployed build.
-4. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
-5. Finish cross-browser, mobile, and release QA.
+All six requests are feasible within the current React + Firebase architecture. The items below are a proposed backlog, not changes already implemented. Prioritize the access-control diagnosis and dispute policy before visual enhancements.
 
-Firebase Storage is documented as a future option only if the project later moves to Blaze billing with an approved payment method. BDO and Landbank are also future catalog integrations; Metrobank remains the sole active source because it already supplies a substantial catalog.
+### P0 - Diagnose admin login and prove the access boundary
+
+**Finding:** The application already wraps `/admin` in `RequireAdmin`. It waits for Auth/profile loading, then permits only `profile.role === "admin"`; ordinary users are redirected to `/`. Login routing also depends on this Firestore profile role. Therefore, the observed symptom is more likely a missing/misspelled role, a failed profile read, stale account data, or a wrong admin test account than an absent URL blocker. A client-side route guard is necessary for UX but is not the security boundary; Firestore rules must also deny non-admin reads/writes.
+
+**Next:** Reproduce with one known active admin and one ordinary user. Check `users/{uid}.role`, `users/{uid}.status`, profile-load errors, the post-login destination, and direct navigation to `/admin` and nested routes. Add a clear loading/denied state and regression tests; verify Firestore admin-only rules independently.
+
+**Acceptance:** An active admin consistently lands on the admin dashboard after profile loading. An ordinary or suspended user cannot render any admin route by typing its URL and cannot access admin-only Firestore data. Missing/erroring role profiles fail closed and show a useful message rather than silently looking like a normal user login.
+
+### P0 - Separate admin and user notification feeds
+
+**Finding:** The admin shell used the shared bell, which linked to `/notifications`; that page combined the admin's personal UID feed with the `__admins__` broadcast feed. This made admins open a user-facing page and see notifications intended for their personal user account.
+
+**Implemented on the current feature branch:** Admin bells now open `/admin/notifications` and subscribe only to the shared admin feed. Admins who manually visit `/notifications` are redirected to the admin inbox. Regular users query only their own UID feed. Firestore rules now restrict admins to `__admins__` documents, users to their own documents, and notification updates to the `read` field. User-created admin alerts must reference a real pending booking or open dispute. The admin inbox is available in the admin sidebar.
+
+**Remaining:** Merge this branch, deploy the updated Firestore rules, and test with an admin who also owns/lists properties plus a separate regular user. Confirm that the admin sees booking-request/dispute broadcasts only, cannot read a user's approval or booking notification, and that a regular user cannot read the admin feed. Admin broadcast read state is shared among admins because the inbox uses one `__admins__` recipient.
+
+**Acceptance:** Admin notification UI stays inside `/admin/*`; admin counts and inbox results contain only admin broadcasts; user counts and inbox results contain only that user's notifications; Firestore denies cross-feed reads/updates even if a client issues a direct query.
+
+### P1 - Remove duplicate manual completion actions
+
+**Finding:** Both the renter's My Bookings page and the owner's Manage Booking Requests page currently offer `Mark completed`. The scheduled `complete_expired_bookings.py` job also completes expired confirmed bookings; the existing workflow runs it weekly.
+
+**Recommendation:** Pick one manual confirmer. For this marketplace, prefer the renter confirming that the viewing/stay happened, with scheduled completion as the fallback after the end date. Remove the owner's duplicate button, or record a deliberate team decision for the opposite ownership. Do not remove the automatic fallback without replacing it.
+
+**Acceptance:** A booking has one clearly named manual completion action, appears completed once, triggers the expected review prompt/trust-score path, and remains disputable under the agreed time window. Verify the job cadence is acceptable; weekly automation can leave an expired booking confirmed for several days.
+
+### P1 - Make the description length target optional, not the description itself
+
+**Finding:** The description field is currently required and validation rejects fewer than 150 or more than 400 words. This matches the existing implementation but not the requested lighter intake.
+
+**Interpretation to implement:** Keep a non-empty description required, remove the 150-word minimum, and retain a reasonable upper limit (currently 400 words). Present 150 words as a recommendation, not a blocking requirement. Apply the same rule to create, edit, resubmission, and tests.
+
+**Acceptance:** Empty/whitespace-only descriptions are rejected; concise factual descriptions below 150 words can be submitted; descriptions over the agreed maximum are rejected with inline guidance.
+
+### P1 - Improve owner listing visibility
+
+**Finding:** My Listings already displays each listing's title, city, verification status, and review note. The owner dashboard already summarizes listing and booking counts. The gap is that the listing row is sparse, so owners have limited at-a-glance detail; the Manage Requests page also has an empty state when there are no requests.
+
+**Next:** Enrich the existing My Listings cards rather than adding another page: show thumbnail, price, property type, verification/review state, and clear View/Edit actions; show pending request count per listing and link directly to that listing's requests. Keep exact address and verification documents private.
+
+**Acceptance:** Owners can distinguish listings and see status, key details, review feedback, and relevant request counts on mobile without entering each page. Empty states explain that no requests are waiting and provide a useful next action.
+
+### P2 - Add a property map with location privacy
+
+**Feasibility:** Yes. Listings currently store address/city text but no coordinates or map component. A map needs coordinates, a map provider, and a decision about geocoding. Google Maps requires a configured API key and may require billing; Leaflet with OpenStreetMap tiles is a no-key alternative subject to tile-provider usage policies.
+
+**Recommendation:** Prototype Leaflet/OpenStreetMap first to preserve the no-billing goal. Store latitude/longitude and a location precision value; display an approximate neighborhood/city pin publicly and keep the exact address hidden until a confirmed booking, consistent with the existing privacy requirement. Do not send private ID/document data to a map provider.
+
+**Acceptance:** Owners can set or confirm a pin, edit it, and see a preview; renters can see the disclosed approximate location on listing detail; invalid coordinates are rejected; existing listings without coordinates continue to work without a broken map.
+
+### P1 - Define and implement the dispute operating process
+
+**Current gap:** A renter submits a reason and the admin queue can mark the dispute Founded or Dismissed with notes. The booking is not changed to `Disputed` when the report is submitted. A Founded decision increments the public accountability count, but this admin flow does not itself suspend the account or hide its listings. AdminUsers can suspend accounts separately. The code therefore does not yet enforce the full promised consequence workflow end-to-end.
+
+**Proposed process for team approval:** (1) renter opens a dispute from an eligible booking and submits a reason plus evidence; (2) system records the prior booking status and atomically marks the booking Disputed; (3) notify the admin queue and give the other party a response opportunity; (4) admin records Founded or Dismissed with resolution notes; (5) if Founded, suspend the responsible account, unpublish/disable its active listings, retain the audit record, and notify both parties; (6) if Dismissed, restore the prior booking status and notify both parties. Define who may appeal, the appeal window, and who can reinstate an account before coding permanent consequences.
+
+**Acceptance:** Each dispute has a traceable booking, reporter, evidence/notes, decision-maker, timestamps, and final outcome. Booking status and user/listing access match that outcome; duplicate open disputes are blocked; notifications are sent; the public flag reflects founded cases only. Verify all transitions in Firestore rules and tests, not only in the UI.
+
+## Remaining Work: Release QA
+
+1. Diagnose and close the admin login/access issue, including direct-route and Firestore-rule tests.
+2. Approve the single completion authority and the dispute operating/appeal policy.
+3. Implement and test the description, owner-listing, and dispute-flow improvements above.
+4. Decide the map provider and location-precision policy before implementation.
+5. Deploy the current Firestore rules, including notification access rules, to the live Firebase project.
+6. Run renter-owner-admin smoke tests and direct-write security checks for booking transitions, notifications, dispute review, and private documents.
+7. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
+8. Finish cross-browser, mobile, and final release QA.
+
+Firebase Storage remains a future migration only if billing is approved. BDO and Landbank remain future catalog integrations; Metrobank is the active bank source. These are intentionally excluded from the current implementation-completion assessment.

@@ -1,35 +1,39 @@
 import { useEffect, useState } from "react";
 import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { CheckCheck, Bell } from "lucide-react";
+import { Navigate } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import NotificationBell from "../components/NotificationBell";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { sortNotifications } from "../lib/notifications";
-import { ADMIN_NOTIFICATION_RECIPIENT } from "../lib/notifications";
 import "./Notifications.css";
 
 export default function Notifications() {
-  const { user, profile } = useAuth();
+  const { profile, loading } = useAuth();
+
+  if (loading) return <main className="user-page__empty">Loading notifications...</main>;
+  if (profile?.role === "admin") return <Navigate to="/admin/notifications" replace />;
+
+  return <UserNotifications />;
+}
+
+function UserNotifications() {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const notificationMap = new Map();
-    const recipients = [user.uid];
-    if (profile?.role === "admin") recipients.push(ADMIN_NOTIFICATION_RECIPIENT);
-    const unsubscribe = recipients.map((recipientId) => onSnapshot(
-      query(collection(db, "notifications"), where("recipientId", "==", recipientId)),
+    return onSnapshot(
+      query(collection(db, "notifications"), where("recipientId", "==", user.uid)),
       (snapshot) => {
-        snapshot.docs.forEach((item) => notificationMap.set(item.id, { id: item.id, ...item.data() }));
-        setNotifications(sortNotifications([...notificationMap.values()]));
+        setNotifications(sortNotifications(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))));
         setLoading(false);
       },
       () => { setError("Notifications could not be loaded."); setLoading(false); }
-    ));
-    return () => unsubscribe.forEach((stop) => stop());
-  }, [profile?.role, user.uid]);
+    );
+  }, [user.uid]);
 
   async function markRead(notification) {
     if (notification.read) return;

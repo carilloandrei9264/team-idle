@@ -9,6 +9,14 @@ export const NOTIFICATION_TYPES = {
 
 export const ADMIN_NOTIFICATION_RECIPIENT = "__admins__";
 
+export function notificationRecipientForRole(role, userId) {
+  return role === "admin" ? ADMIN_NOTIFICATION_RECIPIENT : userId;
+}
+
+export function notificationInboxPath(role) {
+  return role === "admin" ? "/admin/notifications" : "/notifications";
+}
+
 export async function createNotification(db, { recipientId, createdBy, type, title, message, link = null, entityId = null, entityType = null }) {
   if (!recipientId || !createdBy || !title || !message) return;
   await addDoc(collection(db, "notifications"), {

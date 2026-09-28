@@ -27,6 +27,7 @@ const SavedSearches = lazy(() => import("./pages/SavedSearches"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const AdminLayout = lazy(() => import("./admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
+const AdminNotifications = lazy(() => import("./admin/AdminNotifications"));
 const AdminListings = lazy(() => import("./admin/AdminListings"));
 const AdminDisputes = lazy(() => import("./admin/AdminDisputes"));
 const AdminUsers = lazy(() => import("./admin/AdminUsers"));
@@ -74,6 +75,7 @@ function AppRoutes() {
           }
         >
           <Route index element={<AdminDashboard />} />
+          <Route path="notifications" element={<AdminNotifications />} />
           <Route path="listings" element={<AdminListings />} />
           <Route path="disputes" element={<AdminDisputes />} />
           <Route path="users" element={<AdminUsers />} />
