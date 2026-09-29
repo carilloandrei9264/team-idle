@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import PublicNav from "../components/PublicNav";
@@ -7,7 +7,7 @@ import Footer from "../components/Footer";
 import ListingCard from "../components/ListingCard";
 import {
   Search, ShieldCheck, TrendingUp, MessageSquareWarning,
-  MapPin, Star, ArrowRight, Check,
+  Check,
 } from "lucide-react";
 import "./Home.css";
 
@@ -31,35 +31,16 @@ const HOW_IT_WORKS = [
 
 const HERO_CHECKS = ["Owners verified by ID", "Ranked by real bookings", "Disputes stay public"];
 
-// Sample properties (temporary — swap the image URLs for your own photos)
-const SAMPLE_PROPERTIES = [
-  {
-    id: "sample-1", title: "2BR Apartment in Cebu IT Park", price: "₱15,000", period: "mo",
-    location: "Cebu IT Park, Cebu City", trust: 4.8,
-    image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=80",
-  },
-  {
-    id: "sample-2", title: "3BR House in Talisay", price: "₱28,000", period: "mo",
-    location: "Talisay City, Cebu", trust: 4.6,
-    image: "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=600&q=80",
-  },
-  {
-    id: "sample-3", title: "Studio in Cebu City", price: "₱8,500", period: "mo",
-    location: "Cebu City", trust: 4.9,
-    image: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80",
-  },
-];
-
 // Hero mosaic — 3x3 tiles. `img` tiles are photos (temporary, replace freely);
 // the rest are colour shapes. `r` picks which corner is rounded.
 const MOSAIC = [
   { tone: "navy", r: "tl" },
-  { img: SAMPLE_PROPERTIES[0].image, r: "tr" },
+  { tone: "sky", r: "tr" },
   { tone: "ring" },
   { tone: "blue", r: "br" },
   { tone: "sky", r: "tl" },
-  { img: SAMPLE_PROPERTIES[2].image, r: "br" },
-  { img: SAMPLE_PROPERTIES[1].image, r: "tl" },
+  { tone: "blue", r: "br" },
+  { tone: "navy", r: "tl" },
   { tone: "navy-ring" },
   { tone: "blue", r: "tr" },
 ];
@@ -110,30 +91,6 @@ function Hero({ searchCity, setSearchCity, onSearch }) {
         </div>
       </div>
     </section>
-  );
-}
-
-function SamplePropertyCard({ property }) {
-  return (
-    <Link to="/browse" className="sample-card" aria-label={`View ${property.title}`}>
-      <div className="sample-card__image-wrap">
-        <img src={property.image} alt={property.title} className="sample-card__image" loading="lazy" />
-        <span className="sample-card__trust" aria-label={`Trust score ${property.trust}`}>
-          <Star size={11} aria-hidden="true" />
-          {property.trust}
-        </span>
-      </div>
-      <div className="sample-card__body">
-        <h3 className="sample-card__title">{property.title}</h3>
-        <p className="sample-card__location">
-          <MapPin size={12} aria-hidden="true" />
-          {property.location}
-        </p>
-        <p className="sample-card__price">
-          {property.price}<span className="sample-card__period">/{property.period}</span>
-        </p>
-      </div>
-    </Link>
   );
 }
 
@@ -207,26 +164,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Sample properties */}
-      <section className="section" aria-label="Sample properties">
-        <div className="wrap">
-          <div className="section__head">
-            <h2>Popular rentals</h2>
-            <Link to="/browse" className="section__link">
-              See all <ArrowRight size={14} aria-hidden="true" />
-            </Link>
-          </div>
-          <div className="cards cards--3">
-            {SAMPLE_PROPERTIES.map((p) => <SamplePropertyCard key={p.id} property={p} />)}
-          </div>
-        </div>
-      </section>
-
       {/* Featured verified listings (live data) */}
       <section className="section section--tint">
         <div className="wrap">
           <div className="section__head">
-            <h2>Featured verified listings</h2>
+            <h2>Verified rentals</h2>
             <button type="button" className="link-button" onClick={() => navigate("/browse")}>
               See all
             </button>

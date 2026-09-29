@@ -8,6 +8,12 @@ export const NOTIFICATION_TYPES = {
 };
 
 export const ADMIN_NOTIFICATION_RECIPIENT = "__admins__";
+export const ADMIN_NOTIFICATION_TYPE = NOTIFICATION_TYPES.DISPUTE_UPDATE;
+
+export function isAdminInboxNotification(notification) {
+  return notification.recipientId === ADMIN_NOTIFICATION_RECIPIENT
+    && notification.type === ADMIN_NOTIFICATION_TYPE;
+}
 
 export function notificationRecipientForRole(role, userId) {
   return role === "admin" ? ADMIN_NOTIFICATION_RECIPIENT : userId;

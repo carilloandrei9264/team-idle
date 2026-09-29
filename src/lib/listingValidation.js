@@ -19,8 +19,10 @@ export function validateListingForm({ form, photos, ownershipDocument, governmen
   if (!String(form.availabilityDate ?? "").trim()) errors.push("Add an availability date.");
   if (!Array.isArray(form.amenities) || form.amenities.length === 0) errors.push("Select at least one amenity.");
   if (!hasValidShowingWindow(form.showingWindows)) errors.push("Add at least one showing window with a start and end time.");
-  if (descriptionWords < MIN_DESCRIPTION_WORDS || descriptionWords > MAX_DESCRIPTION_WORDS) {
-    errors.push(`Description must be between ${MIN_DESCRIPTION_WORDS} and ${MAX_DESCRIPTION_WORDS} words.`);
+  if (!String(form.description ?? "").trim()) {
+    errors.push("Add a property description.");
+  } else if (descriptionWords > MAX_DESCRIPTION_WORDS) {
+    errors.push(`Description should stay within ${MAX_DESCRIPTION_WORDS} words. Current length: ${descriptionWords}.`);
   }
   if (!Array.isArray(photos) || photos.length < MIN_LISTING_PHOTOS) {
     errors.push(`Upload at least ${MIN_LISTING_PHOTOS} property photos.`);

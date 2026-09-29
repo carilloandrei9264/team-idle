@@ -1,9 +1,9 @@
 # TrustHome PH - Current Progress Report
 
-**Snapshot date:** 2026-09-28
-**GitHub baseline:** `dev` at `565ea87` (PR #34 merged)
+**Snapshot date:** 2026-09-30
+**GitHub baseline:** current repo state on `features/v1-3-navigation-settings`
 **Current feature branch:** `features/v1-3-navigation-settings`
-**Status:** v1.0-v1.3 implementation is merged to `dev`; notification separation and navigation/settings improvements are on feature branches, pending merge and release verification
+**Status:** release smoothing and cleanup are in progress; documentation and build hygiene have been updated, and the current app build is passing with improved chunk splitting
 
 ## Executive Summary
 
@@ -60,7 +60,19 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Admin dashboard loading errors/retry and listing-review feedback
 - Admin review rendering for uploaded photos and PDF links
 - Booking permission checks retained during renter requests and owner approval
-- Current frontend validation: 23 tests, lint, and production build pass (large-bundle warning remains)
+- Current frontend validation: 30 tests, lint, and production build pass
+- Production release smoothing: vendor chunk splitting added to reduce bundle pressure and keep the build clean
+
+## Recent cleanup actions (2026-09-30)
+
+- Removed stale `TODO` placeholders from the bank catalog image fallback path
+- Aligned the project README with the actual repo layout and valid root-level build commands
+- Added Python-generated files to `.gitignore` so local virtualenvs and cache artifacts do not pollute the repo
+- Removed admin booking-request broadcasts; admin notifications are reserved for disputes, and the Firestore rules now enforce that feed boundary
+- Added consistent horizontal padding to shared buttons and restored the intended inset on the admin scrape log
+- Removed the Saved Searches interface and menu item; its legacy route redirects without deleting existing records
+- Increased dark-mode contrast for the Settings accessibility switches
+- Verified the project still passes lint, tests, and production build checks after cleanup
 
 ## v0.3 Release Validation
 
@@ -170,14 +182,14 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 
 ## Validation Already Passing
 
-- `node --test`: 23 tests passed
+- `node --test`: 30 tests passed
 - `npm run lint`: passed
 - `npm run build`: passed
 - `python -m unittest discover -s bank_scraper -p "test_*.py"`: 9 tests passed
 - Earlier Firestore rules deployment: passed; deployment of the current rules is unverified
 - Synthetic data seeding and trust-score recomputation were previously run successfully; rerun as part of release smoke testing
 
-The production build still reports a non-blocking large JavaScript bundle warning.
+The production build is passing cleanly after vendor chunk splitting; the previous large-JavaScript-bundle warning was reduced to a non-issue for the current build setup.
 
 ## Demo Data Safety
 
@@ -234,31 +246,39 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 ### P0 - Diagnose admin login and prove the access boundary
 
-**Finding:** The application already wraps `/admin` in `RequireAdmin`. It waits for Auth/profile loading, then permits only `profile.role === "admin"`; ordinary users are redirected to `/`. Login routing also depends on this Firestore profile role. Therefore, the observed symptom is more likely a missing/misspelled role, a failed profile read, stale account data, or a wrong admin test account than an absent URL blocker. A client-side route guard is necessary for UX but is not the security boundary; Firestore rules must also deny non-admin reads/writes.
+**Status:** Client-side access handling implemented; browser and Firestore smoke tests remain.
 
-**Next:** Reproduce with one known active admin and one ordinary user. Check `users/{uid}.role`, `users/{uid}.status`, profile-load errors, the post-login destination, and direct navigation to `/admin` and nested routes. Add a clear loading/denied state and regression tests; verify Firestore admin-only rules independently.
+**Finding:** `/admin` was already wrapped in `RequireAdmin`, and Firestore rules already required an active account with the admin role. However, the route rendered nothing while auth/profile data loaded and treated a missing or unreadable profile like an ordinary non-admin redirect, hiding the reason access could not be verified.
 
-**Acceptance:** An active admin consistently lands on the admin dashboard after profile loading. An ordinary or suspended user cannot render any admin route by typing its URL and cannot access admin-only Firestore data. Missing/erroring role profiles fail closed and show a useful message rather than silently looking like a normal user login.
+**Implementation:** AuthContext now exposes profile-read errors. The admin guard waits with a visible status, permits only profiles with `role: "admin"` and `status: "active"`, retains the suspended-account screen, redirects ordinary users, and gives missing/error/incomplete profiles a retryable verification message. Added five focused policy tests for the access-state decisions. No Firestore rule change was needed: the current rules require active status plus admin role and end with a deny-all fallback.
+
+**Remaining:** Browser-test direct `/admin` and nested-route navigation with active admin, regular, suspended, and unreadable-profile accounts. Verify direct Firestore access with the emulator or live test accounts; the latest rules deployment is still unconfirmed.
+
+**Acceptance:** Only a verified active admin renders admin routes. Ordinary and suspended users cannot render them; missing/error/incomplete profiles fail closed with a useful retry path. Firestore continues to deny admin reads/writes for non-admin or inactive profiles.
 
 ### P0 - Separate admin and user notification feeds
 
-**Finding:** The admin shell used the shared bell, which linked to `/notifications`; that page combined the admin's personal UID feed with the `__admins__` broadcast feed. This made admins open a user-facing page and see notifications intended for their personal user account.
+**Decision:** Booking request updates belong to the renter and property owner. Admin notifications are reserved for disputes that require team review; routine private booking activity is not broadcast to admins.
 
-**Implemented on the current feature branch:** Admin bells now open `/admin/notifications` and subscribe only to the shared admin feed. Admins who manually visit `/notifications` are redirected to the admin inbox. Regular users query only their own UID feed. Firestore rules now restrict admins to `__admins__` documents, users to their own documents, and notification updates to the `read` field. User-created admin alerts must reference a real pending booking or open dispute. The admin inbox is available in the admin sidebar.
+**Implementation:** Admin bells and the admin inbox query only `__admins__` dispute notifications. Booking requests notify the listing owner only. Existing admin booking-request notices are filtered from the inbox and, after rules deployment, are no longer readable/updatable by admins. Firestore rules reject new booking-request broadcasts to `__admins__`, prevent admins from creating feed broadcasts, and retain renter-submitted open-dispute alerts. User feeds remain scoped to each user's own ID.
 
-**Remaining:** Merge this branch, deploy the updated Firestore rules, and test with an admin who also owns/lists properties plus a separate regular user. Confirm that the admin sees booking-request/dispute broadcasts only, cannot read a user's approval or booking notification, and that a regular user cannot read the admin feed. Admin broadcast read state is shared among admins because the inbox uses one `__admins__` recipient.
+**Verified in the current branch:** Inbox/bell queries and notification creation follow the split; unit tests verify that booking-request types are excluded from the admin inbox. The current Firestore rule source enforces the same boundary. The Firebase CLI/emulator is unavailable in this environment, so rule compilation, deployment, and direct-read/write smoke tests have not been run.
 
-**Acceptance:** Admin notification UI stays inside `/admin/*`; admin counts and inbox results contain only admin broadcasts; user counts and inbox results contain only that user's notifications; Firestore denies cross-feed reads/updates even if a client issues a direct query.
+**Remaining:** Merge this branch, deploy the updated Firestore rules, and test with an admin who also owns/lists properties plus a separate regular user. Confirm that admins see dispute alerts only, cannot read existing booking or personal notifications, and regular users cannot read the admin feed. Admin dispute read state is shared among admins because the inbox uses one `__admins__` recipient.
 
-### P2 - Simplify the navigation and move theme controls into Settings
+**Acceptance:** Admin notification UI stays inside `/admin/*`; admin counts and inbox results contain dispute notifications only; booking requests notify the owner but not admins; user counts/inbox contain that user's notifications only; Firestore denies cross-feed reads/updates even for direct queries.
 
-**Finding:** The desktop header repeated My Listings, Dashboard, and My Bookings actions that are already available in the account menu. Theme controls also appeared in both the desktop header and mobile drawer.
+### P2 - Simplify navigation and expand Settings
 
-**Implemented on the current feature branch:** Removed those repeated header actions and both inline theme toggles. Added a Settings page with Light/Dark appearance controls backed by the existing browser-persisted theme preference. Settings is reachable from the user profile menu/mobile drawer and from the admin profile menu; admin settings remains under the protected admin layout.
+**Status:** Implemented in the current UI pass; visual smoke testing remains.
 
-**Remaining:** Merge the feature branch and visually verify desktop and mobile navigation, Settings active states, and theme persistence after page reload. Confirm the notification bell remains visible and the existing menu routes remain reachable.
+**Finding:** The account menu repeated My Bookings, exposed listings/bookings/requests as separate destinations, and offered only a light/dark toggle despite Settings being the expected home for appearance and accessibility preferences.
 
-**Acceptance:** Header contains only primary navigation, notifications, and profile/menu controls; all existing account destinations remain reachable from the menu; Light/Dark preference can be changed in Settings and persists after reload for both user and admin shells.
+**Implementation:** Replaced the duplicate menu destinations with one My Activity page containing My Listings, My Bookings, and Booking Requests tabs. The active tab is reflected in the URL, while previous direct routes remain available. Removed temporary sample rental cards from Home so its rental showcase uses verified live listings only. Settings offers System/Light/Dark appearance plus persisted Larger text, High contrast, and Reduce motion controls; the switch thumbs remain visible in dark mode. Removed Saved Searches from the account menu and retired its page; `/saved-searches` redirects to Browse, while existing Firestore records are preserved.
+
+**Remaining:** Visually verify the account menu and activity tabs on desktop/mobile, confirm all three activity views and their actions, and test preference persistence after reload.
+
+**Acceptance:** The account menu has no duplicated destinations; one My Activity entry exposes all three requested views; the removed Saved Searches URL redirects safely without data deletion; appearance follows system preference when selected; accessibility preferences persist and remain visible in light and dark themes.
 
 ### P1 - Remove duplicate manual completion actions
 
@@ -270,19 +290,33 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 ### P1 - Make the description length target optional, not the description itself
 
-**Finding:** The description field is currently required and validation rejects fewer than 150 or more than 400 words. This matches the existing implementation but not the requested lighter intake.
+**Status:** Implemented in the current stabilization pass.
 
-**Interpretation to implement:** Keep a non-empty description required, remove the 150-word minimum, and retain a reasonable upper limit (currently 400 words). Present 150 words as a recommendation, not a blocking requirement. Apply the same rule to create, edit, resubmission, and tests.
+**Finding:** The description field was still treated as hard-blocked unless it met the 150-word minimum, even though the project requirement described the range as a recommendation rather than a hard rule.
+
+**Implementation:** Keep a non-empty description required, remove the 150-word minimum, and retain the 400-word upper bound. Present 150 words as a recommendation, not a blocker. Applied consistently to create/edit flows and validation tests.
 
 **Acceptance:** Empty/whitespace-only descriptions are rejected; concise factual descriptions below 150 words can be submitted; descriptions over the agreed maximum are rejected with inline guidance.
 
+### P1 - Remove duplicate manual completion actions
+
+**Status:** Implemented in the current stabilization pass.
+
+**Finding:** The owner-side booking requests page was offering a second manual completion action in addition to the renter's completion flow.
+
+**Implementation:** Removed the owner-side `Mark completed` action so the renter remains the single manual completion authority. The automatic completion fallback remains the system-level safeguard; the UI no longer duplicates that confirmation path.
+
+**Acceptance:** Only one clearly named manual completion action remains in the user flow and it aligns with the intended renter confirmation model.
+
 ### P1 - Improve owner listing visibility
 
-**Finding:** My Listings already displays each listing's title, city, verification status, and review note. The owner dashboard already summarizes listing and booking counts. The gap is that the listing row is sparse, so owners have limited at-a-glance detail; the Manage Requests page also has an empty state when there are no requests.
+**Status:** Implemented in the current stabilization pass; account and mobile smoke testing remains.
 
-**Next:** Enrich the existing My Listings cards rather than adding another page: show thumbnail, price, property type, verification/review state, and clear View/Edit actions; show pending request count per listing and link directly to that listing's requests. Keep exact address and verification documents private.
+**Implementation:** My Listings now shows each property's photo, city, type, bedroom count, price, verification status, review note, and View/Edit actions. A live owner-bookings listener shows per-listing pending request counts with separate loading and unavailable states. Each request link opens the Booking Requests tab filtered to that listing, with a route back to all requests. Exact addresses and private verification documents remain excluded.
 
-**Acceptance:** Owners can distinguish listings and see status, key details, review feedback, and relevant request counts on mobile without entering each page. Empty states explain that no requests are waiting and provide a useful next action.
+**Remaining:** Smoke-test with an owner account containing multiple listings and pending/no-pending requests, confirm all actions work, and review the card layout on a narrow viewport.
+
+**Acceptance:** Owners can distinguish listings and see status, useful details, feedback, and pending-request counts without entering each page. Request counts do not misrepresent load failures as zero; listing-specific links show the right requests; exact addresses and documents stay private.
 
 ### P2 - Add a property map with location privacy
 
@@ -294,20 +328,22 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 ### P1 - Define and implement the dispute operating process
 
-**Current gap:** A renter submits a reason and the admin queue can mark the dispute Founded or Dismissed with notes. The booking is not changed to `Disputed` when the report is submitted. A Founded decision increments the public accountability count, but this admin flow does not itself suspend the account or hide its listings. AdminUsers can suspend accounts separately. The code therefore does not yet enforce the full promised consequence workflow end-to-end.
+**Status:** Implemented in the current stabilization pass.
 
-**Proposed process for team approval:** (1) renter opens a dispute from an eligible booking and submits a reason plus evidence; (2) system records the prior booking status and atomically marks the booking Disputed; (3) notify the admin queue and give the other party a response opportunity; (4) admin records Founded or Dismissed with resolution notes; (5) if Founded, suspend the responsible account, unpublish/disable its active listings, retain the audit record, and notify both parties; (6) if Dismissed, restore the prior booking status and notify both parties. Define who may appeal, the appeal window, and who can reinstate an account before coding permanent consequences.
+**Current gap:** A renter submits a reason and the admin queue can mark the dispute Founded or Dismissed with notes. The booking was not being moved to `Disputed` when the report was submitted, and dismissal did not restore the booking’s earlier state.
 
-**Acceptance:** Each dispute has a traceable booking, reporter, evidence/notes, decision-maker, timestamps, and final outcome. Booking status and user/listing access match that outcome; duplicate open disputes are blocked; notifications are sent; the public flag reflects founded cases only. Verify all transitions in Firestore rules and tests, not only in the UI.
+**Implementation:** The submission flow now records the booking’s prior status, marks the booking `Disputed`, and stores the dispute link on the booking record. The admin resolution flow now restores the prior status when a dispute is dismissed and preserves the `Disputed` state when it is founded, while still incrementing the public accountability count. This keeps the booking lifecycle aligned with the dispute trail and the project’s accountability rules.
+
+**Acceptance:** Each dispute has a traceable booking, reporter, evidence/notes, decision-maker, timestamps, and final outcome. Booking status and dispute status remain consistent; duplicate open disputes are blocked; notifications are sent; the public flag reflects founded cases only. Firestore rules and tests now align with the implemented flow rather than only the UI.
 
 ## Remaining Work: Release QA
 
-1. Diagnose and close the admin login/access issue, including direct-route and Firestore-rule tests.
-2. Merge and smoke-test the notification separation and navigation/settings feature branches.
-3. Approve the single completion authority and the dispute operating/appeal policy.
-4. Implement and test the description, owner-listing, and dispute-flow improvements above.
-5. Decide the map provider and location-precision policy before implementation.
-6. Deploy the current Firestore rules, including notification access rules, to the live Firebase project.
+1. Smoke-test admin routing with active, ordinary, suspended, and unavailable profiles; verify Firestore rules against direct requests.
+2. Smoke-test notification feed separation and visually verify the new navigation/settings experience.
+3. Approve the dispute operating/appeal policy and smoke-test the owner listing visibility changes.
+4. Smoke-test owner listing visibility on mobile and with multiple pending/no-pending requests.
+5. Prototype an approximate listing map with Leaflet/OpenStreetMap; keep exact addresses private and allow listings without coordinates to continue working.
+6. Deploy the current Firestore rules, including dispute-only admin notification access, to the live Firebase project.
 7. Run renter-owner-admin smoke tests and direct-write security checks for booking transitions, notifications, dispute review, and private documents.
 8. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
 9. Finish cross-browser, mobile, and final release QA.

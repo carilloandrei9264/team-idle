@@ -6,7 +6,7 @@ export const BOOKING_TRANSITIONS = {
   Pending: ["Confirmed"],
   Confirmed: ["Completed", "Disputed"],
   Completed: ["Disputed"],
-  Disputed: [],
+  Disputed: ["Confirmed", "Completed"],
 };
 
 export function canTransitionBookingStatus(currentStatus, nextStatus) {

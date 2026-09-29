@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { Bell, CheckCheck } from "lucide-react";
 import { db } from "../firebase";
-import { ADMIN_NOTIFICATION_RECIPIENT, sortNotifications } from "../lib/notifications";
+import {
+  ADMIN_NOTIFICATION_RECIPIENT,
+  ADMIN_NOTIFICATION_TYPE,
+  isAdminInboxNotification,
+  sortNotifications,
+} from "../lib/notifications";
 import "../pages/Notifications.css";
 
 export default function AdminNotifications() {
@@ -11,9 +16,15 @@ export default function AdminNotifications() {
   const [error, setError] = useState("");
 
   useEffect(() => onSnapshot(
-    query(collection(db, "notifications"), where("recipientId", "==", ADMIN_NOTIFICATION_RECIPIENT)),
+    query(
+      collection(db, "notifications"),
+      where("recipientId", "==", ADMIN_NOTIFICATION_RECIPIENT),
+      where("type", "==", ADMIN_NOTIFICATION_TYPE)
+    ),
     (snapshot) => {
-      setNotifications(sortNotifications(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))));
+      setNotifications(sortNotifications(snapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() }))
+        .filter(isAdminInboxNotification)));
       setLoading(false);
     },
     () => { setError("Admin notifications could not be loaded."); setLoading(false); }
@@ -35,11 +46,11 @@ export default function AdminNotifications() {
   const unreadCount = notifications.filter((item) => !item.read).length;
   return <section className="admin-page notifications-page">
     <header className="admin-page__header notifications-page__header">
-      <div><h1 className="admin-page__title">Admin notifications</h1><p className="admin-page__description">Booking requests and disputes requiring team attention.</p></div>
+      <div><h1 className="admin-page__title">Admin notifications</h1><p className="admin-page__description">Disputes requiring team attention.</p></div>
     </header>
     {error && <p className="admin-page__error" role="alert">{error}</p>}
     {loading ? <div className="admin-data-card admin-empty">Loading admin notifications...</div> : notifications.length === 0 ? (
-      <div className="admin-data-card admin-empty"><Bell size={26} aria-hidden="true" /><h2>No admin notifications</h2><p>New booking requests and disputes will appear here.</p></div>
+      <div className="admin-data-card admin-empty"><Bell size={26} aria-hidden="true" /><h2>No admin notifications</h2><p>New disputes requiring review will appear here.</p></div>
     ) : <>
       <div className="notifications-page__toolbar"><span>{unreadCount ? `${unreadCount} unread` : "All caught up"}</span>{unreadCount > 0 && <button type="button" className="btn btn--secondary" onClick={markAllRead}><CheckCheck size={16} aria-hidden="true" /> Mark all read</button>}</div>
       <div className="notifications-page__list">{notifications.map((notification) => <article className={`notification-item${notification.read ? " notification-item--read" : ""}`} key={notification.id}>

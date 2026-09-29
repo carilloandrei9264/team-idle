@@ -9,6 +9,7 @@ const Login = lazy(() => import("./pages/Login"));
 const Home = lazy(() => import("./pages/Home"));
 const Browse = lazy(() => import("./pages/Browse"));
 const MyListings = lazy(() => import("./pages/MyListings"));
+const MyActivity = lazy(() => import("./pages/MyActivity"));
 const MyDashboard = lazy(() => import("./pages/MyDashboard"));
 const Account = lazy(() => import("./pages/Account"));
 const BankCatalog = lazy(() => import("./pages/BankCatalog"));
@@ -23,7 +24,6 @@ const RatingForm = lazy(() => import("./pages/RatingForm"));
 const RaiseDispute = lazy(() => import("./pages/RaiseDispute"));
 const BankPropertyDetail = lazy(() => import("./pages/BankPropertyDetail"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
-const SavedSearches = lazy(() => import("./pages/SavedSearches"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Settings = lazy(() => import("./pages/Settings"));
 const AdminLayout = lazy(() => import("./admin/AdminLayout"));
@@ -52,6 +52,7 @@ function AppRoutes() {
         <Route path="/bank-catalog" element={<BankCatalog />} />
         <Route path="/login" element={<Login />} />
         <Route path="/my-listings" element={<RequireAuth><MyListings /></RequireAuth>} />
+        <Route path="/my-activity" element={<RequireAuth><MyActivity /></RequireAuth>} />
         <Route path="/dashboard" element={<RequireAuth><MyDashboard /></RequireAuth>} />
         <Route path="/listings/new" element={<RequireAuth><CreateListing /></RequireAuth>} />
         <Route path="/listings/:listingId" element={<ListingDetail />} />
@@ -64,7 +65,7 @@ function AppRoutes() {
         <Route path="/bookings/:bookingId/dispute" element={<RequireAuth><RaiseDispute /></RequireAuth>} />
           <Route path="/bank-catalog/:propertyId" element={<BankPropertyDetail />} />
           <Route path="/profiles/:userId" element={<PublicProfile />} />
-          <Route path="/saved-searches" element={<RequireAuth><SavedSearches /></RequireAuth>} />
+          <Route path="/saved-searches" element={<Navigate to="/browse" replace />} />
           <Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
         <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />

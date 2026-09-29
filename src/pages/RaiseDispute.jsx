@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { addDoc, collection, getDocs, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
@@ -53,6 +53,7 @@ export default function RaiseDispute() {
     setSaving(true);
     setError("");
     try {
+      const priorStatus = booking.status;
       const disputeRef = await addDoc(collection(db, "disputes"), {
         bookingId,
         bookingTitle: booking.listingTitle,
@@ -61,7 +62,14 @@ export default function RaiseDispute() {
         raisedByName: user.displayName || user.email,
         reason: normalizeDisputeReason(reason),
         status: "Open",
+        priorStatus,
         createdAt: serverTimestamp(),
+      });
+      await updateDoc(doc(db, "bookings", bookingId), {
+        status: "Disputed",
+        disputedAt: serverTimestamp(),
+        disputeId: disputeRef.id,
+        updatedAt: serverTimestamp(),
       });
       try {
         await createNotification(db, {

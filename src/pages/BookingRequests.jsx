@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { collection, deleteDoc, doc, getDocs, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
+import { Link, useSearchParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
@@ -7,13 +8,19 @@ import { bookingDatesOverlap, formatBookingDate } from "../lib/booking";
 import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./UserPages.css";
 
-export default function BookingRequests() {
+export default function BookingRequests({ embedded = false }) {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const listingFilter = searchParams.get("listingId");
+  const visibleRequests = listingFilter
+    ? requests.filter((request) => request.listingId === listingFilter)
+    : requests;
+  const filteredListingTitle = visibleRequests[0]?.listingTitle;
 
   useEffect(() => onSnapshot(
     query(collection(db, "bookings"), where("ownerId", "==", user.uid)),
@@ -82,41 +89,52 @@ export default function BookingRequests() {
     }
   }
 
+  const content = (
+    <>
+      <header className="user-page__header">
+        <div>
+          <p className="user-page__eyebrow">Owner tools</p>
+          <h1>{listingFilter ? `Requests for ${filteredListingTitle || "this listing"}` : "Booking Requests"}</h1>
+          <p>Confirm one request only after checking its dates against existing stays.</p>
+        </div>
+        {listingFilter && <Link to="/my-activity?tab=requests" className="btn btn--secondary">Show all requests</Link>}
+      </header>
+      {error && <p className="user-page__form-error" role="alert">{error}</p>}
+      {message && <p className="user-page__message" role="status">{message}</p>}
+      {loading ? <p className="user-page__empty">Loading booking requests...</p> : requests.length === 0 ? (
+        <div className="user-page__empty"><h2>No booking requests</h2><p>Requests from renters will appear here.</p></div>
+      ) : visibleRequests.length === 0 ? (
+        <div className="user-page__empty"><h2>No requests for this listing</h2><p>There are no booking requests for this property.</p><Link to="/my-activity?tab=requests" className="btn btn--secondary">Show all requests</Link></div>
+      ) : (
+        <div className="user-page__list">
+          {visibleRequests.map((request) => (
+            <article className="user-page__item booking-item" key={request.id}>
+              <div>
+                <h2>{request.listingTitle || "Listing"}</h2>
+                <p>{formatBookingDate(request.startDate)} to {formatBookingDate(request.endDate)}</p>
+                <p className="user-page__item-meta">Renter: {request.renterName || "TrustHome user"}</p>
+              </div>
+              <div className="booking-item__actions">
+                <span className={`badge badge--${statusTone(request.status)}`}>{request.status}</span>
+                {request.status === "Pending" && <>
+                  <button type="button" className="btn btn--primary" onClick={() => decide(request, "Confirmed")} disabled={savingId === request.id}>Approve</button>
+                  <button type="button" className="btn btn--danger" onClick={() => decline(request)} disabled={savingId === request.id}>Decline</button>
+                </>}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
+  if (embedded) return content;
+
   return (
     <div className="user-page">
       <PublicNav />
       <main className="user-page__content">
-        <header className="user-page__header">
-          <div>
-            <p className="user-page__eyebrow">Owner tools</p>
-            <h1>Booking Requests</h1>
-            <p>Confirm one request only after checking its dates against existing stays.</p>
-          </div>
-        </header>
-        {error && <p className="user-page__form-error" role="alert">{error}</p>}
-        {message && <p className="user-page__message" role="status">{message}</p>}
-        {loading ? <p className="user-page__empty">Loading booking requests...</p> : requests.length === 0 ? (
-          <div className="user-page__empty"><h2>No booking requests</h2><p>Requests from renters will appear here.</p></div>
-        ) : (
-          <div className="user-page__list">
-            {requests.map((request) => (
-              <article className="user-page__item booking-item" key={request.id}>
-                <div>
-                  <h2>{request.listingTitle || "Listing"}</h2>
-                  <p>{formatBookingDate(request.startDate)} to {formatBookingDate(request.endDate)}</p>
-                  <p className="user-page__item-meta">Renter: {request.renterName || "TrustHome user"}</p>
-                </div>
-                <div className="booking-item__actions">
-                  <span className={`badge badge--${statusTone(request.status)}`}>{request.status}</span>
-                  {request.status === "Pending" && <>
-                    <button type="button" className="btn btn--primary" onClick={() => decide(request, "Confirmed")} disabled={savingId === request.id}>Approve</button>
-                    <button type="button" className="btn btn--danger" onClick={() => decline(request)} disabled={savingId === request.id}>Decline</button>
-                  </>}
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
+        {content}
       </main>
     </div>
   );
