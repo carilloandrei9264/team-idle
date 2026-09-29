@@ -137,7 +137,7 @@ export default function CreateListing() {
               <div className="field listing-form__wide">
                 <label className="field__label" htmlFor="description">Description</label>
                 <textarea id="description" name="description" className="listing-form__textarea" value={form.description} onChange={updateField} rows={8} placeholder="Describe the property accurately, including layout, condition, access, and nearby landmarks." required />
-                <small className="listing-form__hint">{countWords(form.description)} words (150-400 required)</small>
+                <small className="listing-form__hint">{countWords(form.description)} words · recommended 150-400 words</small>
               </div>
               <div className="field">
                 <label className="field__label" htmlFor="type">Property type</label>

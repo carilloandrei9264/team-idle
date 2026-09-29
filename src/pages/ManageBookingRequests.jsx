@@ -99,7 +99,7 @@ function RequestItem({ request, onUpdate, onDecline }) {
   return (
     <article className="user-page__item booking-item">
       <div className="user-page__item-link"><h2>{request.listingTitle || "Listing"}</h2><p>{formatDate(request.startDate)} to {formatDate(request.endDate)}</p><p>Renter: {request.renterId}</p></div>
-      <div className="booking-item__actions">{request.status === "Pending" && <><button type="button" className="btn btn--primary" onClick={() => update("Confirmed")} disabled={saving}><Check size={15} aria-hidden="true" /> Confirm</button><button type="button" className="btn btn--danger" onClick={() => onDecline(request)} disabled={saving}>Decline</button></>}{request.status === "Confirmed" && <button type="button" className="btn btn--primary" onClick={() => update("Completed")} disabled={saving}><Check size={15} aria-hidden="true" /> Mark completed</button>}</div>
+      <div className="booking-item__actions">{request.status === "Pending" && <><button type="button" className="btn btn--primary" onClick={() => update("Confirmed")} disabled={saving}><Check size={15} aria-hidden="true" /> Confirm</button><button type="button" className="btn btn--danger" onClick={() => onDecline(request)} disabled={saving}>Decline</button></>}</div>
     </article>
   );
 }

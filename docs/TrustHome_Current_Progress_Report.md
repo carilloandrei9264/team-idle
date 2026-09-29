@@ -278,11 +278,23 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 ### P1 - Make the description length target optional, not the description itself
 
-**Finding:** The description field is currently required and validation rejects fewer than 150 or more than 400 words. This matches the existing implementation but not the requested lighter intake.
+**Status:** Implemented in the current stabilization pass.
 
-**Interpretation to implement:** Keep a non-empty description required, remove the 150-word minimum, and retain a reasonable upper limit (currently 400 words). Present 150 words as a recommendation, not a blocking requirement. Apply the same rule to create, edit, resubmission, and tests.
+**Finding:** The description field was still treated as hard-blocked unless it met the 150-word minimum, even though the project requirement described the range as a recommendation rather than a hard rule.
+
+**Implementation:** Keep a non-empty description required, remove the 150-word minimum, and retain the 400-word upper bound. Present 150 words as a recommendation, not a blocker. Applied consistently to create/edit flows and validation tests.
 
 **Acceptance:** Empty/whitespace-only descriptions are rejected; concise factual descriptions below 150 words can be submitted; descriptions over the agreed maximum are rejected with inline guidance.
+
+### P1 - Remove duplicate manual completion actions
+
+**Status:** Implemented in the current stabilization pass.
+
+**Finding:** The owner-side booking requests page was offering a second manual completion action in addition to the renter's completion flow.
+
+**Implementation:** Removed the owner-side `Mark completed` action so the renter remains the single manual completion authority. The automatic completion fallback remains the system-level safeguard; the UI no longer duplicates that confirmation path.
+
+**Acceptance:** Only one clearly named manual completion action remains in the user flow and it aligns with the intended renter confirmation model.
 
 ### P1 - Improve owner listing visibility
 
