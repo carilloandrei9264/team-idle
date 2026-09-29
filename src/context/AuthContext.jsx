@@ -15,12 +15,14 @@ import { AuthContext } from "./AuthContextValue";
 export function AuthProvider({ children }) {
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [profile, setProfile] = useState(null); // the users/{uid} document
+  const [profileError, setProfileError] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setLoading(true);
       setFirebaseUser(user);
+      setProfileError(false);
       if (!user) {
         setProfile(null);
         setLoading(false);
@@ -37,10 +39,12 @@ export function AuthProvider({ children }) {
       doc(db, "users", firebaseUser.uid),
       (snap) => {
         setProfile(snap.exists() ? snap.data() : null);
+        setProfileError(false);
         setLoading(false);
       },
       () => {
         setProfile(null);
+        setProfileError(true);
         setLoading(false);
       }
     );
@@ -50,6 +54,7 @@ export function AuthProvider({ children }) {
   const value = {
     user: firebaseUser,
     profile,
+    profileError,
     role: profile?.role ?? null,
     isAdmin: profile?.role === "admin",
     loading,

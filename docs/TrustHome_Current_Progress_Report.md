@@ -60,7 +60,7 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Admin dashboard loading errors/retry and listing-review feedback
 - Admin review rendering for uploaded photos and PDF links
 - Booking permission checks retained during renter requests and owner approval
-- Current frontend validation: 23 tests, lint, and production build pass
+- Current frontend validation: 29 tests, lint, and production build pass
 - Production release smoothing: vendor chunk splitting added to reduce bundle pressure and keep the build clean
 
 ## Recent cleanup actions (2026-09-30)
@@ -178,7 +178,7 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 
 ## Validation Already Passing
 
-- `node --test`: 24 tests passed
+- `node --test`: 29 tests passed
 - `npm run lint`: passed
 - `npm run build`: passed
 - `python -m unittest discover -s bank_scraper -p "test_*.py"`: 9 tests passed
@@ -242,11 +242,15 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 ### P0 - Diagnose admin login and prove the access boundary
 
-**Finding:** The application already wraps `/admin` in `RequireAdmin`. It waits for Auth/profile loading, then permits only `profile.role === "admin"`; ordinary users are redirected to `/`. Login routing also depends on this Firestore profile role. Therefore, the observed symptom is more likely a missing/misspelled role, a failed profile read, stale account data, or a wrong admin test account than an absent URL blocker. A client-side route guard is necessary for UX but is not the security boundary; Firestore rules must also deny non-admin reads/writes.
+**Status:** Client-side access handling implemented; browser and Firestore smoke tests remain.
 
-**Next:** Reproduce with one known active admin and one ordinary user. Check `users/{uid}.role`, `users/{uid}.status`, profile-load errors, the post-login destination, and direct navigation to `/admin` and nested routes. Add a clear loading/denied state and regression tests; verify Firestore admin-only rules independently.
+**Finding:** `/admin` was already wrapped in `RequireAdmin`, and Firestore rules already required an active account with the admin role. However, the route rendered nothing while auth/profile data loaded and treated a missing or unreadable profile like an ordinary non-admin redirect, hiding the reason access could not be verified.
 
-**Acceptance:** An active admin consistently lands on the admin dashboard after profile loading. An ordinary or suspended user cannot render any admin route by typing its URL and cannot access admin-only Firestore data. Missing/erroring role profiles fail closed and show a useful message rather than silently looking like a normal user login.
+**Implementation:** AuthContext now exposes profile-read errors. The admin guard waits with a visible status, permits only profiles with `role: "admin"` and `status: "active"`, retains the suspended-account screen, redirects ordinary users, and gives missing/error/incomplete profiles a retryable verification message. Added five focused policy tests for the access-state decisions. No Firestore rule change was needed: the current rules require active status plus admin role and end with a deny-all fallback.
+
+**Remaining:** Browser-test direct `/admin` and nested-route navigation with active admin, regular, suspended, and unreadable-profile accounts. Verify direct Firestore access with the emulator or live test accounts; the latest rules deployment is still unconfirmed.
+
+**Acceptance:** Only a verified active admin renders admin routes. Ordinary and suspended users cannot render them; missing/error/incomplete profiles fail closed with a useful retry path. Firestore continues to deny admin reads/writes for non-admin or inactive profiles.
 
 ### P0 - Separate admin and user notification feeds
 
@@ -326,7 +330,7 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 ## Remaining Work: Release QA
 
-1. Diagnose and close the admin login/access issue, including direct-route and Firestore-rule tests.
+1. Smoke-test admin routing with active, ordinary, suspended, and unavailable profiles; verify Firestore rules against direct requests.
 2. Smoke-test notification feed separation and visually verify the new navigation/settings experience.
 3. Approve the dispute operating/appeal policy and finish owner-listing visibility improvements.
 5. Decide the map provider and location-precision policy before implementation.
