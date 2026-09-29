@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
-  Bell, Bookmark, Building2, ChevronDown, Home, Landmark, LayoutDashboard,
+  Bell, Building2, ChevronDown, Home, Landmark, LayoutDashboard,
   LogOut, Menu, Search, Settings as SettingsIcon, UserRound, X,
 } from "lucide-react";
 import { useAuth } from "../context/useAuth";
@@ -19,7 +19,6 @@ const MEMBER_LINKS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/my-activity", label: "My activity", icon: Building2 },
   { to: "/notifications", label: "Notifications", icon: Bell },
-  { to: "/saved-searches", label: "Saved searches", icon: Bookmark },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
   { to: "/account", label: "Account", icon: UserRound },
 ];
@@ -136,7 +135,6 @@ export default function PublicNav() {
                       <Link to="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>Dashboard</Link>
                       <Link to="/my-activity" role="menuitem" onClick={() => setMenuOpen(false)}>My activity</Link>
                       <Link to="/notifications" role="menuitem" onClick={() => setMenuOpen(false)}>Notifications</Link>
-                      <Link to="/saved-searches" role="menuitem" onClick={() => setMenuOpen(false)}>Saved searches</Link>
                       <Link to="/settings" role="menuitem" onClick={() => setMenuOpen(false)}>Settings</Link>
                       <Link to="/account" role="menuitem" onClick={() => setMenuOpen(false)}>Account</Link>
                       <button type="button" role="menuitem" onClick={handleSignOut}>

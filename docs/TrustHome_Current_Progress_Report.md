@@ -70,6 +70,8 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Added Python-generated files to `.gitignore` so local virtualenvs and cache artifacts do not pollute the repo
 - Removed admin booking-request broadcasts; admin notifications are reserved for disputes, and the Firestore rules now enforce that feed boundary
 - Added consistent horizontal padding to shared buttons and restored the intended inset on the admin scrape log
+- Removed the Saved Searches interface and menu item; its legacy route redirects without deleting existing records
+- Increased dark-mode contrast for the Settings accessibility switches
 - Verified the project still passes lint, tests, and production build checks after cleanup
 
 ## v0.3 Release Validation
@@ -272,11 +274,11 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 **Finding:** The account menu repeated My Bookings, exposed listings/bookings/requests as separate destinations, and offered only a light/dark toggle despite Settings being the expected home for appearance and accessibility preferences.
 
-**Implementation:** Replaced the duplicate menu destinations with one My Activity page containing My Listings, My Bookings, and Booking Requests tabs. The active tab is reflected in the URL, while the previous direct routes remain available. Removed temporary sample rental cards from Home so its rental showcase uses verified live listings only. Settings now offers System/Light/Dark appearance plus persisted Larger text, High contrast, and Reduce motion controls; these preferences apply globally and are shared by user and admin shells.
+**Implementation:** Replaced the duplicate menu destinations with one My Activity page containing My Listings, My Bookings, and Booking Requests tabs. The active tab is reflected in the URL, while previous direct routes remain available. Removed temporary sample rental cards from Home so its rental showcase uses verified live listings only. Settings offers System/Light/Dark appearance plus persisted Larger text, High contrast, and Reduce motion controls; the switch thumbs remain visible in dark mode. Removed Saved Searches from the account menu and retired its page; `/saved-searches` redirects to Browse, while existing Firestore records are preserved.
 
 **Remaining:** Visually verify the account menu and activity tabs on desktop/mobile, confirm all three activity views and their actions, and test preference persistence after reload.
 
-**Acceptance:** The account menu has no duplicated destinations; one My Activity entry exposes all three requested views; legacy URLs continue working; appearance follows system preference when selected; accessibility preferences persist and affect the full application.
+**Acceptance:** The account menu has no duplicated destinations; one My Activity entry exposes all three requested views; the removed Saved Searches URL redirects safely without data deletion; appearance follows system preference when selected; accessibility preferences persist and remain visible in light and dark themes.
 
 ### P1 - Remove duplicate manual completion actions
 
@@ -339,8 +341,9 @@ All six requests are feasible within the current React + Firebase architecture. 
 1. Smoke-test admin routing with active, ordinary, suspended, and unavailable profiles; verify Firestore rules against direct requests.
 2. Smoke-test notification feed separation and visually verify the new navigation/settings experience.
 3. Approve the dispute operating/appeal policy and smoke-test the owner listing visibility changes.
-5. Decide the map provider and location-precision policy before implementation.
-6. Deploy the current Firestore rules, including notification access rules, to the live Firebase project.
+4. Smoke-test owner listing visibility on mobile and with multiple pending/no-pending requests.
+5. Prototype an approximate listing map with Leaflet/OpenStreetMap; keep exact addresses private and allow listings without coordinates to continue working.
+6. Deploy the current Firestore rules, including dispute-only admin notification access, to the live Firebase project.
 7. Run renter-owner-admin smoke tests and direct-write security checks for booking transitions, notifications, dispute review, and private documents.
 8. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
 9. Finish cross-browser, mobile, and final release QA.

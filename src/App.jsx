@@ -24,7 +24,6 @@ const RatingForm = lazy(() => import("./pages/RatingForm"));
 const RaiseDispute = lazy(() => import("./pages/RaiseDispute"));
 const BankPropertyDetail = lazy(() => import("./pages/BankPropertyDetail"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
-const SavedSearches = lazy(() => import("./pages/SavedSearches"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Settings = lazy(() => import("./pages/Settings"));
 const AdminLayout = lazy(() => import("./admin/AdminLayout"));
@@ -66,7 +65,7 @@ function AppRoutes() {
         <Route path="/bookings/:bookingId/dispute" element={<RequireAuth><RaiseDispute /></RequireAuth>} />
           <Route path="/bank-catalog/:propertyId" element={<BankPropertyDetail />} />
           <Route path="/profiles/:userId" element={<PublicProfile />} />
-          <Route path="/saved-searches" element={<RequireAuth><SavedSearches /></RequireAuth>} />
+          <Route path="/saved-searches" element={<Navigate to="/browse" replace />} />
           <Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
         <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />

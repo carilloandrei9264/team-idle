@@ -81,7 +81,8 @@
   height: 20px;
   margin: 2px;
   border-radius: 50%;
-  background: var(--color-white);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
   content: "";
   transition: transform 0.15s ease;
 }
