@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
-  Bell, Building2, ChevronDown, Home, Landmark, LayoutDashboard,
+  Bell, Bookmark, Building2, ChevronDown, Home, Landmark, LayoutDashboard,
   LogOut, Menu, Search, Settings as SettingsIcon, UserRound, X,
 } from "lucide-react";
 import { useAuth } from "../context/useAuth";
@@ -14,17 +14,12 @@ const LINKS = [
   { to: "/bank-catalog", label: "Bank Catalog", icon: Landmark },
 ];
 
-function formatDisplayName(value) {
-  const cleanValue = value?.trim().replace(/\s+/g, " ");
-  if (!cleanValue) return "My account";
-  return cleanValue.length > 22 ? `${cleanValue.slice(0, 22).trim()}…` : cleanValue;
-}
-
-// Keep the signed-in menu compact and focused on the essentials.
+// Shown in the mobile drawer once signed in
 const MEMBER_LINKS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/my-listings", label: "Listings & stays", icon: Building2 },
+  { to: "/my-activity", label: "My activity", icon: Building2 },
   { to: "/notifications", label: "Notifications", icon: Bell },
+  { to: "/saved-searches", label: "Saved searches", icon: Bookmark },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
   { to: "/account", label: "Account", icon: UserRound },
 ];
@@ -52,7 +47,7 @@ export default function PublicNav() {
   const menuRef = useRef(null);
   const closeRef = useRef(null);
 
-  const displayName = formatDisplayName(profile?.name || user?.displayName || user?.email?.split("@")?.[0] || "My account");
+  const displayName = profile?.name || user?.displayName || "TrustHome member";
   const closeDrawer = () => setDrawerOpen(false);
 
   useEffect(() => {
@@ -136,11 +131,12 @@ export default function PublicNav() {
                     <div className="public-nav__menu" role="menu">
                       <div className="public-nav__identity">
                         <strong>{displayName}</strong>
-                        {user.email && <span>{user.email}</span>}
+                        <span>{user.email}</span>
                       </div>
                       <Link to="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>Dashboard</Link>
-                      <Link to="/my-listings" role="menuitem" onClick={() => setMenuOpen(false)}>Listings &amp; stays</Link>
+                      <Link to="/my-activity" role="menuitem" onClick={() => setMenuOpen(false)}>My activity</Link>
                       <Link to="/notifications" role="menuitem" onClick={() => setMenuOpen(false)}>Notifications</Link>
+                      <Link to="/saved-searches" role="menuitem" onClick={() => setMenuOpen(false)}>Saved searches</Link>
                       <Link to="/settings" role="menuitem" onClick={() => setMenuOpen(false)}>Settings</Link>
                       <Link to="/account" role="menuitem" onClick={() => setMenuOpen(false)}>Account</Link>
                       <button type="button" role="menuitem" onClick={handleSignOut}>
@@ -206,7 +202,7 @@ export default function PublicNav() {
                 <Avatar user={user} profile={profile} className="nav-drawer__avatar" />
                 <span className="nav-drawer__who">
                   <strong>{displayName}</strong>
-                  {user.email && <span>{user.email}</span>}
+                  <span>{user.email}</span>
                 </span>
               </Link>
             ) : (

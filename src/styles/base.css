@@ -26,11 +26,36 @@ body {
 
   color: var(--color-neutral-900);
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   transition: background-color 0.25s ease, color 0.2s ease;
+}
+
+html.large-text { font-size: 112.5%; }
+
+html.high-contrast {
+  --color-neutral-600: #263244;
+  --color-neutral-400: #536174;
+  --color-neutral-200: #64748b;
+  --card-border: #64748b;
+}
+
+html.dark.high-contrast {
+  --color-neutral-600: #e2e8f0;
+  --color-neutral-400: #cbd5e1;
+  --color-neutral-200: #94a3b8;
+  --card-border: #94a3b8;
+}
+
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }
 
 /* Dark mode: radial glow at top-center, no mesh (too noisy on dark) */

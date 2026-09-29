@@ -7,7 +7,7 @@ import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import "./UserPages.css";
 
-export default function MyListings() {
+export default function MyListings({ embedded = false }) {
   const { user } = useAuth();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,45 +20,53 @@ export default function MyListings() {
     }, () => setLoading(false));
   }, [user.uid]);
 
+  const content = (
+    <>
+      <header className="user-page__header">
+        <div>
+          <p className="user-page__eyebrow">Your account</p>
+          <h1>My Listings</h1>
+          <p>Track the properties you have submitted for verification.</p>
+        </div>
+        <Link to="/listings/new" className="btn btn--primary">
+          <Plus size={16} strokeWidth={2.5} aria-hidden="true" />
+          Create listing
+        </Link>
+        <Link to="/my-activity?tab=requests" className="btn btn--secondary">Manage requests</Link>
+      </header>
+      {loading ? <p className="user-page__empty">Loading your listings...</p> : listings.length === 0 ? (
+        <div className="user-page__empty">
+          <h2>No listings yet</h2>
+          <p>Your submitted properties will appear here.</p>
+        </div>
+      ) : (
+        <div className="user-page__list">
+          {listings.map((listing) => (
+            <article className="user-page__item" key={listing.id}>
+              <Link to={`/listings/${listing.id}`} className="user-page__item-link">
+                <h2>{listing.title || "Untitled listing"}</h2>
+                <p>{listing.city || "Location not provided"}</p>
+                {listing.verificationStatus === "rejected" && listing.rejectionReason && (
+                  <p className="user-page__rejection">{listing.resubmissionRequested ? "Changes requested: " : "Review note: "}{listing.rejectionReason}</p>
+                )}
+              </Link>
+              <span className={`badge badge--${listing.verificationStatus === "verified" ? "verified" : listing.verificationStatus === "rejected" ? "danger" : "pending"}`}>
+                {listing.resubmissionRequested ? "changes requested" : listing.verificationStatus || "pending"}
+              </span>
+            </article>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
+  if (embedded) return content;
+
   return (
     <div className="user-page">
       <PublicNav />
       <main className="user-page__content">
-        <header className="user-page__header">
-          <div>
-            <p className="user-page__eyebrow">Your account</p>
-            <h1>My Listings</h1>
-            <p>Track the properties you have submitted for verification.</p>
-          </div>
-          <Link to="/listings/new" className="btn btn--primary">
-            <Plus size={16} strokeWidth={2.5} aria-hidden="true" />
-            Create listing
-          </Link>
-          <Link to="/manage-bookings" className="btn btn--secondary">Manage requests</Link>
-        </header>
-        {loading ? <p className="user-page__empty">Loading your listings...</p> : listings.length === 0 ? (
-          <div className="user-page__empty">
-            <h2>No listings yet</h2>
-            <p>Your submitted properties will appear here.</p>
-          </div>
-        ) : (
-          <div className="user-page__list">
-            {listings.map((listing) => (
-              <article className="user-page__item" key={listing.id}>
-                <Link to={`/listings/${listing.id}`} className="user-page__item-link">
-                  <h2>{listing.title || "Untitled listing"}</h2>
-                  <p>{listing.city || "Location not provided"}</p>
-                  {listing.verificationStatus === "rejected" && listing.rejectionReason && (
-                    <p className="user-page__rejection">{listing.resubmissionRequested ? "Changes requested: " : "Review note: "}{listing.rejectionReason}</p>
-                  )}
-                </Link>
-                <span className={`badge badge--${listing.verificationStatus === "verified" ? "verified" : listing.verificationStatus === "rejected" ? "danger" : "pending"}`}>
-                  {listing.resubmissionRequested ? "changes requested" : listing.verificationStatus || "pending"}
-                </span>
-              </article>
-            ))}
-          </div>
-        )}
+        {content}
       </main>
     </div>
   );

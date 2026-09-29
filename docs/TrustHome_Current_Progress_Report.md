@@ -178,7 +178,7 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 
 ## Validation Already Passing
 
-- `node --test`: 23 tests passed
+- `node --test`: 24 tests passed
 - `npm run lint`: passed
 - `npm run build`: passed
 - `python -m unittest discover -s bank_scraper -p "test_*.py"`: 9 tests passed
@@ -258,15 +258,17 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 **Acceptance:** Admin notification UI stays inside `/admin/*`; admin counts and inbox results contain only admin broadcasts; user counts and inbox results contain only that user's notifications; Firestore denies cross-feed reads/updates even if a client issues a direct query.
 
-### P2 - Simplify the navigation and move theme controls into Settings
+### P2 - Simplify navigation and expand Settings
 
-**Finding:** The desktop header repeated My Listings, Dashboard, and My Bookings actions that are already available in the account menu. Theme controls also appeared in both the desktop header and mobile drawer.
+**Status:** Implemented in the current UI pass; visual smoke testing remains.
 
-**Implemented on the current feature branch:** Removed those repeated header actions and both inline theme toggles. Added a Settings page with Light/Dark appearance controls backed by the existing browser-persisted theme preference. Settings is reachable from the user profile menu/mobile drawer and from the admin profile menu; admin settings remains under the protected admin layout.
+**Finding:** The account menu repeated My Bookings, exposed listings/bookings/requests as separate destinations, and offered only a light/dark toggle despite Settings being the expected home for appearance and accessibility preferences.
 
-**Remaining:** Merge the feature branch and visually verify desktop and mobile navigation, Settings active states, and theme persistence after page reload. Confirm the notification bell remains visible and the existing menu routes remain reachable.
+**Implementation:** Replaced the duplicate menu destinations with one My Activity page containing My Listings, My Bookings, and Booking Requests tabs. The active tab is reflected in the URL, while the previous direct routes remain available. Removed temporary sample rental cards from Home so its rental showcase uses verified live listings only. Settings now offers System/Light/Dark appearance plus persisted Larger text, High contrast, and Reduce motion controls; these preferences apply globally and are shared by user and admin shells.
 
-**Acceptance:** Header contains only primary navigation, notifications, and profile/menu controls; all existing account destinations remain reachable from the menu; Light/Dark preference can be changed in Settings and persists after reload for both user and admin shells.
+**Remaining:** Visually verify the account menu and activity tabs on desktop/mobile, confirm all three activity views and their actions, and test preference persistence after reload.
+
+**Acceptance:** The account menu has no duplicated destinations; one My Activity entry exposes all three requested views; legacy URLs continue working; appearance follows system preference when selected; accessibility preferences persist and affect the full application.
 
 ### P1 - Remove duplicate manual completion actions
 
@@ -325,9 +327,8 @@ All six requests are feasible within the current React + Firebase architecture. 
 ## Remaining Work: Release QA
 
 1. Diagnose and close the admin login/access issue, including direct-route and Firestore-rule tests.
-2. Merge and smoke-test the notification separation and navigation/settings feature branches.
-3. Approve the single completion authority and the dispute operating/appeal policy.
-4. Implement and test the description, owner-listing, and dispute-flow improvements above.
+2. Smoke-test notification feed separation and visually verify the new navigation/settings experience.
+3. Approve the dispute operating/appeal policy and finish owner-listing visibility improvements.
 5. Decide the map provider and location-precision policy before implementation.
 6. Deploy the current Firestore rules, including notification access rules, to the live Firebase project.
 7. Run renter-owner-admin smoke tests and direct-write security checks for booking transitions, notifications, dispute review, and private documents.

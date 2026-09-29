@@ -7,5 +7,9 @@ import { createContext } from "react";
  */
 export const ThemeContext = createContext({
   theme: "light",
+  themePreference: "system",
+  setThemePreference: () => {},
   toggleTheme: () => {},
+  accessibility: { largeText: false, highContrast: false, reduceMotion: false },
+  setAccessibility: () => {},
 });

@@ -1,0 +1,38 @@
+.my-activity__tabs {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-neutral-200);
+  scrollbar-width: thin;
+}
+
+.my-activity__tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-neutral-600);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.my-activity__tab:hover { color: var(--color-primary); }
+.my-activity__tab[aria-selected="true"] { border-bottom-color: var(--color-primary); color: var(--color-primary); }
+.my-activity__tab:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -3px; }
+.my-activity__panel:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.my-activity__panel > .user-page__header { margin-top: var(--space-4); }
+
+@media (max-width: 480px) {
+  .my-activity__tabs { gap: 0; }
+  .my-activity__tab { flex: 1 0 auto; gap: 6px; padding: 0 10px; font-size: 13px; }
+  .my-activity__tab svg { width: 15px; height: 15px; }
+}
