@@ -9,7 +9,9 @@ test("booking status machine contains only the required MVP statuses", () => {
   assert.equal(canTransitionBookingStatus("Confirmed", "Completed"), true);
   assert.equal(canTransitionBookingStatus("Confirmed", "Disputed"), true);
   assert.equal(canTransitionBookingStatus("Completed", "Disputed"), true);
-  assert.equal(canTransitionBookingStatus("Disputed", "Confirmed"), false);
+  assert.equal(canTransitionBookingStatus("Disputed", "Confirmed"), true);
+  assert.equal(canTransitionBookingStatus("Disputed", "Completed"), true);
+  assert.equal(canTransitionBookingStatus("Disputed", "Pending"), false);
 });
 
 test("overlap uses half-open date intervals", () => {

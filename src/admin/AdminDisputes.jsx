@@ -43,11 +43,18 @@ export default function AdminDisputes() {
     setError("");
     try {
       const batch = writeBatch(db);
+      const nextBookingStatus = status === "Dismissed" ? (selected.priorStatus || "Confirmed") : "Disputed";
+
       batch.update(doc(db, "disputes", selected.id), {
         status,
         resolutionNotes: resolutionNotes.trim() || null,
         resolvedAt: serverTimestamp(),
         resolvedBy: user?.uid ?? null,
+      });
+      batch.update(doc(db, "bookings", selected.bookingId), {
+        status: nextBookingStatus,
+        resolvedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
       if (status === "Founded" && selected.ownerId) {
         batch.set(doc(db, "publicAccountability", selected.ownerId), {

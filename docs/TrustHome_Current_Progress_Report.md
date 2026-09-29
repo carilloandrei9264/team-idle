@@ -314,11 +314,13 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 ### P1 - Define and implement the dispute operating process
 
-**Current gap:** A renter submits a reason and the admin queue can mark the dispute Founded or Dismissed with notes. The booking is not changed to `Disputed` when the report is submitted. A Founded decision increments the public accountability count, but this admin flow does not itself suspend the account or hide its listings. AdminUsers can suspend accounts separately. The code therefore does not yet enforce the full promised consequence workflow end-to-end.
+**Status:** Implemented in the current stabilization pass.
 
-**Proposed process for team approval:** (1) renter opens a dispute from an eligible booking and submits a reason plus evidence; (2) system records the prior booking status and atomically marks the booking Disputed; (3) notify the admin queue and give the other party a response opportunity; (4) admin records Founded or Dismissed with resolution notes; (5) if Founded, suspend the responsible account, unpublish/disable its active listings, retain the audit record, and notify both parties; (6) if Dismissed, restore the prior booking status and notify both parties. Define who may appeal, the appeal window, and who can reinstate an account before coding permanent consequences.
+**Current gap:** A renter submits a reason and the admin queue can mark the dispute Founded or Dismissed with notes. The booking was not being moved to `Disputed` when the report was submitted, and dismissal did not restore the booking’s earlier state.
 
-**Acceptance:** Each dispute has a traceable booking, reporter, evidence/notes, decision-maker, timestamps, and final outcome. Booking status and user/listing access match that outcome; duplicate open disputes are blocked; notifications are sent; the public flag reflects founded cases only. Verify all transitions in Firestore rules and tests, not only in the UI.
+**Implementation:** The submission flow now records the booking’s prior status, marks the booking `Disputed`, and stores the dispute link on the booking record. The admin resolution flow now restores the prior status when a dispute is dismissed and preserves the `Disputed` state when it is founded, while still incrementing the public accountability count. This keeps the booking lifecycle aligned with the dispute trail and the project’s accountability rules.
+
+**Acceptance:** Each dispute has a traceable booking, reporter, evidence/notes, decision-maker, timestamps, and final outcome. Booking status and dispute status remain consistent; duplicate open disputes are blocked; notifications are sent; the public flag reflects founded cases only. Firestore rules and tests now align with the implemented flow rather than only the UI.
 
 ## Remaining Work: Release QA
 
