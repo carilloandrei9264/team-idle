@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
-  Bell, Bookmark, Building2, CalendarCheck, ChevronDown, Home, Inbox, Landmark, LayoutDashboard,
+  Bell, Building2, ChevronDown, Home, Landmark, LayoutDashboard,
   LogOut, Menu, Search, Settings as SettingsIcon, UserRound, X,
 } from "lucide-react";
 import { useAuth } from "../context/useAuth";
@@ -14,14 +14,17 @@ const LINKS = [
   { to: "/bank-catalog", label: "Bank Catalog", icon: Landmark },
 ];
 
-// Shown in the mobile drawer once signed in
+function formatDisplayName(value) {
+  const cleanValue = value?.trim().replace(/\s+/g, " ");
+  if (!cleanValue) return "My account";
+  return cleanValue.length > 22 ? `${cleanValue.slice(0, 22).trim()}…` : cleanValue;
+}
+
+// Keep the signed-in menu compact and focused on the essentials.
 const MEMBER_LINKS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/my-listings", label: "My listings", icon: Building2 },
-  { to: "/my-bookings", label: "My bookings", icon: CalendarCheck },
-  { to: "/booking-requests", label: "Booking requests", icon: Inbox },
+  { to: "/my-listings", label: "Listings & stays", icon: Building2 },
   { to: "/notifications", label: "Notifications", icon: Bell },
-  { to: "/saved-searches", label: "Saved searches", icon: Bookmark },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
   { to: "/account", label: "Account", icon: UserRound },
 ];
@@ -49,7 +52,7 @@ export default function PublicNav() {
   const menuRef = useRef(null);
   const closeRef = useRef(null);
 
-  const displayName = profile?.name || user?.displayName || "TrustHome member";
+  const displayName = formatDisplayName(profile?.name || user?.displayName || user?.email?.split("@")?.[0] || "My account");
   const closeDrawer = () => setDrawerOpen(false);
 
   useEffect(() => {
@@ -133,17 +136,13 @@ export default function PublicNav() {
                     <div className="public-nav__menu" role="menu">
                       <div className="public-nav__identity">
                         <strong>{displayName}</strong>
-                        <span>{user.email}</span>
+                        {user.email && <span>{user.email}</span>}
                       </div>
                       <Link to="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>Dashboard</Link>
-                      <Link to="/my-listings" role="menuitem" onClick={() => setMenuOpen(false)}>My listings</Link>
-                      <Link to="/my-bookings" role="menuitem" onClick={() => setMenuOpen(false)}>My bookings</Link>
+                      <Link to="/my-listings" role="menuitem" onClick={() => setMenuOpen(false)}>Listings &amp; stays</Link>
+                      <Link to="/notifications" role="menuitem" onClick={() => setMenuOpen(false)}>Notifications</Link>
                       <Link to="/settings" role="menuitem" onClick={() => setMenuOpen(false)}>Settings</Link>
                       <Link to="/account" role="menuitem" onClick={() => setMenuOpen(false)}>Account</Link>
-                      <Link to="/notifications" role="menuitem" onClick={() => setMenuOpen(false)}>Notifications</Link>
-                      <Link to="/my-bookings" role="menuitem" onClick={() => setMenuOpen(false)}>My bookings</Link>
-                      <Link to="/booking-requests" role="menuitem" onClick={() => setMenuOpen(false)}>Booking requests</Link>
-                      <Link to="/saved-searches" role="menuitem" onClick={() => setMenuOpen(false)}>Saved searches</Link>
                       <button type="button" role="menuitem" onClick={handleSignOut}>
                         <LogOut size={16} aria-hidden="true" />
                         Log out
@@ -207,7 +206,7 @@ export default function PublicNav() {
                 <Avatar user={user} profile={profile} className="nav-drawer__avatar" />
                 <span className="nav-drawer__who">
                   <strong>{displayName}</strong>
-                  <span>{user.email}</span>
+                  {user.email && <span>{user.email}</span>}
                 </span>
               </Link>
             ) : (
