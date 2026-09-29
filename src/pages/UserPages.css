@@ -230,6 +230,52 @@
   gap: 12px;
 }
 
+.owner-listing-list { display: grid; gap: 12px; }
+.owner-listing-card {
+  display: grid;
+  grid-template-columns: minmax(130px, 190px) minmax(0, 1fr);
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-control);
+  background: var(--color-white);
+}
+.owner-listing-card__image {
+  display: grid;
+  aspect-ratio: 4 / 3;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius-input);
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-400);
+}
+.owner-listing-card__image img { width: 100%; height: 100%; object-fit: cover; }
+.owner-listing-card__body { display: grid; min-width: 0; gap: 12px; }
+.owner-listing-card__heading,
+.owner-listing-card__details { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.owner-listing-card__heading > div { min-width: 0; }
+.owner-listing-card__heading h2 { overflow-wrap: anywhere; font-size: 18px; line-height: 1.3; }
+.owner-listing-card__heading p { margin-top: 4px; color: var(--color-neutral-600); font-size: 13px; }
+.owner-listing-card__heading .badge { flex: 0 0 auto; }
+.owner-listing-card__details { align-items: center; }
+.owner-listing-card__details > strong { color: var(--color-neutral-900); font-size: 18px; white-space: nowrap; }
+.owner-listing-card__details > strong span { color: var(--color-neutral-600); font-size: 13px; font-weight: 500; }
+.owner-listing-card__requests { display: grid; justify-items: end; gap: 2px; color: var(--color-neutral-600); font-size: 13px; text-align: right; }
+.owner-listing-card__requests a { color: var(--color-primary); font-weight: 600; text-decoration: none; }
+.owner-listing-card__requests a:hover { text-decoration: underline; }
+.owner-listing-card__review-note { color: var(--color-danger) !important; font-size: 13px !important; }
+.owner-listing-card__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.owner-listing-card__actions .btn { min-height: 38px; }
+
+@media (max-width: 599px) {
+  .owner-listing-card { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .owner-listing-card__image { aspect-ratio: 16 / 8; }
+  .owner-listing-card__heading .badge { max-width: 44%; white-space: normal; text-align: center; }
+  .owner-listing-card__details { flex-wrap: wrap; }
+  .owner-listing-card__requests { justify-items: start; text-align: left; }
+  .owner-listing-card__actions .btn { flex: 1 1 120px; }
+}
+
 .user-page__item {
   display: flex;
   align-items: center;

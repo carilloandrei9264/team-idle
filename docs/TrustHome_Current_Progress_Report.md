@@ -258,7 +258,9 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 **Implemented on the current feature branch:** Admin bells now open `/admin/notifications` and subscribe only to the shared admin feed. Admins who manually visit `/notifications` are redirected to the admin inbox. Regular users query only their own UID feed. Firestore rules now restrict admins to `__admins__` documents, users to their own documents, and notification updates to the `read` field. User-created admin alerts must reference a real pending booking or open dispute. The admin inbox is available in the admin sidebar.
 
-**Remaining:** Merge this branch, deploy the updated Firestore rules, and test with an admin who also owns/lists properties plus a separate regular user. Confirm that the admin sees booking-request/dispute broadcasts only, cannot read a user's approval or booking notification, and that a regular user cannot read the admin feed. Admin broadcast read state is shared among admins because the inbox uses one `__admins__` recipient.
+**Verified in the current branch:** Admin and user inboxes query separate recipient IDs; the shared bell routes by role; booking and dispute creation use the admin recipient for team alerts; the current Firestore rules scope reads and updates to the matching feed. Existing unit tests cover client routing and recipient selection.
+
+**Remaining:** Merge this branch, deploy the updated Firestore rules, and test with an admin who also owns/lists properties plus a separate regular user. Confirm that the admin sees booking-request/dispute broadcasts only, cannot read a user's approval or booking notification, and that a regular user cannot read the admin feed. These live/emulator checks have not been run. Admin broadcast read state is shared among admins because the inbox uses one `__admins__` recipient.
 
 **Acceptance:** Admin notification UI stays inside `/admin/*`; admin counts and inbox results contain only admin broadcasts; user counts and inbox results contain only that user's notifications; Firestore denies cross-feed reads/updates even if a client issues a direct query.
 
@@ -304,11 +306,13 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 ### P1 - Improve owner listing visibility
 
-**Finding:** My Listings already displays each listing's title, city, verification status, and review note. The owner dashboard already summarizes listing and booking counts. The gap is that the listing row is sparse, so owners have limited at-a-glance detail; the Manage Requests page also has an empty state when there are no requests.
+**Status:** Implemented in the current stabilization pass; account and mobile smoke testing remains.
 
-**Next:** Enrich the existing My Listings cards rather than adding another page: show thumbnail, price, property type, verification/review state, and clear View/Edit actions; show pending request count per listing and link directly to that listing's requests. Keep exact address and verification documents private.
+**Implementation:** My Listings now shows each property's photo, city, type, bedroom count, price, verification status, review note, and View/Edit actions. A live owner-bookings listener shows per-listing pending request counts with separate loading and unavailable states. Each request link opens the Booking Requests tab filtered to that listing, with a route back to all requests. Exact addresses and private verification documents remain excluded.
 
-**Acceptance:** Owners can distinguish listings and see status, key details, review feedback, and relevant request counts on mobile without entering each page. Empty states explain that no requests are waiting and provide a useful next action.
+**Remaining:** Smoke-test with an owner account containing multiple listings and pending/no-pending requests, confirm all actions work, and review the card layout on a narrow viewport.
+
+**Acceptance:** Owners can distinguish listings and see status, useful details, feedback, and pending-request counts without entering each page. Request counts do not misrepresent load failures as zero; listing-specific links show the right requests; exact addresses and documents stay private.
 
 ### P2 - Add a property map with location privacy
 
@@ -332,7 +336,7 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 1. Smoke-test admin routing with active, ordinary, suspended, and unavailable profiles; verify Firestore rules against direct requests.
 2. Smoke-test notification feed separation and visually verify the new navigation/settings experience.
-3. Approve the dispute operating/appeal policy and finish owner-listing visibility improvements.
+3. Approve the dispute operating/appeal policy and smoke-test the owner listing visibility changes.
 5. Decide the map provider and location-precision policy before implementation.
 6. Deploy the current Firestore rules, including notification access rules, to the live Firebase project.
 7. Run renter-owner-admin smoke tests and direct-write security checks for booking transitions, notifications, dispute review, and private documents.
