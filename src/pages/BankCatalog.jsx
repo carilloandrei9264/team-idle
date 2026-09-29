@@ -75,8 +75,7 @@ function PropertyIcon({ size = 36 }) {
 }
 
 // ── Structured placeholder image ──────────────────────────────────────────────
-// TODO: Replace placeholder with real image from bank API
-// Expected format: { imageUrl: string } in property object
+// Safe fallback used when a bank property has no image URL or the upstream image fails.
 function PropertyImagePlaceholder({ type }) {
   const label = type || "Property";
   return (
@@ -220,10 +219,6 @@ const BankPropertyCard = ({ property, onKeyNav }) => {
     >
       {/* ── Image / placeholder ── */}
       <div className="bp-card__image-wrap">
-        {/*
-          TODO: Replace placeholder with real image from bank API
-          Expected format: { imageUrl: string } in property object
-        */}
         {property.imageUrl && !imgError ? (
           <img
             src={property.imageUrl}

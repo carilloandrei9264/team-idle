@@ -16,6 +16,13 @@ dist-ssr
 serviceAccountKey.json
 **/serviceAccountKey.json
 
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

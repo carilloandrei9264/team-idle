@@ -1,9 +1,9 @@
 # TrustHome PH - Current Progress Report
 
-**Snapshot date:** 2026-09-28
-**GitHub baseline:** `dev` at `565ea87` (PR #34 merged)
+**Snapshot date:** 2026-09-30
+**GitHub baseline:** current repo state on `features/v1-3-navigation-settings`
 **Current feature branch:** `features/v1-3-navigation-settings`
-**Status:** v1.0-v1.3 implementation is merged to `dev`; notification separation and navigation/settings improvements are on feature branches, pending merge and release verification
+**Status:** release smoothing and cleanup are in progress; documentation and build hygiene have been updated, and the current app build is passing with improved chunk splitting
 
 ## Executive Summary
 
@@ -60,7 +60,15 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Admin dashboard loading errors/retry and listing-review feedback
 - Admin review rendering for uploaded photos and PDF links
 - Booking permission checks retained during renter requests and owner approval
-- Current frontend validation: 23 tests, lint, and production build pass (large-bundle warning remains)
+- Current frontend validation: 23 tests, lint, and production build pass
+- Production release smoothing: vendor chunk splitting added to reduce bundle pressure and keep the build clean
+
+## Recent cleanup actions (2026-09-30)
+
+- Removed stale `TODO` placeholders from the bank catalog image fallback path
+- Aligned the project README with the actual repo layout and valid root-level build commands
+- Added Python-generated files to `.gitignore` so local virtualenvs and cache artifacts do not pollute the repo
+- Verified the project still passes lint, tests, and production build checks after cleanup
 
 ## v0.3 Release Validation
 
@@ -177,7 +185,7 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 - Earlier Firestore rules deployment: passed; deployment of the current rules is unverified
 - Synthetic data seeding and trust-score recomputation were previously run successfully; rerun as part of release smoke testing
 
-The production build still reports a non-blocking large JavaScript bundle warning.
+The production build is passing cleanly after vendor chunk splitting; the previous large-JavaScript-bundle warning was reduced to a non-issue for the current build setup.
 
 ## Demo Data Safety
 
