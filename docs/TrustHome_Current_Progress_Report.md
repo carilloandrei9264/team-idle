@@ -60,7 +60,7 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Admin dashboard loading errors/retry and listing-review feedback
 - Admin review rendering for uploaded photos and PDF links
 - Booking permission checks retained during renter requests and owner approval
-- Current frontend validation: 29 tests, lint, and production build pass
+- Current frontend validation: 30 tests, lint, and production build pass
 - Production release smoothing: vendor chunk splitting added to reduce bundle pressure and keep the build clean
 
 ## Recent cleanup actions (2026-09-30)
@@ -68,6 +68,8 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Removed stale `TODO` placeholders from the bank catalog image fallback path
 - Aligned the project README with the actual repo layout and valid root-level build commands
 - Added Python-generated files to `.gitignore` so local virtualenvs and cache artifacts do not pollute the repo
+- Removed admin booking-request broadcasts; admin notifications are reserved for disputes, and the Firestore rules now enforce that feed boundary
+- Added consistent horizontal padding to shared buttons and restored the intended inset on the admin scrape log
 - Verified the project still passes lint, tests, and production build checks after cleanup
 
 ## v0.3 Release Validation
@@ -178,7 +180,7 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 
 ## Validation Already Passing
 
-- `node --test`: 29 tests passed
+- `node --test`: 30 tests passed
 - `npm run lint`: passed
 - `npm run build`: passed
 - `python -m unittest discover -s bank_scraper -p "test_*.py"`: 9 tests passed
@@ -254,15 +256,15 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 ### P0 - Separate admin and user notification feeds
 
-**Finding:** The admin shell used the shared bell, which linked to `/notifications`; that page combined the admin's personal UID feed with the `__admins__` broadcast feed. This made admins open a user-facing page and see notifications intended for their personal user account.
+**Decision:** Booking request updates belong to the renter and property owner. Admin notifications are reserved for disputes that require team review; routine private booking activity is not broadcast to admins.
 
-**Implemented on the current feature branch:** Admin bells now open `/admin/notifications` and subscribe only to the shared admin feed. Admins who manually visit `/notifications` are redirected to the admin inbox. Regular users query only their own UID feed. Firestore rules now restrict admins to `__admins__` documents, users to their own documents, and notification updates to the `read` field. User-created admin alerts must reference a real pending booking or open dispute. The admin inbox is available in the admin sidebar.
+**Implementation:** Admin bells and the admin inbox query only `__admins__` dispute notifications. Booking requests notify the listing owner only. Existing admin booking-request notices are filtered from the inbox and, after rules deployment, are no longer readable/updatable by admins. Firestore rules reject new booking-request broadcasts to `__admins__`, prevent admins from creating feed broadcasts, and retain renter-submitted open-dispute alerts. User feeds remain scoped to each user's own ID.
 
-**Verified in the current branch:** Admin and user inboxes query separate recipient IDs; the shared bell routes by role; booking and dispute creation use the admin recipient for team alerts; the current Firestore rules scope reads and updates to the matching feed. Existing unit tests cover client routing and recipient selection.
+**Verified in the current branch:** Inbox/bell queries and notification creation follow the split; unit tests verify that booking-request types are excluded from the admin inbox. The current Firestore rule source enforces the same boundary. The Firebase CLI/emulator is unavailable in this environment, so rule compilation, deployment, and direct-read/write smoke tests have not been run.
 
-**Remaining:** Merge this branch, deploy the updated Firestore rules, and test with an admin who also owns/lists properties plus a separate regular user. Confirm that the admin sees booking-request/dispute broadcasts only, cannot read a user's approval or booking notification, and that a regular user cannot read the admin feed. These live/emulator checks have not been run. Admin broadcast read state is shared among admins because the inbox uses one `__admins__` recipient.
+**Remaining:** Merge this branch, deploy the updated Firestore rules, and test with an admin who also owns/lists properties plus a separate regular user. Confirm that admins see dispute alerts only, cannot read existing booking or personal notifications, and regular users cannot read the admin feed. Admin dispute read state is shared among admins because the inbox uses one `__admins__` recipient.
 
-**Acceptance:** Admin notification UI stays inside `/admin/*`; admin counts and inbox results contain only admin broadcasts; user counts and inbox results contain only that user's notifications; Firestore denies cross-feed reads/updates even if a client issues a direct query.
+**Acceptance:** Admin notification UI stays inside `/admin/*`; admin counts and inbox results contain dispute notifications only; booking requests notify the owner but not admins; user counts/inbox contain that user's notifications only; Firestore denies cross-feed reads/updates even for direct queries.
 
 ### P2 - Simplify navigation and expand Settings
 
