@@ -43,6 +43,17 @@ test("short but meaningful descriptions remain valid when they are not empty", (
   assert.deepEqual(errors, []);
 });
 
+test("invalid or malformed map pins are rejected before submission", () => {
+  const errors = validateListingForm({
+    form: { ...validForm, mapLocation: { geohash: "bad", precision: "approximate" } },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+
+  assert.match(errors.join(" "), /map location|approximate/i);
+});
+
 test("listing validation reports missing documents, photos, and required fields", () => {
   const errors = validateListingForm({
     form: { ...validForm, address: "", amenities: [], showingWindows: {}, description: "" },

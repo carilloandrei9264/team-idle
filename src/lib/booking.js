@@ -43,6 +43,10 @@ export function isValidDateRange(startDate, endDate) {
   return Boolean(start && end && start < end);
 }
 
+export function canRevealExactAddress(status) {
+  return ["Confirmed", "Completed", "Disputed"].includes(status);
+}
+
 export function dateInputToTimestamp(value) {
   return Timestamp.fromDate(new Date(`${value}T00:00:00`));
 }

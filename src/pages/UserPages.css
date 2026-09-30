@@ -178,6 +178,9 @@
   border-top: 1px solid var(--color-neutral-200);
 }
 
+.listing-detail__map { display: grid; gap: 12px; margin-top: 24px; }
+.listing-detail__map h2 { color: var(--color-neutral-900); font-size: 20px; }
+
 .listing-detail__reviews h2 {
   font-size: 20px;
 }

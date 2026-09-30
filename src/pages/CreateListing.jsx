@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { collection, doc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { ArrowLeft, Upload } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
+import PropertyMap from "../components/PropertyMap";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { countWords, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
@@ -34,6 +35,7 @@ export default function CreateListing() {
   const [photos, setPhotos] = useState([]);
   const [ownershipDocument, setOwnershipDocument] = useState(null);
   const [governmentId, setGovernmentId] = useState(null);
+  const [mapLocation, setMapLocation] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -67,7 +69,7 @@ export default function CreateListing() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    const validationErrors = validateListingForm({ form, photos, ownershipDocument, governmentId });
+    const validationErrors = validateListingForm({ form, photos, ownershipDocument, governmentId, mapLocation });
     if (validationErrors.length) {
       setError(validationErrors.join(" "));
       return;
@@ -82,14 +84,17 @@ export default function CreateListing() {
         Promise.all(photos.map((photo) => uploadToCloudinary(photo))),
       ]);
 
-      await addDoc(collection(db, "listings"), {
+      const listingRef = doc(collection(db, "listings"));
+      const privateListingRef = doc(db, "listingPrivate", listingRef.id);
+      const batch = writeBatch(db);
+      batch.set(listingRef, {
         ownerId: user.uid,
         ownerName: profile?.name || user.displayName || user.email,
         title: form.title.trim(),
         description: form.description.trim(),
         type: form.type,
-        address: form.address.trim(),
         city: form.city.trim(),
+        mapLocation,
         price: Number(form.price),
         pricePeriod: form.pricePeriod,
         bedrooms: Number(form.bedrooms),
@@ -105,6 +110,12 @@ export default function CreateListing() {
         photoUrls,
         createdAt: serverTimestamp(),
       });
+      batch.set(privateListingRef, {
+        ownerId: user.uid,
+        address: form.address.trim(),
+        updatedAt: serverTimestamp(),
+      });
+      await batch.commit();
       navigate("/my-listings", { replace: true });
     } catch (uploadError) {
       setError(uploadError.message || "Your listing could not be submitted. Please try again.");
@@ -144,12 +155,18 @@ export default function CreateListing() {
                 <select id="type" name="type" className="field__input" value={form.type} onChange={updateField}>{PROPERTY_TYPES.map((type) => <option key={type}>{type}</option>)}</select>
               </div>
               <div className="field">
-                <label className="field__label" htmlFor="address">Address or area</label>
+                <label className="field__label" htmlFor="address">Private address or area</label>
                 <input id="address" name="address" className="field__input" value={form.address} onChange={updateField} placeholder="Exact address or neighborhood" required />
+                <small className="listing-form__hint">Visible only to you and TrustHome admins.</small>
               </div>
               <div className="field">
                 <label className="field__label" htmlFor="city">City</label>
                 <input id="city" name="city" className="field__input" value={form.city} onChange={updateField} placeholder="e.g. Cabuyao" required />
+              </div>
+              <div className="field listing-form__wide">
+                <span className="field__label">Approximate map location (optional)</span>
+                <PropertyMap location={mapLocation} onLocationChange={setMapLocation} />
+                {mapLocation && <button type="button" className="btn btn--secondary" onClick={() => setMapLocation(null)}>Remove map pin</button>}
               </div>
               <div className="field">
                 <label className="field__label" htmlFor="price">Price</label>

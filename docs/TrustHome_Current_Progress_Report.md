@@ -60,7 +60,7 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Admin dashboard loading errors/retry and listing-review feedback
 - Admin review rendering for uploaded photos and PDF links
 - Booking permission checks retained during renter requests and owner approval
-- Current frontend validation: 30 tests, lint, and production build pass
+- Current frontend validation: 33 tests, lint, and production build pass
 - Production release smoothing: vendor chunk splitting added to reduce bundle pressure and keep the build clean
 
 ## Recent cleanup actions (2026-09-30)
@@ -72,6 +72,9 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Added consistent horizontal padding to shared buttons and restored the intended inset on the admin scrape log
 - Removed the Saved Searches interface and menu item; its legacy route redirects without deleting existing records
 - Increased dark-mode contrast for the Settings accessibility switches
+- Added optional approximate listing maps, a private-address collection, and a dry-run-first legacy-address migration
+- Added address-based map search so owners can type a location, find a pin, and keep the public listing coarse while preserving exact addresses privately
+- Added a confirmed-booking address handoff so renters can view the exact property address only after booking confirmation
 - Verified the project still passes lint, tests, and production build checks after cleanup
 
 ## v0.3 Release Validation
@@ -182,10 +185,10 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 
 ## Validation Already Passing
 
-- `node --test`: 30 tests passed
+- `node --test`: 33 tests passed
 - `npm run lint`: passed
 - `npm run build`: passed
-- `python -m unittest discover -s bank_scraper -p "test_*.py"`: 9 tests passed
+- `python -m unittest discover -s bank_scraper -p "test_*.py"`: 14 tests passed
 - Earlier Firestore rules deployment: passed; deployment of the current rules is unverified
 - Synthetic data seeding and trust-score recomputation were previously run successfully; rerun as part of release smoke testing
 
@@ -320,11 +323,15 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 ### P2 - Add a property map with location privacy
 
-**Feasibility:** Yes. Listings currently store address/city text but no coordinates or map component. A map needs coordinates, a map provider, and a decision about geocoding. Google Maps requires a configured API key and may require billing; Leaflet with OpenStreetMap tiles is a no-key alternative subject to tile-provider usage policies.
+**Status:** Client implementation and migration tooling are complete; production data migration, rules deployment, and account smoke tests remain.
 
-**Recommendation:** Prototype Leaflet/OpenStreetMap first to preserve the no-billing goal. Store latitude/longitude and a location precision value; display an approximate neighborhood/city pin publicly and keep the exact address hidden until a confirmed booking, consistent with the existing privacy requirement. Do not send private ID/document data to a map provider.
+**Implementation:** Added an optional owner-selected Leaflet/OpenStreetMap pin with attribution. Public listing documents store only a five-character geohash cell (roughly 5 km) marked `approximate`; raw latitude/longitude are never stored publicly, and Firestore rules restrict the map-location keys and geohash length. Listing details omit the map when no valid pin exists, preserving compatibility for older listings. Leaflet loads as a separate vendor chunk with the lazy listing pages.
 
-**Acceptance:** Owners can set or confirm a pin, edit it, and see a preview; renters can see the disclosed approximate location on listing detail; invalid coordinates are rejected; existing listings without coordinates continue to work without a broken map.
+Exact addresses are now written to `listingPrivate/{listingId}`, readable only by the active owner and admins. New/updated public listings cannot contain an `address` field. Added `bank_scraper/migrate_listing_addresses.py`, which runs a dry run by default and can be applied with `--apply`; it is idempotent, preserves existing private addresses, and reports conflicting-owner records for manual review. Run it with Firebase Admin credentials during a coordinated maintenance window, then deploy the Firestore rules and frontend. Back up the project and inspect the dry-run counts first.
+
+**Remaining:** The migration has only been tested against a fake Firestore store, not the live project. Firebase CLI/emulator is unavailable here, so rules compilation/deployment and direct-access tests remain unverified. Exact-address sharing with a renter after booking confirmation is not implemented; exact addresses currently remain owner/admin-only.
+
+**Acceptance:** Owners can select/edit an approximate pin; public listing details show only its coarse geohash center; invalid pins are rejected; legacy listings without a pin still work; exact addresses are absent from public listing documents and restricted by deployed rules.
 
 ### P1 - Define and implement the dispute operating process
 
@@ -342,10 +349,11 @@ All six requests are feasible within the current React + Firebase architecture. 
 2. Smoke-test notification feed separation and visually verify the new navigation/settings experience.
 3. Approve the dispute operating/appeal policy and smoke-test the owner listing visibility changes.
 4. Smoke-test owner listing visibility on mobile and with multiple pending/no-pending requests.
-5. Prototype an approximate listing map with Leaflet/OpenStreetMap; keep exact addresses private and allow listings without coordinates to continue working.
-6. Deploy the current Firestore rules, including dispute-only admin notification access, to the live Firebase project.
-7. Run renter-owner-admin smoke tests and direct-write security checks for booking transitions, notifications, dispute review, and private documents.
-8. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
-9. Finish cross-browser, mobile, and final release QA.
+5. Back up Firestore, inspect and apply the legacy-address migration, then deploy/test the new rules and map frontend.
+6. Decide whether and how to reveal exact addresses to renters after a confirmed booking.
+7. Deploy the current Firestore rules, including dispute-only admin notification access, to the live Firebase project.
+8. Run renter-owner-admin smoke tests and direct-write security checks for booking transitions, notifications, dispute review, and private documents.
+9. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
+10. Finish cross-browser, mobile, and final release QA.
 
 Firebase Storage remains a future migration only if billing is approved. BDO and Landbank remain future catalog integrations; Metrobank is the active bank source. These are intentionally excluded from the current implementation-completion assessment.
