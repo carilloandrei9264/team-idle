@@ -3,7 +3,7 @@
 **Snapshot date:** 2026-09-30
 **GitHub baseline:** current repo state on `features/v1-3-navigation-settings`
 **Current feature branch:** `features/v1-3-navigation-settings`
-**Status:** release smoothing and cleanup are in progress; documentation and build hygiene have been updated, and the current app build is passing with improved chunk splitting
+**Status:** release smoothing and cleanup are in progress; documentation and build hygiene have been updated, and the current app build is passing with improved chunk splitting. One live UI issue remains open: the map’s exact-address shortcut is implemented in code but is still not appearing in the browser, so this needs a direct render and cache reload check before closing out the release item.
 
 ## Executive Summary
 
@@ -78,6 +78,7 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Added a “Use my exact address” map shortcut so owners can quickly reuse the full private address to place the public pin when the geocoder matches the listing
 - Added a confirmed-booking address handoff so renters can view the exact property address only after booking confirmation
 - Verified the project still passes lint, tests, and production build checks after cleanup
+- Open bug: the exact-address shortcut is still not visibly rendering in the live browser; confirm whether the page is serving a stale build or if the button is being conditionally hidden by a loader or form-state issue
 
 ## v0.3 Release Validation
 
@@ -357,5 +358,7 @@ Exact addresses are now written to `listingPrivate/{listingId}`, readable only b
 8. Run renter-owner-admin smoke tests and direct-write security checks for booking transitions, notifications, dispute review, and private documents.
 9. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
 10. Finish cross-browser, mobile, and final release QA.
+11. Investigate the map exact-address shortcut visibility bug: verify the frontend bundle is current, confirm the button is not hidden by stale cache or route state, and observe the live render in the browser before closing the item.
+12. Re-run the end-to-end listing flow and confirm the exact-address search button appears in the public map search box when a private address is prefilled and the form is reloaded.
 
 Firebase Storage remains a future migration only if billing is approved. BDO and Landbank remain future catalog integrations; Metrobank is the active bank source. These are intentionally excluded from the current implementation-completion assessment.
