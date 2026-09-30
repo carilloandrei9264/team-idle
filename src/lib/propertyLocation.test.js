@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { approximateMapCenter, approximateMapLocation, geocodeAddress, isValidMapLocation } from "./propertyLocation.js";
+import { approximateMapCenter, approximateMapLocation, buildAddressSearchVariants, geocodeAddress, isValidMapLocation } from "./propertyLocation.js";
 
 test("public map locations use a five-character approximate geohash", () => {
   const location = approximateMapLocation(12.3456, 121.5678);
@@ -61,6 +61,15 @@ test("address lookups retry with a Philippines-specific fallback", async () => {
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("exact-address queries try a full Philippines fallback before giving up", () => {
+  const variants = buildAddressSearchVariants("123 Sample Street, Brgy. San Jose, Cabuyao, Laguna");
+
+  assert.deepEqual(variants[0], "123 Sample Street, Brgy. San Jose, Cabuyao, Laguna");
+  assert.ok(variants.includes("123 Sample Street, Brgy. San Jose, Cabuyao, Laguna, Philippines"));
+  assert.ok(variants.includes("123 Sample Street, Brgy. San Jose, Cabuyao, Laguna Philippines"));
+  assert.ok(variants.every((value) => typeof value === "string" && value.trim().length > 0));
 });
 
 test("only valid coordinates explicitly marked approximate can be displayed", () => {

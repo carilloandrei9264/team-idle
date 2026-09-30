@@ -6,24 +6,25 @@ import "./PropertyMap.css";
 
 const PHILIPPINES_CENTER = [12.8797, 121.774];
 
-export default function PropertyMap({ location, onLocationChange, label = "Approximate property location" }) {
+export default function PropertyMap({ location, onLocationChange, label = "Approximate property location", addressHint = "" }) {
   const editable = typeof onLocationChange === "function";
   const hasLocation = isValidMapLocation(location);
   const center = approximateMapCenter(location) || PHILIPPINES_CENTER;
-  const [searchValue, setSearchValue] = useState("");
+  const [searchValue, setSearchValue] = useState(String(addressHint ?? "").trim());
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
 
-  async function handleAddressSearch(event) {
+  async function handleAddressSearch(event, customQuery = searchValue) {
     if (event && typeof event.preventDefault === "function") event.preventDefault();
     if (!editable) return;
 
-    const trimmed = searchValue.trim();
+    const trimmed = String(customQuery ?? searchValue ?? "").trim();
     if (!trimmed) {
       setSearchError("Enter an address or area to search for.");
       return;
     }
 
+    setSearchValue(trimmed);
     setSearching(true);
     setSearchError("");
 
@@ -61,9 +62,19 @@ export default function PropertyMap({ location, onLocationChange, label = "Appro
             placeholder="Search address, barangay, or city"
             aria-label="Search an address to find the map pin"
           />
-          <button type="button" className="btn btn--secondary property-map__search-button" disabled={searching} onClick={handleAddressSearch}>
+          <button type="button" className="btn btn--secondary property-map__search-button" disabled={searching} onClick={(event) => handleAddressSearch(event)}>
             {searching ? "Searching..." : "Find pin"}
           </button>
+          {addressHint && (
+            <button
+              type="button"
+              className="btn btn--secondary property-map__search-button"
+              disabled={searching}
+              onClick={(event) => handleAddressSearch(event, addressHint)}
+            >
+              Use my exact address
+            </button>
+          )}
         </div>
       )}
       {editable && searchError && <p className="property-map__error" role="alert">{searchError}</p>}

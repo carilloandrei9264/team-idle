@@ -113,7 +113,7 @@ export default function EditListing() {
                 <Field id="edit-city" name="city" label="City" value={form.city} onChange={updateField} />
                 <div className="field listing-form__wide">
                   <span className="field__label">Approximate map location (optional)</span>
-                  <PropertyMap location={mapLocation} onLocationChange={setMapLocation} />
+                  <PropertyMap location={mapLocation} onLocationChange={setMapLocation} addressHint={form.address} />
                   {mapLocation && <button type="button" className="btn btn--secondary" onClick={() => setMapLocation(null)}>Remove map pin</button>}
                 </div>
                 <Field id="edit-price" name="price" label="Price" type="number" value={form.price} onChange={updateField} />

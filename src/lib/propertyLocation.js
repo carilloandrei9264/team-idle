@@ -10,16 +10,24 @@ export function approximateMapLocation(latitude, longitude) {
   };
 }
 
+export function buildAddressSearchVariants(address) {
+  const query = String(address ?? "").trim();
+  if (!query) return [];
+
+  const normalized = query.replace(/,\s*Philippines$/i, "").trim();
+  return Array.from(new Set([
+    query,
+    `${normalized}, Philippines`,
+    `${normalized} Philippines`,
+    `${query}, Philippines`,
+  ].filter(Boolean))).filter((value) => value.trim().length > 0);
+}
+
 export async function geocodeAddress(address) {
   const query = String(address ?? "").trim();
   if (!query) return null;
 
-  const variants = Array.from(new Set([
-    query,
-    `${query}, Philippines`,
-    `${query.replace(/,\s*Philippines$/i, "")}, Philippines`,
-    `${query} Philippines`,
-  ])).filter(Boolean);
+  const variants = buildAddressSearchVariants(query);
 
   let lastError = null;
 

@@ -75,6 +75,7 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Added optional approximate listing maps, a private-address collection, and a dry-run-first legacy-address migration
 - Added address-based map search so owners can type a location, find a pin, and keep the public listing coarse while preserving exact addresses privately
 - Improved the geocoder fallback to retry Philippines-specific queries so full addresses are more likely to resolve reliably in the local market
+- Added a “Use my exact address” map shortcut so owners can quickly reuse the full private address to place the public pin when the geocoder matches the listing
 - Added a confirmed-booking address handoff so renters can view the exact property address only after booking confirmation
 - Verified the project still passes lint, tests, and production build checks after cleanup
 
