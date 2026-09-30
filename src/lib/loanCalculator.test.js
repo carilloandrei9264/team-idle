@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { calculateLoanPrincipal, calculateMonthlyPayment, calculateTotalInterest } from "./loanCalculator.js";
+import { formatCurrency } from "./number.js";
 
 test("calculateLoanPrincipal reduces the price by the down payment percent", () => {
   assert.equal(calculateLoanPrincipal(1_000_000, 20), 800_000);
@@ -22,4 +23,8 @@ test("invalid or zero-value loan inputs resolve safely to zero", () => {
   assert.equal(calculateLoanPrincipal(null, "invalid"), 0);
   assert.equal(calculateMonthlyPayment(0, 20, 7, 20), 0);
   assert.equal(calculateTotalInterest(0, 2000, 20), 0);
+});
+
+test("loan estimate currency uses exactly two fractional digits", () => {
+  assert.equal(formatCurrency(11462.898, 2), "₱11,462.90");
 });

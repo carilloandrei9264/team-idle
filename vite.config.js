@@ -14,6 +14,7 @@ export default defineConfig({
           if (id.includes('framer-motion')) return 'motion';
           if (id.includes('react-router-dom')) return 'router';
           if (id.includes('lucide-react')) return 'icons';
+          if (id.includes('react-leaflet') || id.includes('/leaflet/') || id.includes('ngeohash')) return 'map-vendor';
           if (id.includes('react')) return 'react-vendor';
         },
       },

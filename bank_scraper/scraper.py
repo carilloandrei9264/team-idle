@@ -21,6 +21,7 @@ from __future__ import annotations  # lets list[dict]-style hints run on Python 
 import time
 import re
 import argparse
+from decimal import Decimal, InvalidOperation
 from urllib.parse import urljoin
 
 import requests
@@ -157,13 +158,22 @@ def fetch_metrobank_page(page: int, attempts: int = 3) -> tuple[list[dict], int]
 
 def metrobank_item_to_listing(item: dict) -> dict:
     reference_no = item.get("propAcctNo")
+    category = clean_text(item.get("propCategory"))
+    property_type = clean_text(item.get("propType"))
+    if not property_type or property_type.lower() in {"property", "real estate"} or property_type.lower().endswith(" real estate"):
+        title_category = category or property_type
+        title_category = re.sub(r"\s*real estate$", "", title_category, flags=re.IGNORECASE).strip()
+        locality = clean_text(item.get("city") or item.get("province"))
+        title = f"{title_category or 'Metrobank'} property in {locality}" if locality else f"{title_category or 'Metrobank'} property"
+    else:
+        title = clean_text(" ".join(filter(None, [category, property_type])))
     location = clean_text(", ".join(filter(None, [
         item.get("address") or item.get("city"), item.get("province"),
     ]))) or None
     image_id = item.get("defaultImage")
     return {
         "reference_no": reference_no,
-        "title": clean_text(" ".join(filter(None, [item.get("propCategory"), item.get("propType")]))) or "Metrobank acquired property",
+        "title": title or "Metrobank acquired property",
         "location": location,
         "price": item.get("price"),  # already a plain number from the API
         "floor_area": format_area(item.get("floorArea"), item.get("floorAreaUnit")),
@@ -291,8 +301,23 @@ def clean_text(value):
 
 
 def is_valid_listing(listing):
-    """Return whether a scraped record has the identity needed for upsert."""
-    return isinstance(listing, dict) and bool(clean_text(listing.get("reference_no")))
+    """Return whether a scraped record has an identity and meaningful price."""
+    return (
+        isinstance(listing, dict)
+        and bool(clean_text(listing.get("reference_no")))
+        and is_valid_price(listing.get("price"))
+    )
+
+
+def is_valid_price(value):
+    if value is None or isinstance(value, bool):
+        return False
+    normalized = re.sub(r"[^0-9.+-]", "", str(value))
+    try:
+        price = Decimal(normalized)
+    except InvalidOperation:
+        return False
+    return price.is_finite() and price > Decimal("1")
 
 
 def validate_listings(listings):
@@ -300,7 +325,7 @@ def validate_listings(listings):
     valid = [listing for listing in listings if is_valid_listing(listing)]
     skipped = len(listings) - len(valid)
     if skipped:
-        print(f"Skipped {skipped} malformed property records.")
+        print(f"Skipped {skipped} malformed or unpriced property records.")
     if not valid:
         raise RuntimeError("Scraper returned no valid property records; existing catalog was left unchanged.")
     return valid

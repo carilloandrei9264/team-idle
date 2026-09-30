@@ -420,6 +420,7 @@ html.dark .bp-skeleton {
 
 .bc-layout { display: grid; gap: 28px; align-items: start; margin-top: 8px; }
 .bc-results { min-width: 0; }
+.bc-toolbar__filters { display: none; align-items: center; gap: 8px; }
 @media (min-width: 900px) { .bc-layout { grid-template-columns: 288px minmax(0, 1fr); gap: 40px; } }
 
 .bc-filters {
@@ -473,7 +474,7 @@ html.dark .bc-filters__body .field + fieldset { border-top-color: rgba(255,255,2
   .bc-filters__close, .bc-filters__foot, .bc-scrim, .bc-toolbar__filters { display: none; }
 }
 
-@media (max-width: 899px) {
+@media (max-width: 899.98px) {
   .bc-filters {
     position: fixed; top: 0; bottom: 0; left: 0; z-index: 60;
     width: min(340px, 88vw);
@@ -496,7 +497,6 @@ html.dark .bc-filters__body .field + fieldset { border-top-color: rgba(255,255,2
 
 /* ── Toolbar + chips ── */
 .bc-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-.bc-toolbar__filters { display: none; align-items: center; gap: 8px; } /* shown only in the ≤899px media query above */
 .bc-toolbar__badge {
   min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
   display: inline-flex; align-items: center; justify-content: center;

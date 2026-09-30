@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { collection, deleteField, doc, getDocs, onSnapshot, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { Search } from "lucide-react";
 import { db } from "../firebase";
 import "./AdminData.css";
@@ -37,8 +37,30 @@ export default function AdminUsers() {
 
   async function toggleStatus(user) {
     const nextStatus = String(user.status || "active").toLowerCase() === "suspended" ? "active" : "suspended";
+    if (nextStatus === "suspended" && !window.confirm(`Suspend ${user.name || "this user"}? Their access to TrustHome will be blocked.`)) return;
     try {
-      await updateDoc(doc(db, "users", user.id), { status: nextStatus });
+      const listings = await getDocs(query(collection(db, "listings"), where("ownerId", "==", user.id)));
+      const batch = writeBatch(db);
+      batch.update(doc(db, "users", user.id), { status: nextStatus });
+      listings.docs.forEach((listingSnapshot) => {
+        const listing = listingSnapshot.data();
+        if (nextStatus === "suspended" && listing.verificationStatus === "verified") {
+          batch.update(listingSnapshot.ref, {
+            verificationStatus: "suspended",
+            ownerSuspensionApplied: true,
+            previousVerificationStatus: "verified",
+            ownerSuspendedAt: serverTimestamp(),
+          });
+        } else if (nextStatus === "active" && listing.ownerSuspensionApplied === true) {
+          batch.update(listingSnapshot.ref, {
+            verificationStatus: listing.previousVerificationStatus || "verified",
+            ownerSuspensionApplied: deleteField(),
+            previousVerificationStatus: deleteField(),
+            ownerSuspendedAt: deleteField(),
+          });
+        }
+      });
+      await batch.commit();
     } catch {
       setError("The user status could not be updated. Please try again.");
     }

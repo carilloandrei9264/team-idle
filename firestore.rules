@@ -20,6 +20,16 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    function hasValidPublicMapLocation(data) {
+      return !data.keys().hasAny(['mapLocation'])
+        || data.mapLocation == null
+        || (data.mapLocation is map
+          && data.mapLocation.precision == 'approximate'
+          && data.mapLocation.keys().hasOnly(['geohash', 'precision'])
+          && data.mapLocation.geohash is string
+          && data.mapLocation.geohash.matches('^[0123456789bcdefghjkmnpqrstuvwxyz]{5}$'));
+    }
+
     // User profiles are private to the account owner and admins.
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
@@ -42,7 +52,9 @@ service cloud.firestore {
 
       allow create: if isActiveUser()
         && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.verificationStatus == 'pending';
+        && request.resource.data.verificationStatus == 'pending'
+        && !request.resource.data.keys().hasAny(['address'])
+        && hasValidPublicMapLocation(request.resource.data);
 
       // Admins control verification fields. Owners may edit their own listing
       // fields and resubmit rejected listings, but cannot self-approve them.
@@ -51,16 +63,38 @@ service cloud.firestore {
           && isOwner(resource.data.ownerId)
           && request.resource.data.ownerId == resource.data.ownerId
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'title', 'description', 'type', 'address', 'city', 'price', 'pricePeriod',
+            'title', 'description', 'type', 'city', 'price', 'pricePeriod', 'mapLocation',
             'bedrooms', 'bathrooms', 'floorArea', 'lotArea', 'availabilityDate',
             'amenities', 'showingWindows', 'photoUrls', 'verificationDocUrl', 'ownershipDocumentUrl',
             'governmentIdUrl', 'resubmissionRequested',
             'verificationStatus', 'updatedAt'
           ])
-          && request.resource.data.verificationStatus == 'pending');
+          && request.resource.data.verificationStatus == 'pending'
+          && !request.resource.data.keys().hasAny(['address'])
+          && hasValidPublicMapLocation(request.resource.data));
 
       allow delete: if isAdmin()
         || (isActiveUser() && isOwner(resource.data.ownerId));
+    }
+
+    // Exact listing addresses are private. Public listing documents contain
+    // only the owner's deliberately coarsened map location.
+    match /listingPrivate/{listingId} {
+      allow read: if isActiveUser()
+        && (isAdmin() || isOwner(resource.data.ownerId));
+      allow create: if isActiveUser()
+        && isOwner(request.resource.data.ownerId)
+        && request.resource.data.address is string
+        && request.resource.data.address.size() > 0
+        && getAfter(/databases/$(database)/documents/listings/$(listingId)).data.ownerId == request.auth.uid;
+      allow update: if isAdmin()
+        || (isActiveUser()
+          && isOwner(resource.data.ownerId)
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['address', 'updatedAt'])
+          && request.resource.data.address is string
+          && request.resource.data.address.size() > 0);
+      allow delete: if isAdmin() || (isActiveUser() && isOwner(resource.data.ownerId));
     }
 
     // Public catalog data is readable only while active. Admins may inspect
@@ -86,13 +120,22 @@ service cloud.firestore {
       allow update: if isAdmin()
         || (isActiveUser() && resource.data.renterId == request.auth.uid
           && resource.data.status == 'Confirmed'
-          && request.resource.data.status in ['Completed', 'Disputed'])
+          && request.resource.data.status == 'Completed'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'completedAt', 'updatedAt'
+          ]))
+        || (isActiveUser() && resource.data.renterId == request.auth.uid
+          && resource.data.status in ['Confirmed', 'Completed']
+          && request.resource.data.status == 'Disputed'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'disputedAt', 'disputeId', 'updatedAt'
+          ]))
         || (isActiveUser() && resource.data.ownerId == request.auth.uid
           && resource.data.status == 'Pending'
-          && request.resource.data.status == 'Confirmed')
-        || (isActiveUser() && resource.data.ownerId == request.auth.uid
-          && resource.data.status == 'Confirmed'
-          && request.resource.data.status == 'Completed')
+          && request.resource.data.status == 'Confirmed'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'address', 'confirmedAt', 'updatedAt'])
+          && request.resource.data.address is string
+          && request.resource.data.address.size() > 0)
         || (isActiveUser() && resource.data.renterId == request.auth.uid
           && resource.data.status == 'Confirmed'
           && request.resource.data.status == 'Confirmed'
@@ -106,6 +149,8 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isActiveUser()
         && request.resource.data.reviewerId == request.auth.uid
+        && request.resource.data.bookingId is string
+        && ratingId == request.resource.data.bookingId + '_' + request.auth.uid
         && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.renterId == request.auth.uid
         && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status == 'Completed'
         && request.resource.data.ownerId == get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.ownerId
@@ -113,8 +158,7 @@ service cloud.firestore {
         && request.resource.data.score <= 5
         && request.resource.data.comment is string
         && request.resource.data.comment.size() >= 0;
-      allow update, delete: if isAdmin()
-        || (isActiveUser() && resource.data.reviewerId == request.auth.uid);
+      allow update, delete: if isAdmin();
     }
 
     match /disputes/{disputeId} {
@@ -129,7 +173,9 @@ service cloud.firestore {
         && request.resource.data.reason.size() >= 10
         && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.renterId == request.auth.uid
         && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status in ['Confirmed', 'Completed']
-        && request.resource.data.ownerId == get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.ownerId;
+        && request.resource.data.ownerId == get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.ownerId
+        && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status == 'Disputed'
+        && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.disputeId == disputeId;
       allow update: if isAdmin()
         && request.resource.data.status in ['Founded', 'Dismissed']
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([

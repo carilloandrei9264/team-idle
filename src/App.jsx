@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { AnimatePresence } from "framer-motion";
 import RequireAdmin from "./routes/RequireAdmin";
 import RequireAuth from "./routes/RequireAuth";
+import Footer from "./components/Footer";
 import "./App.css";
 
 const Login = lazy(() => import("./pages/Login"));
@@ -26,6 +27,7 @@ const BankPropertyDetail = lazy(() => import("./pages/BankPropertyDetail"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Settings = lazy(() => import("./pages/Settings"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
 const AdminLayout = lazy(() => import("./admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
 const AdminNotifications = lazy(() => import("./admin/AdminNotifications"));
@@ -44,9 +46,10 @@ function App() {
 
 function AppRoutes() {
   const location = useLocation();
-  return <Suspense fallback={<LoadingState />}>
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
+  return <>
+    <Suspense fallback={<LoadingState />}>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
         <Route path="/" element={<Home />} />
         <Route path="/browse" element={<Browse />} />
         <Route path="/bank-catalog" element={<BankCatalog />} />
@@ -69,6 +72,7 @@ function AppRoutes() {
           <Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
         <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
+          <Route path="/legal/:documentId" element={<LegalPage />} />
         <Route
           path="/admin"
           element={
@@ -86,9 +90,11 @@ function AppRoutes() {
           <Route path="bank-catalog" element={<AdminBankCatalog />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </AnimatePresence>
-  </Suspense>;
+        </Routes>
+      </AnimatePresence>
+    </Suspense>
+    {!location.pathname.startsWith("/admin") && <Footer />}
+  </>;
 }
 
 function LoadingState() {

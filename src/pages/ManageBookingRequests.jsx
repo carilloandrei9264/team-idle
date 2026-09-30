@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, deleteDoc, doc, getDocs, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
 import { Check } from "lucide-react";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
@@ -37,7 +37,17 @@ export default function ManageBookingRequests() {
           .filter((item) => item.id !== request.id && item.data().listingId === request.listingId && item.data().status === "Confirmed")
           .map((item) => item.data());
         if (hasConfirmedConflict(confirmedBookings, request.startDate, request.endDate)) throw new Error("BOOKING_CONFLICT");
-        await updateDoc(doc(db, "bookings", request.id), { status, updatedAt: serverTimestamp(), confirmedAt: serverTimestamp() });
+
+        const privateListing = await getDoc(doc(db, "listingPrivate", request.listingId));
+        const privateAddress = privateListing.exists() ? privateListing.data().address : "";
+        const bookingUpdates = {
+          status,
+          updatedAt: serverTimestamp(),
+          confirmedAt: serverTimestamp(),
+          ...(privateAddress ? { address: privateAddress } : {}),
+        };
+
+        await updateDoc(doc(db, "bookings", request.id), bookingUpdates);
         try {
           await createNotification(db, {
             recipientId: request.renterId,

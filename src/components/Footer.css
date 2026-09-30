@@ -82,6 +82,8 @@
   margin: 0 0 14px;
 }
 
+.site-footer__heading--legal { margin-top: 24px; }
+
 /* Nav links */
 .site-footer__links {
   list-style: none;

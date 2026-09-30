@@ -124,22 +124,22 @@ export default function BankPropertyDetail() {
                 <Field id="loan-years" label="Loan term (years)" value={termYears} setValue={setTermYears} />
                 <div className="field">
                   <label className="field__label">Estimated loan amount</label>
-                  <div className="field__static">{formatCurrency(principalAmount)}</div>
+                  <div className="field__static">{formatCurrency(principalAmount, 2)}</div>
                 </div>
               </div>
 
               <div className="calculator-card__summary" aria-live="polite">
                 <div className="calculator-card__metric">
                   <span>Monthly payment</span>
-                  <strong>{formatCurrency(monthlyPayment)}</strong>
+                  <strong>{formatCurrency(monthlyPayment, 2)}</strong>
                 </div>
                 <div className="calculator-card__metric">
                   <span>Total interest</span>
-                  <strong>{formatCurrency(totalInterest)}</strong>
+                  <strong>{formatCurrency(totalInterest, 2)}</strong>
                 </div>
                 <div className="calculator-card__metric">
                   <span>Property price</span>
-                  <strong>{formatCurrency(property.price)}</strong>
+                  <strong>{formatCurrency(property.price, 2)}</strong>
                 </div>
               </div>
             </section>

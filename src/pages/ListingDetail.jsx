@@ -3,9 +3,11 @@ import { collection, doc, getDoc, getDocs, query, where } from "firebase/firesto
 import { ArrowLeft, MapPin, Pencil, ShieldCheck } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
+import PropertyMap from "../components/PropertyMap";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { formatCurrency } from "../lib/number";
+import { isValidMapLocation } from "../lib/propertyLocation";
 import "./UserPages.css";
 
 export default function ListingDetail() {
@@ -77,6 +79,12 @@ export default function ListingDetail() {
                 <span>Price fairness <strong>{trustScore?.priceFairnessLabel || "Insufficient data"}</strong></span>
               </div>
               <p className="listing-detail__description">{listing.description || "No description provided."}</p>
+              {isValidMapLocation(listing.mapLocation) && (
+                <section className="listing-detail__map" aria-labelledby="listing-map-title">
+                  <h2 id="listing-map-title">Approximate area</h2>
+                  <PropertyMap location={listing.mapLocation} label="Approximate property area map" />
+                </section>
+              )}
               {listing.verificationStatus === "rejected" && listing.rejectionReason && (
                 <div className="listing-detail__rejection" role="alert">
                   <strong>Review note</strong>

@@ -4,12 +4,13 @@ import { Link } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
-import { formatBookingDate } from "../lib/booking";
+import { canRevealExactAddress, formatBookingDate } from "../lib/booking";
 import "./UserPages.css";
 
 export default function MyBookings({ embedded = false }) {
   const { user } = useAuth();
   const [bookings, setBookings] = useState([]);
+  const [reviewStatus, setReviewStatus] = useState({ loading: true, bookingIds: new Set(), unavailable: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -23,6 +24,16 @@ export default function MyBookings({ embedded = false }) {
       setLoading(false);
     },
     () => { setError("Your bookings could not be loaded."); setLoading(false); }
+  ), [user.uid]);
+
+  useEffect(() => onSnapshot(
+    query(collection(db, "ratings"), where("reviewerId", "==", user.uid)),
+    (snapshot) => setReviewStatus({
+      loading: false,
+      bookingIds: new Set(snapshot.docs.map((item) => item.data().bookingId)),
+      unavailable: false,
+    }),
+    () => setReviewStatus({ loading: false, bookingIds: new Set(), unavailable: true })
   ), [user.uid]);
 
   async function saveDepositReference(bookingId) {
@@ -65,8 +76,15 @@ export default function MyBookings({ embedded = false }) {
       ) : (
         <div className="user-page__list">{bookings.map((booking) => (
           <article className="user-page__item booking-item" key={booking.id}>
-            <div><h2>{booking.listingTitle || "Listing"}</h2><p>{formatBookingDate(booking.startDate)} to {formatBookingDate(booking.endDate)}</p><p className="user-page__item-meta">Owner: {booking.ownerName || "Property owner"}</p></div>
-            <div className="booking-item__actions"><span className={`badge badge--${statusTone(booking.status)}`}>{booking.status}</span>{booking.status === "Confirmed" && <><label className="field"><span className="field__label">Deposit reference</span><input className="field__input" value={depositReferences[booking.id] ?? booking.depositReference ?? ""} onChange={(event) => setDepositReferences((current) => ({ ...current, [booking.id]: event.target.value }))} placeholder="GCash or bank transfer reference" /></label><button type="button" className="btn btn--secondary" onClick={() => saveDepositReference(booking.id)} disabled={savingId === booking.id || !depositReferences[booking.id]?.trim()}>{savingId === booking.id ? "Saving..." : "Save reference"}</button><button type="button" className="btn btn--primary" onClick={() => markCompleted(booking.id)} disabled={savingId === booking.id}>Mark completed</button></>}{booking.status === "Completed" && <Link to={`/bookings/${booking.id}/review`} className="btn btn--secondary">Rate stay</Link>}{["Confirmed", "Completed"].includes(booking.status) && <Link to={`/bookings/${booking.id}/dispute`} className="btn btn--danger">Raise dispute</Link>}</div>
+            <div>
+              <h2>{booking.listingTitle || "Listing"}</h2>
+              <p>{formatBookingDate(booking.startDate)} to {formatBookingDate(booking.endDate)}</p>
+              <p className="user-page__item-meta">Owner: {booking.ownerName || "Property owner"}</p>
+              {canRevealExactAddress(booking.status) && booking.address && (
+                <p className="user-page__item-meta">Address: {booking.address}</p>
+              )}
+            </div>
+            <div className="booking-item__actions"><span className={`badge badge--${statusTone(booking.status)}`}>{booking.status}</span>{booking.status === "Confirmed" && <><label className="field"><span className="field__label">Deposit reference</span><input className="field__input" value={depositReferences[booking.id] ?? booking.depositReference ?? ""} onChange={(event) => setDepositReferences((current) => ({ ...current, [booking.id]: event.target.value }))} placeholder="GCash or bank transfer reference" /></label><button type="button" className="btn btn--secondary" onClick={() => saveDepositReference(booking.id)} disabled={savingId === booking.id || !depositReferences[booking.id]?.trim()}>{savingId === booking.id ? "Saving..." : "Save reference"}</button><button type="button" className="btn btn--primary" onClick={() => markCompleted(booking.id)} disabled={savingId === booking.id}>Mark completed</button></>}{booking.status === "Completed" && (reviewStatus.loading ? <span>Checking review...</span> : reviewStatus.unavailable ? <span>Review status unavailable</span> : reviewStatus.bookingIds.has(booking.id) ? <span className="badge badge--verified">Reviewed</span> : <Link to={`/bookings/${booking.id}/review`} className="btn btn--secondary">Rate stay</Link>)}{["Confirmed", "Completed"].includes(booking.status) && <Link to={`/bookings/${booking.id}/dispute`} className="btn btn--danger">Raise dispute</Link>}</div>
           </article>
         ))}</div>
       )}

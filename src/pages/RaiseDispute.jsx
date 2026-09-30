@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { addDoc, collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
@@ -54,7 +54,9 @@ export default function RaiseDispute() {
     setError("");
     try {
       const priorStatus = booking.status;
-      const disputeRef = await addDoc(collection(db, "disputes"), {
+      const disputeRef = doc(collection(db, "disputes"));
+      const batch = writeBatch(db);
+      batch.set(disputeRef, {
         bookingId,
         bookingTitle: booking.listingTitle,
         ownerId: booking.ownerId,
@@ -65,12 +67,13 @@ export default function RaiseDispute() {
         priorStatus,
         createdAt: serverTimestamp(),
       });
-      await updateDoc(doc(db, "bookings", bookingId), {
+      batch.update(doc(db, "bookings", bookingId), {
         status: "Disputed",
         disputedAt: serverTimestamp(),
         disputeId: disputeRef.id,
         updatedAt: serverTimestamp(),
       });
+      await batch.commit();
       try {
         await createNotification(db, {
           recipientId: ADMIN_NOTIFICATION_RECIPIENT,

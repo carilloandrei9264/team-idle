@@ -6,7 +6,11 @@ export function numericValue(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-export function formatCurrency(value) {
+export function formatCurrency(value, fractionDigits = null) {
   const numeric = numericValue(value, null);
-  return numeric == null ? "Price unavailable" : `₱${numeric.toLocaleString()}`;
+  if (numeric == null) return "Price unavailable";
+  const options = Number.isInteger(fractionDigits)
+    ? { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits }
+    : undefined;
+  return `₱${numeric.toLocaleString(undefined, options)}`;
 }

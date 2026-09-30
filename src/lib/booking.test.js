@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BOOKING_STATUSES, canTransitionBookingStatus, datesOverlap, hasConfirmedConflict, isValidDateRange } from "./booking.js";
+import { BOOKING_STATUSES, canRevealExactAddress, canTransitionBookingStatus, datesOverlap, hasConfirmedConflict, isValidDateRange } from "./booking.js";
 
 test("booking status machine contains only the required MVP statuses", () => {
   assert.deepEqual(BOOKING_STATUSES, ["Pending", "Confirmed", "Completed", "Disputed"]);
@@ -27,6 +27,13 @@ test("only confirmed bookings block a request", () => {
 
   assert.equal(hasConfirmedConflict(bookings, "2026-09-02", "2026-09-04"), false);
   assert.equal(hasConfirmedConflict(bookings, "2026-09-12", "2026-09-14"), true);
+});
+
+test("exact address sharing is only available after confirmation", () => {
+  assert.equal(canRevealExactAddress("Pending"), false);
+  assert.equal(canRevealExactAddress("Confirmed"), true);
+  assert.equal(canRevealExactAddress("Completed"), true);
+  assert.equal(canRevealExactAddress("Disputed"), true);
 });
 
 test("date ranges must end after they start", () => {

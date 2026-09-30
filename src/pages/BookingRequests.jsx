@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, deleteDoc, doc, getDocs, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
 import { Link, useSearchParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
@@ -43,8 +43,13 @@ export default function BookingRequests({ embedded = false }) {
           .some((item) => bookingDatesOverlap(item.data(), request.startDate.toDate(), request.endDate.toDate()));
         if (conflict) throw new Error("Those dates were confirmed for another renter first.");
 
+        const privateListing = await getDoc(doc(db, "listingPrivate", request.listingId));
+        const privateAddress = privateListing.exists() ? privateListing.data().address : "";
+        if (!privateAddress) throw new Error("The private listing address is unavailable, so this request cannot be confirmed.");
+
         await updateDoc(doc(db, "bookings", request.id), {
           status,
+          address: privateAddress,
           updatedAt: serverTimestamp(),
           confirmedAt: serverTimestamp(),
         });

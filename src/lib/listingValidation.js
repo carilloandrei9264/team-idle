@@ -1,3 +1,5 @@
+import { isValidMapLocation } from "./propertyLocation.js";
+
 export const MIN_LISTING_PHOTOS = 4;
 export const MIN_DESCRIPTION_WORDS = 150;
 export const MAX_DESCRIPTION_WORDS = 400;
@@ -7,9 +9,10 @@ export function countWords(value) {
   return String(value ?? "").trim().split(/\s+/).filter(Boolean).length;
 }
 
-export function validateListingForm({ form, photos, ownershipDocument, governmentId }) {
+export function validateListingForm({ form, photos, ownershipDocument, governmentId, mapLocation = form?.mapLocation ?? null }) {
   const errors = [];
   const descriptionWords = countWords(form.description);
+  const resolvedMapLocation = mapLocation ?? form?.mapLocation ?? null;
 
   if (!String(form.title ?? "").trim()) errors.push("Add a listing title.");
   if (!String(form.city ?? "").trim()) errors.push("Add the property city or area.");
@@ -19,6 +22,9 @@ export function validateListingForm({ form, photos, ownershipDocument, governmen
   if (!String(form.availabilityDate ?? "").trim()) errors.push("Add an availability date.");
   if (!Array.isArray(form.amenities) || form.amenities.length === 0) errors.push("Select at least one amenity.");
   if (!hasValidShowingWindow(form.showingWindows)) errors.push("Add at least one showing window with a start and end time.");
+  if (resolvedMapLocation !== null && resolvedMapLocation !== undefined && !isValidMapLocation(resolvedMapLocation)) {
+    errors.push("Use a valid approximate map location or remove the pin.");
+  }
   if (!String(form.description ?? "").trim()) {
     errors.push("Add a property description.");
   } else if (descriptionWords > MAX_DESCRIPTION_WORDS) {
