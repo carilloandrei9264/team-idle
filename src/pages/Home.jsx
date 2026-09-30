@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import PublicNav from "../components/PublicNav";
-import Footer from "../components/Footer";
 import ListingCard from "../components/ListingCard";
 import {
   Search, ShieldCheck, TrendingUp, MessageSquareWarning,
@@ -219,7 +218,6 @@ export default function Home() {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

@@ -7,6 +7,13 @@ const QUICK_LINKS = [
   { to: "/bank-catalog", label: "Bank Catalog" },
 ];
 
+const POLICY_LINKS = [
+  { to: "/legal/privacy", label: "Privacy Policy" },
+  { to: "/legal/terms", label: "Terms of Use" },
+  { to: "/legal/data-compliance", label: "Data & Compliance" },
+  { to: "/legal/ip-infringement", label: "IP Infringement" },
+];
+
 export default function Footer() {
   return (
     <footer className="site-footer" role="contentinfo">
@@ -29,6 +36,14 @@ export default function Footer() {
           <p className="site-footer__heading">Quick links</p>
           <ul className="site-footer__links">
             {QUICK_LINKS.map(({ to, label }) => (
+              <li key={to}>
+                <Link to={to} className="site-footer__link">{label}</Link>
+              </li>
+            ))}
+          </ul>
+          <p className="site-footer__heading site-footer__heading--legal">Legal &amp; data</p>
+          <ul className="site-footer__links">
+            {POLICY_LINKS.map(({ to, label }) => (
               <li key={to}>
                 <Link to={to} className="site-footer__link">{label}</Link>
               </li>
