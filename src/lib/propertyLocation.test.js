@@ -35,6 +35,34 @@ test("address lookups return a usable latitude and longitude", async () => {
   }
 });
 
+test("address lookups retry with a Philippines-specific fallback", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(url);
+    if (calls.length === 1) {
+      return { ok: true, json: async () => [] };
+    }
+
+    return {
+      ok: true,
+      json: async () => [{ lat: "14.1234", lon: "121.5678", display_name: "San Pedro, Laguna" }],
+    };
+  };
+
+  try {
+    const match = await geocodeAddress("18 Lapu-Lapu St");
+    assert.equal(calls.length, 2);
+    assert.deepEqual(match, {
+      latitude: 14.1234,
+      longitude: 121.5678,
+      label: "San Pedro, Laguna",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("only valid coordinates explicitly marked approximate can be displayed", () => {
   assert.equal(isValidMapLocation({ geohash: "w4pru", precision: "approximate" }), true);
   assert.equal(isValidMapLocation({ geohash: "w4pru" }), false);

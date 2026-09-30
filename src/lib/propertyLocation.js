@@ -14,27 +14,49 @@ export async function geocodeAddress(address) {
   const query = String(address ?? "").trim();
   if (!query) return null;
 
-  const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`, {
-    headers: { Accept: "application/json" },
-  });
+  const variants = Array.from(new Set([
+    query,
+    `${query}, Philippines`,
+    `${query.replace(/,\s*Philippines$/i, "")}, Philippines`,
+    `${query} Philippines`,
+  ])).filter(Boolean);
 
-  if (!response.ok) {
-    throw new Error("Address lookup failed. Please try a more specific location.");
+  let lastError = null;
+
+  for (const variant of variants) {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ph&q=${encodeURIComponent(variant)}`,
+        { headers: { Accept: "application/json" } },
+      );
+
+      if (!response.ok) {
+        throw new Error("Address lookup failed. Please try a more specific location.");
+      }
+
+      const results = await response.json();
+      const match = Array.isArray(results) ? results[0] : null;
+      if (!match) continue;
+
+      const latitude = Number(match.lat);
+      const longitude = Number(match.lon);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+
+      return {
+        latitude,
+        longitude,
+        label: match.display_name || variant,
+      };
+    } catch (error) {
+      lastError = error;
+    }
   }
 
-  const results = await response.json();
-  const match = Array.isArray(results) ? results[0] : null;
-  if (!match) return null;
+  if (lastError) {
+    throw lastError;
+  }
 
-  const latitude = Number(match.lat);
-  const longitude = Number(match.lon);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-
-  return {
-    latitude,
-    longitude,
-    label: match.display_name || query,
-  };
+  return null;
 }
 
 export function isValidMapLocation(location) {
