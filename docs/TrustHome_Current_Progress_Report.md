@@ -12,7 +12,7 @@
 - On Oct 1, a generated 1x1 PNG uploaded through the real `trusthome_uploads` preset and returned HTTP 200 with `asset_folder=trusthome/_smoke-test` and the expected tags. That synthetic test asset remains for cleanup. This did not test PDF uploads or document access restrictions.
 - Cloudinary Dynamic Folders are enabled. The `trusthome` and `trusthome/legacy-unclassified` folders were created; existing root assets were not migrated. Listing create/edit uploads now send listing-specific asset folders and type tags. Foldering does not make verification files private.
 - Create/edit source now writes verification URLs to `listingPrivate`; admin review reads those fields and removes legacy URL fields from a listing when making a decision. A dry-run-first migration was added. Four migration tests and five local Firestore emulator tests pass; no live migration or rule deployment was run.
-- Current code gates pass: 43 Node tests, 21 Python tests, lint, build, and npm audit (0 vulnerabilities). The callable passed a local Functions emulator test; it has not been deployed or tested against the live project.
+- Current code gates pass: 43 Node tests, 21 Python tests, lint, build, and npm audit (0 vulnerabilities). The callable passed a local Functions emulator test under host Node 24; the Functions package targets Node 20, so repeat on Node 20 before deployment. It has not been deployed or tested against the live project.
 - The browser session used for this follow-up was signed out, so the create-listing preview flow could not be manually exercised in-browser. Automated tests, lint, and build are the available code-level checks.
 
 ## Executive Summary
@@ -364,7 +364,7 @@ Exact addresses are now written to `listingPrivate/{listingId}`, readable only b
 ## Remaining Work: Release QA
 
 1. Rotate/revoke the exposed Firebase service-account key and assess Git history/remote exposure.
-2. Deploy the callable, updated Firestore rules, and booking index in an approved Functions environment; repeat direct and concurrent overlap tests against the test project (F-05).
+2. Repeat the callable emulator test under Node 20, then deploy the callable, updated Firestore rules, and booking index in an approved Functions environment; repeat direct and concurrent overlap tests against the test project (F-05).
 3. Remove verification URLs from public listing documents, secure Cloudinary delivery, migrate existing records, and test direct delivery (F-16).
 4. Back up Firestore, inspect and apply the legacy-address migration, and rerun direct-access checks.
 5. Run the remaining renter-owner-admin notification, admin-access, listing-intake, and booking security matrix; do not mark workbook cases complete based on unit tests alone.
