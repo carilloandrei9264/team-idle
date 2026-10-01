@@ -7,14 +7,14 @@
 
 ## QA Reconciliation (2026-10-01)
 
-- Follow-up check of the five user-reported marketplace items: source creates admin alerts for new listing submissions and the admin inbox accepts them; listing review supports image/PDF previews from `listingPrivate`; user notifications navigate through their configured links and offer mark-read/clear-read controls; listing intake/edit distinguishes short-term rent, long-term rent, and sale. These frontend/source changes are present locally, but the current Firestore rules and frontend still require deployment for live confirmation. Verification-document delivery through Cloudinary remains public when a URL is known.
-- The booking confirmation callable is implemented and its local tests pass, but a read-only unauthenticated POST to `https://asia-southeast1-trusthome-ph.cloudfunctions.net/confirmBooking` returned HTTP 404 on 2026-10-01. The live approval error is therefore not resolved; deploy `confirmBooking` in `asia-southeast1` and verify it with an authenticated owner booking before closing the issue. Firebase CLI was unavailable in this workspace, so no deployment was attempted.
+- Follow-up check of the five user-reported marketplace items: source creates admin alerts for new listing submissions and the admin inbox accepts them; listing review supports image/PDF previews from `listingPrivate`; user notifications navigate through their configured links and offer mark-read/clear-read controls; listing intake/edit distinguishes short-term rent, long-term rent, and sale. The source is pushed; Firestore rules from commit `a1fe48e` were deployed to `trusthome-ph` on 2026-10-01. The frontend itself has not been deployed to hosting. Verification-document delivery through Cloudinary remains public when a URL is known.
+- The booking confirmation callable is implemented and its local tests pass, but a read-only unauthenticated POST to `https://asia-southeast1-trusthome-ph.cloudfunctions.net/confirmBooking` returned HTTP 404 on 2026-10-01. The live approval error is therefore not resolved; deploy `confirmBooking` in `asia-southeast1` and verify it with an authenticated owner booking before closing the issue. Only Firestore rules were deployed in this follow-up; no functions or hosting deployment was run.
 - Current checks after this follow-up: 47 Node tests, 23 Python tests, ESLint, and the production build passed. Authenticated browser verification of the listing, document-preview, and notification flows was not available in this session.
-- The Sep 30 test findings are the latest live-test record. Findings F-02 through F-04 and F-06 through F-15 are reported resolved; F-05 remains open in the deployed app. Source now routes owner confirmation through a transactional callable with a per-listing lock and denies direct owner confirmation; the Functions emulator rejected conflicts and serialized concurrent requests. Deployment and live concurrency testing remain; deployment may require Blaze. F-16 is still open overall: new source writes put URLs in `listingPrivate`, but current rules are not deployed, existing records need migration, and Cloudinary delivery remains public. F-01 is untracked in this worktree, but key revocation and Git-history exposure are not verified.
+- The Sep 30 test findings are the latest live-test record. Findings F-02 through F-04 and F-06 through F-15 are reported resolved; F-05 remains open in the deployed app. Source now routes owner confirmation through a transactional callable with a per-listing lock and denies direct owner confirmation; the Functions emulator rejected conflicts and serialized concurrent requests. The rules are deployed, but the callable and frontend are not, and live concurrency testing remains; Functions deployment may require Blaze. F-16 is still open overall: new source writes put URLs in `listingPrivate`, current rules are deployed, existing records need migration, and Cloudinary delivery remains public. F-01 is untracked in this worktree, but key revocation and Git-history exposure are not verified.
 - The use-case workbook has 166 test cases: 6 Passed, 27 Passed (Dev), 27 Blocked, 103 Not Run, 1 Failed, and 2 Retired. The workbook is a historical catalog; its statuses were not updated by the Sep 30 run. `TC-MAP-003` remains marked Failed there even though the later run records the exact-address shortcut rendering successfully.
 - On Oct 1, a generated 1x1 PNG uploaded through the real `trusthome_uploads` preset and returned HTTP 200 with `asset_folder=trusthome/_smoke-test` and the expected tags. That synthetic test asset remains for cleanup. This did not test PDF uploads or document access restrictions.
 - Cloudinary Dynamic Folders are enabled. The `trusthome` and `trusthome/legacy-unclassified` folders were created; existing root assets were not migrated. Listing create/edit uploads now send listing-specific asset folders and type tags. Foldering does not make verification files private.
-- Create/edit source now writes verification URLs to `listingPrivate`; admin review reads those fields and removes legacy URL fields from a listing when making a decision. A dry-run-first migration was added. Four migration tests and five local Firestore emulator tests pass; no live migration or rule deployment was run.
+- Create/edit source now writes verification URLs to `listingPrivate`; admin review reads those fields and removes legacy URL fields from a listing when making a decision. A dry-run-first migration was added. Four migration tests and five local Firestore emulator tests pass. The current rules were deployed on 2026-10-01; no live migration was run.
 - Current code gates pass: 47 Node tests, 23 Python tests, lint, build, and npm audit (0 vulnerabilities). The callable passed a local Functions emulator test under host Node 24; the Functions package targets Node 20, so repeat on Node 20 before deployment. It has not been deployed or tested against the live project.
 - The browser session used for this follow-up was signed out, so the create-listing preview flow could not be manually exercised in-browser. Automated tests, lint, and build are the available code-level checks.
 
@@ -193,9 +193,9 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 
 ### Still required before calling the backend release-ready
 
-- Review and deploy the Oct 1 `firestore.rules` changes. The Sep 30 findings confirmed deployment of the earlier source; these latest private-document rules have only been compiled and tested in the local emulator.
+- Run authenticated live checks against the Oct 1 deployed `firestore.rules`, especially private-document access and new listing notifications. Migrate existing public document URLs only after a backup and dry-run review.
 - Apply `bank_scraper/migrate_verification_documents.py` only after a backup and dry-run review; then test live listing reads and Cloudinary direct delivery.
-- F-05 remains open in the deployed app. Source now has a trusted transaction, per-listing lock, and a rule denial for direct owner confirmation; the local Functions emulator rejected an overlap and serialized concurrent requests. Deploy the callable/rules/index in an approved Functions environment and repeat live contention tests before closing it.
+- F-05 remains open in the deployed app. Source now has a trusted transaction, per-listing lock, and a deployed rule denial for direct owner confirmation; the local Functions emulator rejected an overlap and serialized concurrent requests. Deploy the callable and required index in an approved Functions environment and repeat live contention tests before closing it.
 - Run the remaining live security cases for booking confirmation, notification creation, dispute resolution, and private document access.
 - Run the complete renter-owner-admin notification smoke matrix against the deployed project.
 - Keep GitHub Actions secret handling verified; the service-account key is untracked locally, but revocation and Git-history exposure remain unverified.
@@ -203,11 +203,11 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 
 ## Validation Already Passing
 
-- `node --test`: 43 tests passed
+- `node --test`: 47 tests passed
 - `npm run lint`: passed
 - `npm run build`: passed
-- `python -m unittest discover -s bank_scraper -p "test_*.py"`: 21 tests passed
-- Firestore local emulator: 5 focused rules tests passed; current source rules are not deployed
+- `python -m unittest discover -s bank_scraper -p "test_*.py"`: 23 tests passed
+- Firestore local emulator: 5 focused rules tests passed; current source rules deployed to `trusthome-ph` on 2026-10-01
 - Functions emulator: overlapping request rejected and only one of two concurrent requests confirmed, with private-address handoff verified
 - `npm audit`: 0 vulnerabilities after pinning `@grpc/grpc-js` to patched 1.13.6
 - Sep 30 live deployment and selected direct-write checks: reported passed for the earlier rules source; full rules-path coverage remains incomplete
