@@ -62,11 +62,21 @@ def build_listing(listing_id, owner_id, title, city, property_type, price, floor
         "floorArea": floor_area,
         "lotArea": floor_area + 20,
         "verificationStatus": status,
-        "verificationDocUrl": DEMO_DOCUMENT if status == "verified" else None,
         "photoUrls": [DEMO_IMAGE.replace("Property", listing_id)],
         "createdAt": NOW - timedelta(days=30 - int(listing_id[-2:])),
         "updatedAt": NOW,
         "verifiedAt": NOW - timedelta(days=20) if status == "verified" else None,
+    }
+
+
+def build_private_listing(listing_id, owner_id, status):
+    has_documents = status == "verified"
+    return {
+        "ownerId": owner_id,
+        "address": f"Synthetic demo address for {listing_id}",
+        "ownershipDocumentUrl": DEMO_DOCUMENT if has_documents else None,
+        "governmentIdUrl": DEMO_DOCUMENT if has_documents else None,
+        "updatedAt": NOW,
     }
 
 
@@ -159,6 +169,7 @@ def main(dry_run=False):
     documents = {
         "users": USERS,
         "listings": {item[0]: build_listing(*item) for item in LISTINGS},
+        "listingPrivate": {item[0]: build_private_listing(item[0], item[1], item[7]) for item in LISTINGS},
         "bookings": build_bookings(),
         "ratings": build_ratings(),
         "disputes": build_disputes(),

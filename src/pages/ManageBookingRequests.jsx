@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { Check } from "lucide-react";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
-import { db } from "../firebase";
-import { hasConfirmedConflict, toDate } from "../lib/booking";
+import { db, functions } from "../firebase";
+import { toDate } from "../lib/booking";
 import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./UserPages.css";
+
+const confirmBooking = httpsCallable(functions, "confirmBooking");
 
 export default function ManageBookingRequests() {
   const { user } = useAuth();
@@ -32,22 +35,7 @@ export default function ManageBookingRequests() {
     setMessage("");
     try {
       if (status === "Confirmed") {
-        const ownerSnapshot = await getDocs(query(collection(db, "bookings"), where("ownerId", "==", user.uid)));
-        const confirmedBookings = ownerSnapshot.docs
-          .filter((item) => item.id !== request.id && item.data().listingId === request.listingId && item.data().status === "Confirmed")
-          .map((item) => item.data());
-        if (hasConfirmedConflict(confirmedBookings, request.startDate, request.endDate)) throw new Error("BOOKING_CONFLICT");
-
-        const privateListing = await getDoc(doc(db, "listingPrivate", request.listingId));
-        const privateAddress = privateListing.exists() ? privateListing.data().address : "";
-        const bookingUpdates = {
-          status,
-          updatedAt: serverTimestamp(),
-          confirmedAt: serverTimestamp(),
-          ...(privateAddress ? { address: privateAddress } : {}),
-        };
-
-        await updateDoc(doc(db, "bookings", request.id), bookingUpdates);
+        await confirmBooking({ bookingId: request.id });
         try {
           await createNotification(db, {
             recipientId: request.renterId,

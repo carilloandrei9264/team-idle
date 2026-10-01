@@ -1,9 +1,19 @@
 # TrustHome PH - Current Progress Report
 
-**Snapshot date:** 2026-09-30
+**Snapshot date:** 2026-10-01
 **GitHub baseline:** current repo state on `features/v1-3-navigation-settings`
 **Current feature branch:** `features/v1-3-navigation-settings`
-**Status:** release smoothing and cleanup are in progress; documentation and build hygiene have been updated, and the current app build is passing with improved chunk splitting. One live UI issue remains open: the map’s exact-address shortcut is implemented in code but is still not appearing in the browser, so this needs a direct render and cache reload check before closing out the release item.
+**Status:** Core implementation and focused QA are progressing, but the project is not release-ready. The latest report marks booking-overlap enforcement and verification-document access as open; credential revocation is unconfirmed, and most workbook cases remain unrun or blocked.
+
+## QA Reconciliation (2026-10-01)
+
+- The Sep 30 test findings are the latest live-test record. Findings F-02 through F-04 and F-06 through F-15 are reported resolved; F-05 remains open in the deployed app. Source now routes owner confirmation through a transactional callable with a per-listing lock and denies direct owner confirmation; the Functions emulator rejected conflicts and serialized concurrent requests. Deployment and live concurrency testing remain; deployment may require Blaze. F-16 is still open overall: new source writes put URLs in `listingPrivate`, but current rules are not deployed, existing records need migration, and Cloudinary delivery remains public. F-01 is untracked in this worktree, but key revocation and Git-history exposure are not verified.
+- The use-case workbook has 166 test cases: 6 Passed, 27 Passed (Dev), 27 Blocked, 103 Not Run, 1 Failed, and 2 Retired. The workbook is a historical catalog; its statuses were not updated by the Sep 30 run. `TC-MAP-003` remains marked Failed there even though the later run records the exact-address shortcut rendering successfully.
+- On Oct 1, a generated 1x1 PNG uploaded through the real `trusthome_uploads` preset and returned HTTP 200 with `asset_folder=trusthome/_smoke-test` and the expected tags. That synthetic test asset remains for cleanup. This did not test PDF uploads or document access restrictions.
+- Cloudinary Dynamic Folders are enabled. The `trusthome` and `trusthome/legacy-unclassified` folders were created; existing root assets were not migrated. Listing create/edit uploads now send listing-specific asset folders and type tags. Foldering does not make verification files private.
+- Create/edit source now writes verification URLs to `listingPrivate`; admin review reads those fields and removes legacy URL fields from a listing when making a decision. A dry-run-first migration was added. Four migration tests and five local Firestore emulator tests pass; no live migration or rule deployment was run.
+- Current code gates pass: 43 Node tests, 21 Python tests, lint, build, and npm audit (0 vulnerabilities). The callable passed a local Functions emulator test; it has not been deployed or tested against the live project.
+- The browser session used for this follow-up was signed out, so the create-listing preview flow could not be manually exercised in-browser. Automated tests, lint, and build are the available code-level checks.
 
 ## Executive Summary
 
@@ -20,7 +30,7 @@ PR #34 merged `features/frontend-updated-integrated` into `dev` on 2026-09-27. T
 | v0.3 Accountability & Integration | Complete | Dispute review, public accountability flags, bank catalog safeguards, and loan estimates are implemented and validated. |
 | v1.0 Release Hardening | Implemented; release QA remains | Route splitting, error recovery, admin review fixes, Cloudinary document handling, booking permission fixes, and the frontend refresh are merged to `dev`. |
 | v1.1 Requirements Alignment | Complete | Required listing fields, validation, minimum photos, two-document intake, showing windows, edit parity, and admin resubmission are implemented. |
-| v1.2 Booking Accountability | Implemented; workflow follow-up required | Booking transitions, overlap protection, deposit references, and completion are present; presentation feedback identified duplicate completion controls and a dispute-state alignment gap. |
+| v1.2 Booking Accountability | Implemented; security blocker remains | Booking transitions, client-side checks, deposit references, and completion are present. Source now uses a transactional callable and denies direct owner confirmation; local concurrent tests pass, but the deployed app still allows overlaps until the callable/rules/index changes are deployed and live-tested (F-05). |
 | v1.3 Trust & Marketplace Quality | Implemented; follow-up in progress | Fairness scoring, anti-gaming signals, owner dashboard, trust-score scraper integration, notifications, and refreshed frontend are merged to `dev`; notification separation and navigation/settings improvements are on feature branches. |
 
 ## v0.1 Completed
@@ -78,7 +88,8 @@ Landbank and BDO are intentionally future integrations. Metrobank is the current
 - Added a “Use my exact address” map shortcut so owners can quickly reuse the full private address to place the public pin when the geocoder matches the listing
 - Added a confirmed-booking address handoff so renters can view the exact property address only after booking confirmation
 - Verified the project still passes lint, tests, and production build checks after cleanup
-- Open bug: the exact-address shortcut is still not visibly rendering in the live browser; confirm whether the page is serving a stale build or if the button is being conditionally hidden by a loader or form-state issue
+- The exact-address shortcut was reported visible during the Sep 30 live test after a private address was entered; the earlier browser-visibility bug is considered resolved by that test.
+- Oct 1: added listing-specific Cloudinary Dynamic Folder paths and purpose tags to create/edit uploads, local photo/document previews during listing creation, and clearer admin evidence previews. A generated 1x1 image upload verified the real preset accepted its folder and tags; PDF upload was not tested.
 
 ## v0.3 Release Validation
 
@@ -102,7 +113,7 @@ Deploy the current rules from the repository root:
 firebase deploy --only firestore:rules
 ```
 
-An earlier version of the rules compiled and deployed successfully. The latest repository rules include additional booking and notification protections; their deployment to the live Firebase project has not been confirmed. The protected cases covered by the repository rules include:
+The Sep 30 findings report the current repository rules deployed to the `trusthome-ph` test project. Focused direct-write checks passed for several paths, but the entire ruleset and all workbook security cases have not been re-tested. The protected cases covered by the repository rules include:
 
 - A signed-out user can read verified listings.
 - A signed-out user cannot read pending listings.
@@ -179,20 +190,24 @@ Notifications are in-app only. Email, SMS, and push delivery are outside the cur
 
 ### Still required before calling the backend release-ready
 
-- Deploy the latest `firestore.rules`; the current notification-rule deployment is not confirmed
-- Run live security tests for direct Firestore writes, especially booking confirmation, notification creation, dispute resolution, and private document access
-- Run the renter-owner-admin notification smoke test against the deployed project
-- Keep the GitHub Actions secret and service-account handling verified; the current automation depends on that workflow rather than deployed Cloud Functions
-- Treat notification delivery as best effort: the main booking, dispute, or review action remains successful if creating its notification fails
-- Confirm the client-side overlap check and Firestore rules together against malicious/direct writes; the current no-billing architecture keeps overlap computation in application code rather than a server transaction
+- Review and deploy the Oct 1 `firestore.rules` changes. The Sep 30 findings confirmed deployment of the earlier source; these latest private-document rules have only been compiled and tested in the local emulator.
+- Apply `bank_scraper/migrate_verification_documents.py` only after a backup and dry-run review; then test live listing reads and Cloudinary direct delivery.
+- F-05 remains open in the deployed app. Source now has a trusted transaction, per-listing lock, and a rule denial for direct owner confirmation; the local Functions emulator rejected an overlap and serialized concurrent requests. Deploy the callable/rules/index in an approved Functions environment and repeat live contention tests before closing it.
+- Run the remaining live security cases for booking confirmation, notification creation, dispute resolution, and private document access.
+- Run the complete renter-owner-admin notification smoke matrix against the deployed project.
+- Keep GitHub Actions secret handling verified; the service-account key is untracked locally, but revocation and Git-history exposure remain unverified.
+- Treat notification delivery as best effort: the main booking, dispute, or review action remains successful if creating its notification fails.
 
 ## Validation Already Passing
 
-- `node --test`: 33 tests passed
+- `node --test`: 43 tests passed
 - `npm run lint`: passed
 - `npm run build`: passed
-- `python -m unittest discover -s bank_scraper -p "test_*.py"`: 14 tests passed
-- Earlier Firestore rules deployment: passed; deployment of the current rules is unverified
+- `python -m unittest discover -s bank_scraper -p "test_*.py"`: 21 tests passed
+- Firestore local emulator: 5 focused rules tests passed; current source rules are not deployed
+- Functions emulator: overlapping request rejected and only one of two concurrent requests confirmed, with private-address handoff verified
+- `npm audit`: 0 vulnerabilities after pinning `@grpc/grpc-js` to patched 1.13.6
+- Sep 30 live deployment and selected direct-write checks: reported passed for the earlier rules source; full rules-path coverage remains incomplete
 - Synthetic data seeding and trust-score recomputation were previously run successfully; rerun as part of release smoke testing
 
 The production build is passing cleanly after vendor chunk splitting; the previous large-JavaScript-bundle warning was reduced to a non-issue for the current build setup.
@@ -270,7 +285,7 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 **Verified in the current branch:** Inbox/bell queries and notification creation follow the split; unit tests verify that booking-request types are excluded from the admin inbox. The current Firestore rule source enforces the same boundary. The Firebase CLI/emulator is unavailable in this environment, so rule compilation, deployment, and direct-read/write smoke tests have not been run.
 
-**Remaining:** Merge this branch, deploy the updated Firestore rules, and test with an admin who also owns/lists properties plus a separate regular user. Confirm that admins see dispute alerts only, cannot read existing booking or personal notifications, and regular users cannot read the admin feed. Admin dispute read state is shared among admins because the inbox uses one `__admins__` recipient.
+**Remaining:** The current rules were reported deployed to the test project; run the full notification matrix with an admin who also owns/lists properties plus a separate regular user. Confirm admins see dispute alerts only, cannot read existing booking or personal notifications, and regular users cannot read the admin feed. Admin dispute read state is shared among admins because the inbox uses one `__admins__` recipient.
 
 **Acceptance:** Admin notification UI stays inside `/admin/*`; admin counts and inbox results contain dispute notifications only; booking requests notify the owner but not admins; user counts/inbox contain that user's notifications only; Firestore denies cross-feed reads/updates even for direct queries.
 
@@ -332,7 +347,7 @@ All six requests are feasible within the current React + Firebase architecture. 
 
 Exact addresses are now written to `listingPrivate/{listingId}`, readable only by the active owner and admins. New/updated public listings cannot contain an `address` field. Added `bank_scraper/migrate_listing_addresses.py`, which runs a dry run by default and can be applied with `--apply`; it is idempotent, preserves existing private addresses, and reports conflicting-owner records for manual review. Run it with Firebase Admin credentials during a coordinated maintenance window, then deploy the Firestore rules and frontend. Back up the project and inspect the dry-run counts first.
 
-**Remaining:** The migration has only been tested against a fake Firestore store, not the live project. Firebase CLI/emulator is unavailable here, so rules compilation/deployment and direct-access tests remain unverified. Exact-address sharing with a renter after booking confirmation is not implemented; exact addresses currently remain owner/admin-only.
+**Remaining:** The migration has only been tested against a fake Firestore store, not the live project. The Sep 30 findings report the current rules deployed and owner/private-address access tested, but migration of all legacy records and the full map/security matrix remain unverified. Exact-address handoff to the renter after confirmation is implemented and was reported working in the Sep 30 live test.
 
 **Acceptance:** Owners can select/edit an approximate pin; public listing details show only its coarse geohash center; invalid pins are rejected; legacy listings without a pin still work; exact addresses are absent from public listing documents and restricted by deployed rules.
 
@@ -348,17 +363,12 @@ Exact addresses are now written to `listingPrivate/{listingId}`, readable only b
 
 ## Remaining Work: Release QA
 
-1. Smoke-test admin routing with active, ordinary, suspended, and unavailable profiles; verify Firestore rules against direct requests.
-2. Smoke-test notification feed separation and visually verify the new navigation/settings experience.
-3. Approve the dispute operating/appeal policy and smoke-test the owner listing visibility changes.
-4. Smoke-test owner listing visibility on mobile and with multiple pending/no-pending requests.
-5. Back up Firestore, inspect and apply the legacy-address migration, then deploy/test the new rules and map frontend.
-6. Decide whether and how to reveal exact addresses to renters after a confirmed booking.
-7. Deploy the current Firestore rules, including dispute-only admin notification access, to the live Firebase project.
-8. Run renter-owner-admin smoke tests and direct-write security checks for booking transitions, notifications, dispute review, and private documents.
-9. Resolve Cloudinary raw-PDF delivery/security configuration while preserving the no-Blaze project constraint.
-10. Finish cross-browser, mobile, and final release QA.
-11. Investigate the map exact-address shortcut visibility bug: verify the frontend bundle is current, confirm the button is not hidden by stale cache or route state, and observe the live render in the browser before closing the item.
-12. Re-run the end-to-end listing flow and confirm the exact-address search button appears in the public map search box when a private address is prefilled and the form is reloaded.
+1. Rotate/revoke the exposed Firebase service-account key and assess Git history/remote exposure.
+2. Deploy the callable, updated Firestore rules, and booking index in an approved Functions environment; repeat direct and concurrent overlap tests against the test project (F-05).
+3. Remove verification URLs from public listing documents, secure Cloudinary delivery, migrate existing records, and test direct delivery (F-16).
+4. Back up Firestore, inspect and apply the legacy-address migration, and rerun direct-access checks.
+5. Run the remaining renter-owner-admin notification, admin-access, listing-intake, and booking security matrix; do not mark workbook cases complete based on unit tests alone.
+6. Resolve Cloudinary PDF and verification-document access configuration; foldering and tags organize assets but do not enforce privacy.
+7. Finish cross-browser, mobile, accessibility, and full booking-flow QA. The exact-address shortcut and confirmed-booking address handoff were reported working in the latest test run.
 
 Firebase Storage remains a future migration only if billing is approved. BDO and Landbank remain future catalog integrations; Metrobank is the active bank source. These are intentionally excluded from the current implementation-completion assessment.

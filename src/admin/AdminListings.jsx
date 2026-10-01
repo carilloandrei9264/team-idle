@@ -3,6 +3,8 @@ import {
   collection,
   onSnapshot,
   doc,
+  deleteField,
+  getDoc,
   serverTimestamp,
   writeBatch,
 } from "firebase/firestore";
@@ -17,6 +19,7 @@ export default function AdminListings() {
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
+  const [privateDocuments, setPrivateDocuments] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
   const [showDecisionForm, setShowDecisionForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -44,9 +47,34 @@ export default function AdminListings() {
   }, []);
 
   const selected = pending.find((l) => l.id === selectedId) ?? null;
+  const selectedPrivateDocuments = privateDocuments?.listingId === selected?.id ? privateDocuments : null;
+  const privateDocumentsLoading = Boolean(selected && !selectedPrivateDocuments);
+  const privateDocumentsError = Boolean(selectedPrivateDocuments?.error);
+  const privateDocumentsReady = Boolean(selected && selectedPrivateDocuments && !privateDocumentsError);
+
+  useEffect(() => {
+    if (!selectedId) return undefined;
+
+    let active = true;
+    getDoc(doc(db, "listingPrivate", selectedId))
+      .then((snapshot) => {
+        if (!active) return;
+        const data = snapshot.exists() ? snapshot.data() : {};
+        setPrivateDocuments({
+          listingId: selectedId,
+          ownershipDocumentUrl: data.ownershipDocumentUrl || null,
+          governmentIdUrl: data.governmentIdUrl || null,
+        });
+      })
+      .catch(() => {
+        if (active) setPrivateDocuments({ listingId: selectedId, error: true });
+      });
+
+    return () => { active = false; };
+  }, [selectedId]);
 
   async function handleApprove() {
-    if (!selected) return;
+    if (!selected || !privateDocumentsReady) return;
     setSaving(true);
     setError("");
     setMessage("");
@@ -56,7 +84,11 @@ export default function AdminListings() {
         verificationStatus: "verified",
         verifiedAt: serverTimestamp(),
         verifiedBy: user?.uid ?? null,
+        ownershipDocumentUrl: deleteField(),
+        governmentIdUrl: deleteField(),
+        verificationDocUrl: deleteField(),
       });
+      batch.set(doc(db, "listingPrivate", selected.id), privateDocumentData(selected, selectedPrivateDocuments), { merge: true });
       batch.set(doc(collection(db, "notifications")), {
         recipientId: selected.ownerId,
         createdBy: user?.uid ?? null,
@@ -80,7 +112,7 @@ export default function AdminListings() {
   }
 
   async function handleDecision(decision) {
-    if (!selected) return;
+    if (!selected || !privateDocumentsReady) return;
     setSaving(true);
     setError("");
     setMessage("");
@@ -93,7 +125,11 @@ export default function AdminListings() {
         resubmissionRequested: decision === "changes_requested",
         verifiedAt: serverTimestamp(),
         verifiedBy: user?.uid ?? null,
+        ownershipDocumentUrl: deleteField(),
+        governmentIdUrl: deleteField(),
+        verificationDocUrl: deleteField(),
       });
+      batch.set(doc(db, "listingPrivate", selected.id), privateDocumentData(selected, selectedPrivateDocuments), { merge: true });
       batch.set(doc(collection(db, "notifications")), {
         recipientId: selected.ownerId,
         createdBy: user?.uid ?? null,
@@ -141,14 +177,21 @@ export default function AdminListings() {
                   <p className="review-card__meta">Submitted by {selected.ownerName || selected.ownerId}</p>
                 </div>
 
-                <DocumentPreview url={selected.ownershipDocumentUrl || selected.verificationDocUrl} title={selected.title} label="Ownership document" />
-                {selected.governmentIdUrl && <DocumentPreview url={selected.governmentIdUrl} title={selected.title} label="Government photo ID" />}
+                <div className="review-card__documents">
+                  <p className="review-card__label">Submitted verification documents</p>
+                  {privateDocumentsLoading && <p className="review-card__document-status" role="status">Loading private documents…</p>}
+                  {privateDocumentsError && <p className="review-card__document-status" role="alert">Private documents could not be loaded. Review this listing again before making a decision.</p>}
+                  <DocumentPreview url={selectedPrivateDocuments?.ownershipDocumentUrl || selected.ownershipDocumentUrl || selected.verificationDocUrl} title={selected.title} label="Ownership document" />
+                  <DocumentPreview url={selectedPrivateDocuments?.governmentIdUrl || selected.governmentIdUrl} title={selected.title} label="Government photo ID" />
+                </div>
 
                 <p className="review-card__label">Property photos</p>
                 {selected.photoUrls?.length ? (
                   <div className="review-card__photos">
                     {selected.photoUrls.map((photoUrl, index) => (
-                      <img key={photoUrl} className="review-card__photo" src={photoUrl} alt={`Property photo ${index + 1}`} />
+                      <a key={photoUrl} className="review-card__photo-link" href={photoUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open property photo ${index + 1} at full size`}>
+                        <img className="review-card__photo" src={photoUrl} alt={`Property photo ${index + 1}`} />
+                      </a>
                     ))}
                   </div>
                 ) : (
@@ -170,7 +213,7 @@ export default function AdminListings() {
                       type="button"
                       className="btn btn--primary"
                       onClick={handleApprove}
-                      disabled={saving}
+                      disabled={saving || !privateDocumentsReady}
                     >
                       <Check size={16} aria-hidden="true" />
                       Approve
@@ -179,7 +222,7 @@ export default function AdminListings() {
                       type="button"
                       className="btn btn--danger"
                       onClick={() => setShowDecisionForm(true)}
-                      disabled={saving}
+                      disabled={saving || !privateDocumentsReady}
                     >
                       <X size={16} aria-hidden="true" />
                       Reject
@@ -203,7 +246,7 @@ export default function AdminListings() {
                         type="button"
                         className="btn btn--danger"
                         onClick={() => handleDecision("changes_requested")}
-                        disabled={saving}
+                        disabled={saving || !privateDocumentsReady}
                       >
                         Request changes
                       </button>
@@ -211,7 +254,7 @@ export default function AdminListings() {
                         type="button"
                         className="btn btn--danger"
                         onClick={() => handleDecision("rejected")}
-                        disabled={saving}
+                        disabled={saving || !privateDocumentsReady}
                       >
                         Reject permanently
                       </button>
@@ -278,4 +321,15 @@ function DocumentPreview({ url, title, label = "Uploaded document" }) {
 
 function timestampValue(value) {
   return value?.toMillis?.() ?? 0;
+}
+
+function privateDocumentData(listing, documents) {
+  const ownershipDocumentUrl = documents?.ownershipDocumentUrl || listing.ownershipDocumentUrl || listing.verificationDocUrl;
+  const governmentIdUrl = documents?.governmentIdUrl || listing.governmentIdUrl;
+  return {
+    ownerId: listing.ownerId,
+    ...(ownershipDocumentUrl ? { ownershipDocumentUrl } : {}),
+    ...(governmentIdUrl ? { governmentIdUrl } : {}),
+    updatedAt: serverTimestamp(),
+  };
 }

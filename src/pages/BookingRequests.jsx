@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, query, where } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { Link, useSearchParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
-import { db } from "../firebase";
-import { bookingDatesOverlap, formatBookingDate } from "../lib/booking";
+import { db, functions } from "../firebase";
+import { formatBookingDate } from "../lib/booking";
 import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./UserPages.css";
+
+const confirmBooking = httpsCallable(functions, "confirmBooking");
 
 export default function BookingRequests({ embedded = false }) {
   const { user } = useAuth();
@@ -37,22 +40,7 @@ export default function BookingRequests({ embedded = false }) {
     setMessage("");
     try {
       if (status === "Confirmed") {
-        const ownerBookings = await getDocs(query(collection(db, "bookings"), where("ownerId", "==", user.uid)));
-        const conflict = ownerBookings.docs
-          .filter((item) => item.id !== request.id && item.data().listingId === request.listingId && item.data().status === "Confirmed")
-          .some((item) => bookingDatesOverlap(item.data(), request.startDate.toDate(), request.endDate.toDate()));
-        if (conflict) throw new Error("Those dates were confirmed for another renter first.");
-
-        const privateListing = await getDoc(doc(db, "listingPrivate", request.listingId));
-        const privateAddress = privateListing.exists() ? privateListing.data().address : "";
-        if (!privateAddress) throw new Error("The private listing address is unavailable, so this request cannot be confirmed.");
-
-        await updateDoc(doc(db, "bookings", request.id), {
-          status,
-          address: privateAddress,
-          updatedAt: serverTimestamp(),
-          confirmedAt: serverTimestamp(),
-        });
+        await confirmBooking({ bookingId: request.id });
         try {
           await createNotification(db, {
             recipientId: request.renterId,

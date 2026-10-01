@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { collection, doc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { ArrowLeft, Upload } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -33,11 +33,19 @@ export default function CreateListing() {
     showingWindows: Object.fromEntries(SHOWING_DAYS.map((day) => [day, { enabled: false, start: "09:00", end: "17:00" }])),
   });
   const [photos, setPhotos] = useState([]);
+  const [photoPreviews, setPhotoPreviews] = useState([]);
   const [ownershipDocument, setOwnershipDocument] = useState(null);
+  const [ownershipPreview, setOwnershipPreview] = useState(null);
   const [governmentId, setGovernmentId] = useState(null);
+  const [governmentIdPreview, setGovernmentIdPreview] = useState(null);
   const [mapLocation, setMapLocation] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const previewUrls = useRef(new Set());
+
+  useEffect(() => () => {
+    previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
 
   function updateField(event) {
     const { name, value } = event.target;
@@ -45,7 +53,31 @@ export default function CreateListing() {
   }
 
   function handlePhotos(event) {
-    setPhotos(Array.from(event.target.files || []).slice(0, 8));
+    const nextPhotos = Array.from(event.target.files || []).slice(0, 8);
+    releasePreviewUrls(photoPreviews);
+    const nextPreviews = nextPhotos.map((file) => createFilePreview(file));
+    setPhotos(nextPhotos);
+    setPhotoPreviews(nextPreviews);
+  }
+
+  function handleDocument(event, currentPreview, setDocument, setPreview) {
+    const file = event.target.files?.[0] || null;
+    releasePreviewUrls(currentPreview ? [currentPreview] : []);
+    setDocument(file);
+    setPreview(file ? createFilePreview(file) : null);
+  }
+
+  function createFilePreview(file) {
+    const url = URL.createObjectURL(file);
+    previewUrls.current.add(url);
+    return { file, url };
+  }
+
+  function releasePreviewUrls(previews) {
+    previews.forEach(({ url }) => {
+      URL.revokeObjectURL(url);
+      previewUrls.current.delete(url);
+    });
   }
 
   function toggleAmenity(amenity) {
@@ -78,14 +110,14 @@ export default function CreateListing() {
     setSubmitting(true);
     setError("");
     try {
-      const [ownershipDocumentUrl, governmentIdUrl, photoUrls] = await Promise.all([
-        uploadToCloudinary(ownershipDocument, "raw"),
-        uploadToCloudinary(governmentId),
-        Promise.all(photos.map((photo) => uploadToCloudinary(photo))),
-      ]);
-
       const listingRef = doc(collection(db, "listings"));
       const privateListingRef = doc(db, "listingPrivate", listingRef.id);
+      const [ownershipDocumentUrl, governmentIdUrl, photoUrls] = await Promise.all([
+        uploadToCloudinary(ownershipDocument, "raw", listingAssetOptions(listingRef.id, "verification/ownership-document", "ownership-document")),
+        uploadToCloudinary(governmentId, "auto", listingAssetOptions(listingRef.id, "verification/government-id", "government-id")),
+        Promise.all(photos.map((photo) => uploadToCloudinary(photo, "auto", listingAssetOptions(listingRef.id, "photos", "property-photo")))),
+      ]);
+
       const batch = writeBatch(db);
       batch.set(listingRef, {
         ownerId: user.uid,
@@ -105,14 +137,14 @@ export default function CreateListing() {
         amenities: form.amenities,
         showingWindows: form.showingWindows,
         verificationStatus: "pending",
-        ownershipDocumentUrl,
-        governmentIdUrl,
         photoUrls,
         createdAt: serverTimestamp(),
       });
       batch.set(privateListingRef, {
         ownerId: user.uid,
         address: form.address.trim(),
+        ownershipDocumentUrl,
+        governmentIdUrl,
         updatedAt: serverTimestamp(),
       });
       await batch.commit();
@@ -218,7 +250,7 @@ export default function CreateListing() {
 
           <section className="user-page__empty listing-form__section">
             <h2>Photos and verification</h2>
-            <p className="listing-form__hint">Upload at least 4 photos. Submit one ownership document and one government-issued photo ID. Documents are private to the review team.</p>
+            <p className="listing-form__hint">Upload at least 4 photos, one ownership document, and one government-issued photo ID. Do not upload real identity or ownership documents to this test build: uploaded document URLs are not yet access-restricted.</p>
             <div className="listing-form__uploads">
               <label className="listing-form__upload">
                 <Upload size={18} aria-hidden="true" />
@@ -230,15 +262,29 @@ export default function CreateListing() {
                 <Upload size={18} aria-hidden="true" />
                 <span>Ownership document</span>
                 <small>{ownershipDocument?.name || "Title, deed, or tax bill"}</small>
-                <input type="file" accept="image/*,.pdf" onChange={(event) => setOwnershipDocument(event.target.files?.[0] || null)} required />
+                <input type="file" accept="image/*,.pdf" onChange={(event) => handleDocument(event, ownershipPreview, setOwnershipDocument, setOwnershipPreview)} required />
               </label>
               <label className="listing-form__upload">
                 <Upload size={18} aria-hidden="true" />
                 <span>Government photo ID</span>
                 <small>{governmentId?.name || "Required for review"}</small>
-                <input type="file" accept="image/*" onChange={(event) => setGovernmentId(event.target.files?.[0] || null)} required />
+                <input type="file" accept="image/*" onChange={(event) => handleDocument(event, governmentIdPreview, setGovernmentId, setGovernmentIdPreview)} required />
               </label>
             </div>
+            {photos.length > 0 && (
+              <div className="listing-form__file-previews listing-form__file-previews--photos">
+                <p className="field__label listing-form__wide">Property photo previews ({photos.length})</p>
+                {photoPreviews.map((preview, index) => (
+                  <FilePreview key={`${preview.file.name}-${preview.file.lastModified}-${index}`} preview={preview} label={`Property photo ${index + 1}`} />
+                ))}
+              </div>
+            )}
+            {(ownershipDocument || governmentId) && (
+              <div className="listing-form__file-previews listing-form__file-previews--documents">
+                {ownershipPreview && <FilePreview preview={ownershipPreview} label="Ownership document" />}
+                {governmentIdPreview && <FilePreview preview={governmentIdPreview} label="Government photo ID" />}
+              </div>
+            )}
           </section>
 
           {error && <p className="user-page__form-error" role="alert">{error}</p>}
@@ -249,4 +295,29 @@ export default function CreateListing() {
       </main>
     </div>
   );
+}
+
+function FilePreview({ preview, label }) {
+  const { file, url } = preview;
+  const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+  return (
+    <figure className="listing-form__file-preview">
+      {isPdf ? (
+        <iframe className="listing-form__file-preview-pdf" src={url} title={`${label} preview`} />
+      ) : (
+        <img className="listing-form__file-preview-image" src={url} alt={`${label}: ${file.name}`} />
+      )}
+      <figcaption>
+        <strong>{label}</strong>
+        <span title={file.name}>{file.name}</span>
+      </figcaption>
+    </figure>
+  );
+}
+
+function listingAssetOptions(listingId, assetFolder, assetType) {
+  return {
+    assetFolder: `trusthome/listings/${listingId}/${assetFolder}`,
+    tags: ["trusthome", assetType],
+  };
 }

@@ -30,6 +30,10 @@ service cloud.firestore {
           && data.mapLocation.geohash.matches('^[0123456789bcdefghjkmnpqrstuvwxyz]{5}$'));
     }
 
+    function hasNoPublicVerificationUrls(data) {
+      return !data.keys().hasAny(['verificationDocUrl', 'ownershipDocumentUrl', 'governmentIdUrl']);
+    }
+
     // User profiles are private to the account owner and admins.
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
@@ -54,6 +58,7 @@ service cloud.firestore {
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.verificationStatus == 'pending'
         && !request.resource.data.keys().hasAny(['address'])
+        && hasNoPublicVerificationUrls(request.resource.data)
         && hasValidPublicMapLocation(request.resource.data);
 
       // Admins control verification fields. Owners may edit their own listing
@@ -65,12 +70,13 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'title', 'description', 'type', 'city', 'price', 'pricePeriod', 'mapLocation',
             'bedrooms', 'bathrooms', 'floorArea', 'lotArea', 'availabilityDate',
-            'amenities', 'showingWindows', 'photoUrls', 'verificationDocUrl', 'ownershipDocumentUrl',
-            'governmentIdUrl', 'resubmissionRequested',
+            'amenities', 'showingWindows', 'photoUrls', 'verificationDocUrl',
+            'ownershipDocumentUrl', 'governmentIdUrl', 'resubmissionRequested',
             'verificationStatus', 'updatedAt'
           ])
           && request.resource.data.verificationStatus == 'pending'
           && !request.resource.data.keys().hasAny(['address'])
+          && hasNoPublicVerificationUrls(request.resource.data)
           && hasValidPublicMapLocation(request.resource.data));
 
       allow delete: if isAdmin()
@@ -83,17 +89,26 @@ service cloud.firestore {
       allow read: if isActiveUser()
         && (isAdmin() || isOwner(resource.data.ownerId));
       allow create: if isActiveUser()
-        && isOwner(request.resource.data.ownerId)
-        && request.resource.data.address is string
-        && request.resource.data.address.size() > 0
-        && getAfter(/databases/$(database)/documents/listings/$(listingId)).data.ownerId == request.auth.uid;
+        && request.resource.data.keys().hasOnly([
+          'ownerId', 'address', 'ownershipDocumentUrl', 'governmentIdUrl', 'updatedAt'
+        ])
+        && ((isOwner(request.resource.data.ownerId)
+            && request.resource.data.address is string
+            && request.resource.data.address.size() > 0
+            && getAfter(/databases/$(database)/documents/listings/$(listingId)).data.ownerId == request.auth.uid)
+          || (isAdmin()
+            && request.resource.data.ownerId == get(/databases/$(database)/documents/listings/$(listingId)).data.ownerId));
       allow update: if isAdmin()
         || (isActiveUser()
           && isOwner(resource.data.ownerId)
           && request.resource.data.ownerId == resource.data.ownerId
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['address', 'updatedAt'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'address', 'ownershipDocumentUrl', 'governmentIdUrl', 'updatedAt'
+          ])
           && request.resource.data.address is string
-          && request.resource.data.address.size() > 0);
+          && request.resource.data.address.size() > 0
+          && (!request.resource.data.keys().hasAny(['ownershipDocumentUrl']) || request.resource.data.ownershipDocumentUrl is string)
+          && (!request.resource.data.keys().hasAny(['governmentIdUrl']) || request.resource.data.governmentIdUrl is string));
       allow delete: if isAdmin() || (isActiveUser() && isOwner(resource.data.ownerId));
     }
 
@@ -130,12 +145,6 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'status', 'disputedAt', 'disputeId', 'updatedAt'
           ]))
-        || (isActiveUser() && resource.data.ownerId == request.auth.uid
-          && resource.data.status == 'Pending'
-          && request.resource.data.status == 'Confirmed'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'address', 'confirmedAt', 'updatedAt'])
-          && request.resource.data.address is string
-          && request.resource.data.address.size() > 0)
         || (isActiveUser() && resource.data.renterId == request.auth.uid
           && resource.data.status == 'Confirmed'
           && request.resource.data.status == 'Confirmed'

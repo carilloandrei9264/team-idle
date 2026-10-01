@@ -46,7 +46,10 @@ export default function EditListing() {
         });
         setMapLocation(data.mapLocation || null);
         setExistingPhotos(data.photoUrls || []);
-        setExistingDocuments({ ownership: data.ownershipDocumentPath || data.ownershipDocumentUrl || data.verificationDocUrl || null, governmentId: data.governmentIdPath || data.governmentIdUrl || null });
+        setExistingDocuments({
+          ownership: privateData.ownershipDocumentUrl || data.ownershipDocumentPath || data.ownershipDocumentUrl || data.verificationDocUrl || null,
+          governmentId: privateData.governmentIdUrl || data.governmentIdPath || data.governmentIdUrl || null,
+        });
       }
       setLoading(false);
     }).catch(() => { setError("This listing could not be loaded."); setLoading(false); });
@@ -64,22 +67,25 @@ export default function EditListing() {
     setError("");
     try {
       const [ownershipDocumentUrl, governmentIdUrl, uploadedPhotoUrls] = await Promise.all([
-        ownershipDocument ? uploadToCloudinary(ownershipDocument, "raw") : existingDocuments.ownership,
-        governmentId ? uploadToCloudinary(governmentId) : existingDocuments.governmentId,
-        Promise.all(newPhotos.map((photo) => uploadToCloudinary(photo))),
+        ownershipDocument ? uploadToCloudinary(ownershipDocument, "raw", listingAssetOptions(listingId, "verification/ownership-document", "ownership-document")) : existingDocuments.ownership,
+        governmentId ? uploadToCloudinary(governmentId, "auto", listingAssetOptions(listingId, "verification/government-id", "government-id")) : existingDocuments.governmentId,
+        Promise.all(newPhotos.map((photo) => uploadToCloudinary(photo, "auto", listingAssetOptions(listingId, "photos", "property-photo")))),
       ]);
       const batch = writeBatch(db);
       batch.update(doc(db, "listings", listingId), {
-        title: form.title.trim(), description: form.description.trim(), type: form.type, address: deleteField(), city: form.city.trim(),
+        title: form.title.trim(), description: form.description.trim(), type: form.type, address: deleteField(),
+        ownershipDocumentUrl: deleteField(), governmentIdUrl: deleteField(), verificationDocUrl: deleteField(), city: form.city.trim(),
         mapLocation,
         price: Number(form.price), pricePeriod: form.pricePeriod, bedrooms: Number(form.bedrooms), bathrooms: Number(form.bathrooms),
         floorArea: form.floorArea ? Number(form.floorArea) : null, lotArea: form.lotArea ? Number(form.lotArea) : null,
         availabilityDate: form.availabilityDate, amenities: form.amenities, showingWindows: form.showingWindows,
-        photoUrls: [...existingPhotos, ...uploadedPhotoUrls], ownershipDocumentUrl: ownershipDocumentUrl, governmentIdUrl: governmentIdUrl, verificationStatus: "pending", resubmissionRequested: false, updatedAt: serverTimestamp(),
+        photoUrls: [...existingPhotos, ...uploadedPhotoUrls], verificationStatus: "pending", resubmissionRequested: false, updatedAt: serverTimestamp(),
       });
       batch.set(doc(db, "listingPrivate", listingId), {
         ownerId: user.uid,
         address: form.address.trim(),
+        ownershipDocumentUrl,
+        governmentIdUrl,
         updatedAt: serverTimestamp(),
       }, { merge: true });
       await batch.commit();
@@ -154,3 +160,4 @@ export default function EditListing() {
 function Field({ id, name, label, value, onChange, type = "text", step, wide = false }) { return <div className={`field${wide ? " listing-form__wide" : ""}`}><label className="field__label" htmlFor={id}>{label}</label><input id={id} name={name} className="field__input" type={type} min={type === "number" ? "0" : undefined} step={step} value={value} onChange={onChange} required /></div>; }
 function SelectField({ id, name, label, value, onChange, options }) { return <div className="field"><label className="field__label" htmlFor={id}>{label}</label><select id={id} name={name} className="field__input" value={value} onChange={onChange} required>{options.map((option) => <option key={option}>{option}</option>)}</select></div>; }
 function normalizeShowingWindows(windows = {}) { return Object.fromEntries(SHOWING_DAYS.map((day) => [day, { enabled: Boolean(windows[day]?.enabled), start: windows[day]?.start || "09:00", end: windows[day]?.end || "17:00" }])); }
+function listingAssetOptions(id, assetFolder, assetType) { return { assetFolder: `trusthome/listings/${id}/${assetFolder}`, tags: ["trusthome", assetType] }; }

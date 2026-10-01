@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import "./LegalPage.css";
 
-const UPDATED = "September 30, 2026";
+const UPDATED = "October 1, 2026";
 
 const DOCUMENTS = {
   privacy: {
@@ -23,6 +23,7 @@ const DOCUMENTS = {
         title: "How information is used",
         paragraphs: [
           "Information supports account access, listing review, search, booking coordination, notifications, reviews, dispute handling, public accountability features, and trust-score calculations. It is not used to promise legal title verification or financial protection.",
+          "Notifications are currently delivered inside the app; email, SMS, and push notifications are not part of the current service.",
         ],
       },
       {
@@ -36,14 +37,14 @@ const DOCUMENTS = {
         title: "Service providers and sharing",
         paragraphs: [
           "TrustHome uses Firebase Authentication and Firestore for account and application data, and Cloudinary for listing media and verification uploads. These providers process information to deliver their services under their own terms. Bank-catalog information comes from public third-party sources and links back to the source where available.",
-          "We do not sell personal information. Information may be shared with the owner or renter involved in a booking, administrators handling review or disputes, service providers, or authorities where a valid legal request requires it.",
+          "We do not sell personal information. Information may be shared with the owner or renter involved in a booking, administrators handling review or disputes, service providers, or authorities where a valid legal request requires it. Provider processing locations depend on provider configuration and have not been fully documented for this project.",
         ],
       },
       {
         title: "Retention and requests",
         paragraphs: [
-          "Information is retained while needed to operate accounts, listings, bookings, reviews, disputes, and accountability records. Some dispute and review records may remain to preserve marketplace history. Backups and provider systems may retain data for additional periods.",
-          "For access, correction, or deletion requests, contact hello@trusthome.ph from the account email and describe the request. We may need to verify account control. Deletion can be limited where records are needed for an active dispute, security, or legal obligations.",
+          "There is no approved, published retention schedule yet. Information may remain while needed to operate accounts, listings, bookings, reviews, disputes, and accountability records; some dispute and review records may remain to preserve marketplace history. Backups and provider systems may retain data for additional periods.",
+          "There is no in-app account or data deletion control. For access, correction, or deletion requests, contact hello@trusthome.ph from the account email and describe the request. We may need to verify account control. Requests will be assessed under applicable law; deletion can be limited where records are needed for an active dispute, security, or legal obligations. No response deadline has been published.",
         ],
       },
       {
@@ -64,6 +65,7 @@ const DOCUMENTS = {
         title: "Accounts and responsibilities",
         paragraphs: [
           "Keep your account information accurate, protect your sign-in credentials, and use only accounts you are authorized to control. You are responsible for activity carried out through your account. TrustHome may suspend access where necessary for safety, fraud prevention, or these terms.",
+          "TrustHome is a capstone project and test build, not a production-ready service. Features and data may be incomplete, changed, interrupted, or removed. Do not rely on the service as your only record of a listing, booking, payment, or dispute.",
         ],
       },
       {
@@ -76,7 +78,7 @@ const DOCUMENTS = {
       {
         title: "Bookings, deposits, and disputes",
         paragraphs: [
-          "A booking request is not confirmed until the owner confirms it in the application. Users should check dates and terms directly with each other. TrustHome does not collect, hold, transfer, or refund deposits. A transaction reference is a user-entered note, not proof that TrustHome received or secured money.",
+          "A booking request is not confirmed until the owner confirms it in the application. The app checks for date conflicts, but that check is not authoritative and a conflicting booking may still be confirmed. Verify availability, dates, identity, and terms directly with the other party before paying or making plans. TrustHome does not collect, hold, transfer, or refund deposits. A transaction reference is a user-entered note, not proof that TrustHome received or secured money.",
           "Users may submit a dispute for review. TrustHome may review the information provided and take account or listing actions, but does not guarantee a particular outcome or recover funds. Public accountability information may appear for founded disputes.",
         ],
       },
@@ -95,7 +97,8 @@ const DOCUMENTS = {
       {
         title: "Availability and changes",
         paragraphs: [
-          "The service is provided as available. Features, data sources, and these terms may change. TrustHome may restrict or remove content or access where needed to protect users, comply with law, or maintain the service. Contact hello@trusthome.ph with questions.",
+          "To the extent permitted by law, the service is provided as available, without a promise that it will be uninterrupted, error-free, or suitable for a particular transaction. TrustHome is not responsible for user-to-user transactions, third-party listings, or losses caused by inaccurate or unavailable information, except where liability cannot lawfully be limited. Nothing in these terms removes rights that cannot be waived under applicable law.",
+          "Features, data sources, and these terms may change. TrustHome may restrict or remove content or access where needed to protect users, comply with law, or maintain the service. Contact hello@trusthome.ph with questions. These project terms require review by qualified Philippine counsel before production use.",
         ],
       },
     ],
@@ -116,7 +119,7 @@ const DOCUMENTS = {
       {
         title: "Current safeguards",
         paragraphs: [
-          "The application uses authenticated roles, Firestore rules, approximate public map locations, owner/admin access checks for the listingPrivate collection, and status-based booking workflows. Recent rule deployments restrict several booking, dispute, and rating writes. These controls have received focused test-project checks but not a complete independent assessment.",
+          "The application uses authenticated roles, Firestore rules, approximate public map locations, owner/admin access checks for the listingPrivate collection, and status-based booking workflows. Recent rule deployments restrict several booking, dispute, and rating writes. Focused test-project checks passed for these areas, but they do not constitute a complete independent assessment or guarantee that every deployed path matches repository source.",
         ],
       },
       {
@@ -124,7 +127,9 @@ const DOCUMENTS = {
         bullets: [
           "Verification-document URLs are currently present on publicly readable verified listing records; move them to a restricted store, migrate existing records, and test unauthenticated direct access.",
           "Overlapping booking confirmation still needs an authoritative concurrency-safe design; the current client check can be bypassed by direct writes.",
-          "No independent penetration test, privacy impact assessment, formal compliance audit, or provider-contract review is claimed by this project.",
+          "The project's legal operating entity, Personal Information Controller and privacy-officer details, and provider processing locations have not been formally documented here.",
+          "No fixed retention schedule or in-app account deletion flow is implemented. Data-subject request handling and response targets need an approved process.",
+          "No independent penetration test, privacy impact assessment, formal compliance audit, provider-contract review, or incident-response exercise is claimed by this project.",
           "Retention periods, data-subject request handling, incident response, and operational ownership need formal approval before production.",
         ],
       },
