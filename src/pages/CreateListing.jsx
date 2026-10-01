@@ -8,7 +8,8 @@ import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { countWords, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
 import { ADMIN_NOTIFICATION_RECIPIENT, createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
-import { documentResourceType, uploadToCloudinary } from "../uploadImage";
+import { documentResourceType, uploadPrivateDocument, uploadToCloudinary } from "../uploadImage";
+import { signPrivateDocumentUpload } from "../services/api";
 import "./UserPages.css";
 
 const PROPERTY_TYPES = ["Room", "Studio", "Apartment", "House", "Condo", "Land"];
@@ -135,10 +136,16 @@ export default function CreateListing() {
     try {
       const listingRef = doc(collection(db, "listings"));
       const privateListingRef = doc(db, "listingPrivate", listingRef.id);
-      const [ownershipDocumentUrl, governmentIdUrl, photoUrls] = await Promise.all([
-        uploadToCloudinary(ownershipDocument, documentResourceType(ownershipDocument), listingAssetOptions(listingRef.id, "verification/ownership-document", "ownership-document")),
-        uploadToCloudinary(governmentId, "auto", listingAssetOptions(listingRef.id, "verification/government-id", "government-id")),
+      const ownershipResourceType = documentResourceType(ownershipDocument) === "raw" ? "raw" : "image";
+      const governmentIdResourceType = documentResourceType(governmentId) === "raw" ? "raw" : "image";
+      const [ownershipSignature, governmentIdSignature, photoUrls] = await Promise.all([
+        signPrivateDocumentUpload(listingRef.id, "ownership", ownershipResourceType),
+        signPrivateDocumentUpload(listingRef.id, "govId", governmentIdResourceType),
         Promise.all(photos.map((photo) => uploadToCloudinary(photo, "auto", listingAssetOptions(listingRef.id, "photos", "property-photo")))),
+      ]);
+      const [ownershipDocumentAsset, governmentIdAsset] = await Promise.all([
+        uploadPrivateDocument(ownershipDocument, ownershipSignature, ownershipResourceType),
+        uploadPrivateDocument(governmentId, governmentIdSignature, governmentIdResourceType),
       ]);
 
       const batch = writeBatch(db);
@@ -168,8 +175,10 @@ export default function CreateListing() {
       batch.set(privateListingRef, {
         ownerId: user.uid,
         address: form.address.trim(),
-        ownershipDocumentUrl,
-        governmentIdUrl,
+        documents: {
+          ownership: ownershipDocumentAsset,
+          govId: governmentIdAsset,
+        },
         updatedAt: serverTimestamp(),
       });
       await batch.commit();
@@ -333,7 +342,7 @@ export default function CreateListing() {
                 <Upload size={18} aria-hidden="true" />
                 <span>Government photo ID</span>
                 <small>{governmentId?.name || "Required for review"}</small>
-                <input type="file" accept="image/*" onChange={(event) => handleDocument(event, governmentIdPreview, setGovernmentId, setGovernmentIdPreview)} required />
+                <input type="file" accept="image/*,.pdf" onChange={(event) => handleDocument(event, governmentIdPreview, setGovernmentId, setGovernmentIdPreview)} required />
               </label>
             </div>
             {photos.length > 0 && (

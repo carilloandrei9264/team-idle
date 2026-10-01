@@ -3,9 +3,9 @@ import unittest
 from firebase_admin import firestore
 
 try:
-    from .migrate_verification_documents import migrate_verification_documents
+    from .migrate_verification_documents import migrate_verification_documents, parse_cloudinary_asset_url
 except ImportError:
-    from migrate_verification_documents import migrate_verification_documents
+    from migrate_verification_documents import migrate_verification_documents, parse_cloudinary_asset_url
 
 
 class FakeSnapshot:
@@ -61,7 +61,12 @@ class FakeBatch:
             documents = self.database.documents[reference.collection_name]
             if operation == "set":
                 if merge:
-                    documents.setdefault(reference.id, {}).update(values)
+                    document = documents.setdefault(reference.id, {})
+                    for key, value in values.items():
+                        if value is firestore.DELETE_FIELD:
+                            document.pop(key, None)
+                        else:
+                            document[key] = value
                 else:
                     documents[reference.id] = dict(values)
             else:
@@ -88,17 +93,22 @@ class FakeDatabase:
 
 
 class MigrateVerificationDocumentsTests(unittest.TestCase):
+    @staticmethod
+    def asset_migrator(_asset):
+        return None
+
     def test_dry_run_does_not_change_public_or_private_records(self):
         database = FakeDatabase({
             "listing-1": {
                 "ownerId": "owner-1",
-                "verificationDocUrl": "https://example.test/ownership.pdf",
+                "verificationDocUrl": "https://res.cloudinary.com/demo/raw/upload/v123/trusthome/listings/listing-1/ownership.pdf",
             },
         })
 
         result = migrate_verification_documents(database)
 
-        self.assertEqual(result["migrated"], 1)
+        self.assertEqual(result["migrated"], 0)
+        self.assertEqual(result["would_migrate"], 1)
         self.assertIn("verificationDocUrl", database.documents["listings"]["listing-1"])
         self.assertEqual(database.documents["listingPrivate"], {})
 
@@ -106,58 +116,107 @@ class MigrateVerificationDocumentsTests(unittest.TestCase):
         database = FakeDatabase({
             "listing-1": {
                 "ownerId": "owner-1",
-                "ownershipDocumentUrl": "https://example.test/ownership.png",
-                "governmentIdUrl": "https://example.test/id.png",
+                "ownershipDocumentUrl": "https://res.cloudinary.com/demo/image/upload/v123/trusthome/listings/listing-1/ownership.png",
+                "governmentIdUrl": "https://res.cloudinary.com/demo/image/upload/v123/trusthome/listings/listing-1/id.png",
             },
         })
 
-        first_result = migrate_verification_documents(database, apply=True)
-        second_result = migrate_verification_documents(database, apply=True)
+        first_result = migrate_verification_documents(database, apply=True, asset_migrator=self.asset_migrator)
+        second_result = migrate_verification_documents(database, apply=True, asset_migrator=self.asset_migrator)
 
-        self.assertEqual(first_result["migrated"], 1)
+        self.assertEqual(first_result["migrated"], 2)
         self.assertEqual(second_result["migrated"], 0)
         self.assertNotIn("ownershipDocumentUrl", database.documents["listings"]["listing-1"])
         self.assertNotIn("governmentIdUrl", database.documents["listings"]["listing-1"])
-        self.assertEqual(database.documents["listingPrivate"]["listing-1"]["ownershipDocumentUrl"], "https://example.test/ownership.png")
-        self.assertEqual(database.documents["listingPrivate"]["listing-1"]["governmentIdUrl"], "https://example.test/id.png")
+        self.assertTrue(database.documents["listingPrivate"]["listing-1"]["documents"]["ownership"]["publicId"].startswith(
+            "trusthome_private_listing-1_ownership_"))
+        self.assertEqual(database.documents["listingPrivate"]["listing-1"]["documents"]["ownership"]["format"], "png")
+        self.assertEqual(database.documents["listingPrivate"]["listing-1"]["documents"]["ownership"]["resourceType"], "image")
+        self.assertTrue(database.documents["listingPrivate"]["listing-1"]["documents"]["govId"]["publicId"].startswith(
+            "trusthome_private_listing-1_govId_"))
+        self.assertEqual(database.documents["listingPrivate"]["listing-1"]["documents"]["govId"]["format"], "png")
+        self.assertEqual(database.documents["listingPrivate"]["listing-1"]["documents"]["govId"]["resourceType"], "image")
 
     def test_private_urls_take_precedence_over_legacy_public_urls(self):
         database = FakeDatabase(
             {
                 "listing-1": {
                     "ownerId": "owner-1",
-                    "verificationDocUrl": "https://example.test/old.pdf",
+                    "verificationDocUrl": "https://res.cloudinary.com/demo/raw/upload/v123/trusthome/listings/listing-1/old.pdf",
                 },
             },
             {
                 "listing-1": {
                     "ownerId": "owner-1",
-                    "ownershipDocumentUrl": "https://example.test/current.pdf",
+                    "ownershipDocumentUrl": "https://res.cloudinary.com/demo/raw/upload/v123/trusthome/listings/listing-1/current.pdf",
                 },
             },
         )
 
-        migrate_verification_documents(database, apply=True)
+        migrate_verification_documents(database, apply=True, asset_migrator=self.asset_migrator)
 
-        self.assertEqual(database.documents["listingPrivate"]["listing-1"]["ownershipDocumentUrl"], "https://example.test/current.pdf")
+        asset = database.documents["listingPrivate"]["listing-1"]["documents"]["ownership"]
+        self.assertTrue(asset["publicId"].startswith("trusthome_private_listing-1_ownership_"))
+        self.assertEqual(asset["format"], "pdf")
+        self.assertEqual(asset["resourceType"], "raw")
         self.assertNotIn("verificationDocUrl", database.documents["listings"]["listing-1"])
+
+    def test_duplicate_private_and_public_url_removes_every_legacy_field(self):
+        document_url = "https://res.cloudinary.com/demo/raw/upload/v123/trusthome/listings/listing-1/ownership.pdf"
+        database = FakeDatabase(
+            {
+                "listing-1": {
+                    "ownerId": "owner-1",
+                    "verificationDocUrl": document_url,
+                },
+            },
+            {
+                "listing-1": {
+                    "ownerId": "owner-1",
+                    "ownershipDocumentUrl": document_url,
+                },
+            },
+        )
+
+        result = migrate_verification_documents(database, apply=True, asset_migrator=self.asset_migrator)
+
+        self.assertEqual(result["migrated"], 1)
+        self.assertNotIn("verificationDocUrl", database.documents["listings"]["listing-1"])
+        self.assertNotIn("ownershipDocumentUrl", database.documents["listingPrivate"]["listing-1"])
+        self.assertIn("ownership", database.documents["listingPrivate"]["listing-1"]["documents"])
 
     def test_conflicting_private_owner_is_skipped(self):
         database = FakeDatabase(
             {
                 "listing-1": {
                     "ownerId": "owner-1",
-                    "ownershipDocumentUrl": "https://example.test/ownership.pdf",
+                    "ownershipDocumentUrl": "https://res.cloudinary.com/demo/raw/upload/v123/trusthome/listings/listing-1/ownership.pdf",
                 },
             },
             {"listing-1": {"ownerId": "owner-2"}},
         )
 
-        result = migrate_verification_documents(database, apply=True)
+        result = migrate_verification_documents(database, apply=True, asset_migrator=self.asset_migrator)
 
         self.assertEqual(result["skipped"], 1)
         self.assertIn("ownershipDocumentUrl", database.documents["listings"]["listing-1"])
         self.assertEqual(database.documents["listingPrivate"]["listing-1"]["ownerId"], "owner-2")
+
+    def test_cloudinary_url_parser_handles_versions_folders_and_cloud_allowlist(self):
+        asset = parse_cloudinary_asset_url(
+            "https://res.cloudinary.com/demo/raw/upload/v123/trusthome/listings/one/title.pdf",
+            "listing-1",
+            "ownership",
+            "demo",
+        )
+        self.assertEqual(asset["sourcePublicId"], "trusthome/listings/one/title")
+        self.assertEqual(asset["format"], "pdf")
+        self.assertEqual(asset["resourceType"], "raw")
+        self.assertTrue(asset["publicId"].startswith("trusthome_private_listing-1_ownership_"))
+        self.assertIsNone(parse_cloudinary_asset_url("https://example.test/document.pdf", "listing-1", "ownership"))
+        self.assertIsNone(parse_cloudinary_asset_url(
+            "https://res.cloudinary.com/other/image/upload/photo.jpg", "listing-1", "ownership", "demo"
+        ))
 
 
 if __name__ == "__main__":

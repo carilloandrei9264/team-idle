@@ -60,6 +60,29 @@ python seed_demo_data.py                        # write synthetic demo data to F
    trust-score refresh on a schedule in the cloud. Add the service-account JSON as a
    GitHub Actions secret named `FIREBASE_SERVICE_ACCOUNT`; the workflow passes it through the environment.
 
+## Verification-document privacy migration
+
+The migration at `migrate_verification_documents.py` is dry-run by default. Before
+applying it, take and verify a Firestore JSON backup. Review the dry-run counts and
+confirm the Cloudinary cloud name matches the project. The dry run does not print
+document URLs.
+
+Applying the migration also requires `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`,
+and `CLOUDINARY_API_SECRET` in the trusted machine's environment, plus the Firestore
+Admin credential described above. Keep the API secret in a password manager or host
+secret store; never put it in Git, the workbook, logs, or chat. Then run:
+
+```bash
+python migrate_verification_documents.py --apply
+```
+
+The script converts eligible Cloudinary assets to authenticated delivery, writes
+`publicId`/`format`/`resourceType` metadata under `listingPrivate.documents`, and removes
+legacy URL fields only for successfully converted assets. Unrecognized URLs and
+conversion failures remain untouched and are counted for manual review. After applying,
+wait about 10 minutes and verify old delivery URLs no longer work before marking F-16
+closed. Never run this against the live project without the backup and review steps.
+
 ## ⚠️ Before this actually works, you must do this one manual step per bank
 
 I could not inspect the *live rendered* HTML of these pages myself, so the CSS selectors

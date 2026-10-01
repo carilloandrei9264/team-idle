@@ -40,7 +40,7 @@ after(async () => {
   await testEnvironment?.cleanup();
 });
 
-test("verification URLs stay private while verified listing details remain public", async () => {
+test("private document metadata stays owner/admin-only while verified listing details remain public", async () => {
   const ownerDb = testEnvironment.authenticatedContext("owner-1").firestore();
   const adminDb = testEnvironment.authenticatedContext("admin-1").firestore();
   const publicDb = testEnvironment.unauthenticatedContext().firestore();
@@ -57,8 +57,18 @@ test("verification URLs stay private while verified listing details remain publi
   batch.set(doc(ownerDb, "listingPrivate", "new-1"), {
     ownerId: "owner-1",
     address: "Synthetic address",
-    ownershipDocumentUrl: "https://example.test/ownership.png",
-    governmentIdUrl: "https://example.test/id.png",
+    documents: {
+      ownership: {
+        publicId: "trusthome_private_new-1_ownership_123e4567-e89b-12d3-a456-426614174000",
+        format: "png",
+        resourceType: "image",
+      },
+      govId: {
+        publicId: "trusthome_private_new-1_govId_123e4567-e89b-12d3-a456-426614174001",
+        format: "jpg",
+        resourceType: "image",
+      },
+    },
     updatedAt: new Date(),
   });
 
@@ -66,6 +76,23 @@ test("verification URLs stay private while verified listing details remain publi
   await assertSucceeds(getDoc(doc(ownerDb, "listingPrivate", "new-1")));
   await assertSucceeds(getDoc(doc(adminDb, "listingPrivate", "new-1")));
   await assertFails(getDoc(doc(publicDb, "listingPrivate", "new-1")));
+  await assertFails(updateDoc(doc(ownerDb, "listingPrivate", "new-1"), {
+    "documents.ownership.publicId": "trusthome_private_other-listing_ownership_123e4567-e89b-12d3-a456-426614174002",
+  }));
+
+  const missingDocumentsBatch = writeBatch(ownerDb);
+  missingDocumentsBatch.set(doc(ownerDb, "listings", "missing-documents-1"), {
+    ownerId: "owner-1",
+    title: "Pending listing without verification metadata",
+    verificationStatus: "pending",
+    listingPurpose: "rent",
+  });
+  missingDocumentsBatch.set(doc(ownerDb, "listingPrivate", "missing-documents-1"), {
+    ownerId: "owner-1",
+    address: "Synthetic address",
+    updatedAt: new Date(),
+  });
+  await assertFails(missingDocumentsBatch.commit());
 
   const publicListing = await assertSucceeds(getDoc(doc(publicDb, "listings", "verified-1")));
   assert.equal(publicListing.data().ownershipDocumentUrl, undefined);
@@ -97,6 +124,11 @@ test("owners can remove legacy public verification URL fields", async () => {
       ownershipDocumentUrl: "https://example.test/ownership.png",
       governmentIdUrl: "https://example.test/id.png",
     });
+    await setDoc(doc(context.firestore(), "listingPrivate", "legacy-owner-1"), {
+      ownerId: "owner-1",
+      address: "Synthetic address",
+      ownershipDocumentUrl: "https://example.test/legacy-private.png",
+    });
   });
 
   const ownerDb = testEnvironment.authenticatedContext("owner-1").firestore();
@@ -104,9 +136,15 @@ test("owners can remove legacy public verification URL fields", async () => {
     ownershipDocumentUrl: deleteField(),
     governmentIdUrl: deleteField(),
   }));
+  await assertSucceeds(updateDoc(doc(ownerDb, "listingPrivate", "legacy-owner-1"), {
+    ownershipDocumentUrl: deleteField(),
+  }));
+  await assertFails(updateDoc(doc(ownerDb, "listingPrivate", "legacy-owner-1"), {
+    ownershipDocumentUrl: "https://example.test/reintroduced.png",
+  }));
 });
 
-test("admins can move legacy verification URLs to listingPrivate atomically", async () => {
+test("admins can write constrained private document metadata atomically", async () => {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), "listings", "legacy-admin-1"), {
       ownerId: "owner-1",
@@ -126,15 +164,26 @@ test("admins can move legacy verification URLs to listingPrivate atomically", as
   });
   batch.set(doc(adminDb, "listingPrivate", "legacy-admin-1"), {
     ownerId: "owner-1",
-    ownershipDocumentUrl: "https://example.test/ownership.png",
-    governmentIdUrl: "https://example.test/id.png",
+    address: "Synthetic address",
+    documents: {
+      ownership: {
+        publicId: "trusthome_private_legacy-admin-1_ownership_123e4567-e89b-12d3-a456-426614174000",
+        format: "png",
+        resourceType: "image",
+      },
+      govId: {
+        publicId: "trusthome_private_legacy-admin-1_govId_123e4567-e89b-12d3-a456-426614174001",
+        format: "jpg",
+        resourceType: "image",
+      },
+    },
     updatedAt: new Date(),
   }, { merge: true });
 
   await assertSucceeds(batch.commit());
   const privateRecord = await assertSucceeds(getDoc(doc(adminDb, "listingPrivate", "legacy-admin-1")));
-  assert.equal(privateRecord.data().ownershipDocumentUrl, "https://example.test/ownership.png");
-  assert.equal(privateRecord.data().governmentIdUrl, "https://example.test/id.png");
+  assert.equal(privateRecord.data().documents.ownership.resourceType, "image");
+  assert.equal(privateRecord.data().documents.govId.resourceType, "image");
 });
 
 test("owners cannot confirm bookings with a direct Firestore update", async () => {
@@ -175,6 +224,18 @@ test("a pending listing can atomically notify admins for review", async () => {
   batch.set(doc(ownerDb, "listingPrivate", "listing-alert-1"), {
     ownerId: "owner-1",
     address: "Synthetic address",
+    documents: {
+      ownership: {
+        publicId: "trusthome_private_listing-alert-1_ownership_123e4567-e89b-12d3-a456-426614174000",
+        format: "png",
+        resourceType: "image",
+      },
+      govId: {
+        publicId: "trusthome_private_listing-alert-1_govId_123e4567-e89b-12d3-a456-426614174001",
+        format: "jpg",
+        resourceType: "image",
+      },
+    },
     updatedAt: new Date(),
   });
   batch.set(doc(ownerDb, "notifications", "listing-alert-1"), {

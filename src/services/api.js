@@ -37,3 +37,14 @@ export async function api(path, { method = "GET", body } = {}) {
 export function confirmBooking(bookingId) {
   return api(`/api/bookings/${encodeURIComponent(bookingId)}/confirm`, { method: "POST" });
 }
+
+export function signPrivateDocumentUpload(listingId, kind, resourceType) {
+  return api("/api/uploads/sign", {
+    method: "POST",
+    body: { listingId, kind, resourceType },
+  });
+}
+
+export function getPrivateDocumentUrl(listingId, kind) {
+  return api(`/api/listings/${encodeURIComponent(listingId)}/documents/${encodeURIComponent(kind)}`);
+}

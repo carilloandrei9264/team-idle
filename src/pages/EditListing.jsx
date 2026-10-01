@@ -7,7 +7,8 @@ import PropertyMap from "../components/PropertyMap";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { countWords, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
-import { documentResourceType, uploadToCloudinary } from "../uploadImage";
+import { documentResourceType, uploadPrivateDocument, uploadToCloudinary } from "../uploadImage";
+import { signPrivateDocumentUpload } from "../services/api";
 import "./UserPages.css";
 
 const PROPERTY_TYPES = ["Room", "Studio", "Apartment", "House", "Condo", "Land"];
@@ -19,7 +20,12 @@ export default function EditListing() {
   const navigate = useNavigate();
   const [form, setForm] = useState(null);
   const [existingPhotos, setExistingPhotos] = useState([]);
-  const [existingDocuments, setExistingDocuments] = useState({ ownership: null, governmentId: null });
+  const [existingDocuments, setExistingDocuments] = useState({
+    ownership: null,
+    governmentId: null,
+    legacyOwnership: false,
+    legacyGovernmentId: false,
+  });
   const [newPhotos, setNewPhotos] = useState([]);
   const [ownershipDocument, setOwnershipDocument] = useState(null);
   const [governmentId, setGovernmentId] = useState(null);
@@ -50,8 +56,10 @@ export default function EditListing() {
         setMapLocation(data.mapLocation || null);
         setExistingPhotos(data.photoUrls || []);
         setExistingDocuments({
-          ownership: privateData.ownershipDocumentUrl || data.ownershipDocumentPath || data.ownershipDocumentUrl || data.verificationDocUrl || null,
-          governmentId: privateData.governmentIdUrl || data.governmentIdPath || data.governmentIdUrl || null,
+          ownership: privateData.documents?.ownership || null,
+          governmentId: privateData.documents?.govId || null,
+          legacyOwnership: Boolean(privateData.ownershipDocumentUrl || data.ownershipDocumentPath || data.ownershipDocumentUrl || data.verificationDocUrl),
+          legacyGovernmentId: Boolean(privateData.governmentIdUrl || data.governmentIdPath || data.governmentIdUrl),
         });
       }
       setLoading(false);
@@ -71,11 +79,18 @@ export default function EditListing() {
     setSaving(true);
     setError("");
     try {
-      const [ownershipDocumentUrl, governmentIdUrl, uploadedPhotoUrls] = await Promise.all([
-        ownershipDocument ? uploadToCloudinary(ownershipDocument, documentResourceType(ownershipDocument), listingAssetOptions(listingId, "verification/ownership-document", "ownership-document")) : existingDocuments.ownership,
-        governmentId ? uploadToCloudinary(governmentId, "auto", listingAssetOptions(listingId, "verification/government-id", "government-id")) : existingDocuments.governmentId,
+      const ownershipResourceType = ownershipDocument && documentResourceType(ownershipDocument) === "raw" ? "raw" : "image";
+      const [ownershipSignature, governmentIdSignature, uploadedPhotoUrls] = await Promise.all([
+        ownershipDocument ? signPrivateDocumentUpload(listingId, "ownership", ownershipResourceType) : null,
+        governmentId ? signPrivateDocumentUpload(listingId, "govId", documentResourceType(governmentId) === "raw" ? "raw" : "image") : null,
         Promise.all(newPhotos.map((photo) => uploadToCloudinary(photo, "auto", listingAssetOptions(listingId, "photos", "property-photo")))),
       ]);
+      const [uploadedOwnershipDocument, uploadedGovernmentId] = await Promise.all([
+        ownershipDocument ? uploadPrivateDocument(ownershipDocument, ownershipSignature, ownershipResourceType) : null,
+        governmentId ? uploadPrivateDocument(governmentId, governmentIdSignature, documentResourceType(governmentId) === "raw" ? "raw" : "image") : null,
+      ]);
+      const ownershipDocumentAsset = uploadedOwnershipDocument || (isDocumentAsset(existingDocuments.ownership) ? existingDocuments.ownership : null);
+      const governmentIdAsset = uploadedGovernmentId || (isDocumentAsset(existingDocuments.governmentId) ? existingDocuments.governmentId : null);
       const batch = writeBatch(db);
       batch.update(doc(db, "listings", listingId), {
         title: form.title.trim(), description: form.description.trim(), type: form.type, listingPurpose: form.listingPurpose,
@@ -90,8 +105,14 @@ export default function EditListing() {
       batch.set(doc(db, "listingPrivate", listingId), {
         ownerId: user.uid,
         address: form.address.trim(),
-        ownershipDocumentUrl,
-        governmentIdUrl,
+        ownershipDocumentUrl: deleteField(),
+        governmentIdUrl: deleteField(),
+        ...(ownershipDocumentAsset || governmentIdAsset ? {
+          documents: {
+            ...(ownershipDocumentAsset ? { ownership: ownershipDocumentAsset } : {}),
+            ...(governmentIdAsset ? { govId: governmentIdAsset } : {}),
+          },
+        } : {}),
         updatedAt: serverTimestamp(),
       }, { merge: true });
       await batch.commit();
@@ -171,8 +192,8 @@ export default function EditListing() {
               <p className="listing-form__hint">Keep at least 4 property photos. Existing documents remain valid unless replaced.</p>
               <div className="listing-form__uploads">
                 <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Additional property photos</span><small>{newPhotos.length ? `${newPhotos.length} selected` : `${existingPhotos.length} already saved`}</small><input type="file" accept="image/*" multiple onChange={(event) => setNewPhotos(Array.from(event.target.files || []).slice(0, 8))} /></label>
-                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Ownership document</span><small>{ownershipDocument?.name || (existingDocuments.ownership ? "Existing document saved" : "Required")}</small><input type="file" accept="image/*,.pdf" onChange={(event) => setOwnershipDocument(event.target.files?.[0] || null)} /></label>
-                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Government photo ID</span><small>{governmentId?.name || (existingDocuments.governmentId ? "Existing ID saved" : "Required")}</small><input type="file" accept="image/*" onChange={(event) => setGovernmentId(event.target.files?.[0] || null)} /></label>
+                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Ownership document</span><small>{ownershipDocument?.name || (existingDocuments.ownership ? "Existing private document saved" : existingDocuments.legacyOwnership ? "Re-upload required to protect this document" : "Required")}</small><input type="file" accept="image/*,.pdf" onChange={(event) => setOwnershipDocument(event.target.files?.[0] || null)} /></label>
+                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Government photo ID</span><small>{governmentId?.name || (existingDocuments.governmentId ? "Existing private ID saved" : existingDocuments.legacyGovernmentId ? "Re-upload required to protect this document" : "Required")}</small><input type="file" accept="image/*,.pdf" onChange={(event) => setGovernmentId(event.target.files?.[0] || null)} /></label>
               </div>
             </section>
             {error && <p className="user-page__form-error" role="alert">{error}</p>}
@@ -182,6 +203,10 @@ export default function EditListing() {
       </main>
     </div>
   );
+}
+
+function isDocumentAsset(value) {
+  return Boolean(value && typeof value === "object" && value.publicId && value.format && value.resourceType);
 }
 
 function Field({ id, name, label, value, onChange, type = "text", step, wide = false }) { return <div className={`field${wide ? " listing-form__wide" : ""}`}><label className="field__label" htmlFor={id}>{label}</label><input id={id} name={name} className="field__input" type={type} min={type === "number" ? "0" : undefined} step={step} value={value} onChange={onChange} required /></div>; }

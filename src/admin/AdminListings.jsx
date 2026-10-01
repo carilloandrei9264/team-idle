@@ -11,6 +11,7 @@ import {
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
 import { NOTIFICATION_TYPES } from "../lib/notifications";
+import { getPrivateDocumentUrl } from "../services/api";
 import { Check, X, Image as ImageIcon } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import "./AdminListings.css";
@@ -56,19 +57,36 @@ export default function AdminListings() {
   const privateDocumentsLoading = Boolean(selected && !selectedPrivateDocuments);
   const privateDocumentsError = Boolean(selectedPrivateDocuments?.error);
   const privateDocumentsReady = Boolean(selected && selectedPrivateDocuments && !privateDocumentsError);
+  const privateDocumentAssetsReady = Boolean(
+    selectedPrivateDocuments?.documents?.ownership?.publicId
+    && selectedPrivateDocuments?.documents?.govId?.publicId,
+  );
+  const privateDocumentPreviewsReady = Boolean(
+    selectedPrivateDocuments?.ownershipUrl
+    && selectedPrivateDocuments?.governmentIdUrl,
+  );
 
   useEffect(() => {
     if (!selectedId) return undefined;
 
     let active = true;
     getDoc(doc(db, "listingPrivate", selectedId))
-      .then((snapshot) => {
+      .then(async (snapshot) => {
         if (!active) return;
         const data = snapshot.exists() ? snapshot.data() : {};
+        const documents = data.documents || {};
+        const [ownershipResult, governmentIdResult] = await Promise.all([
+          documents.ownership ? getPrivateDocumentUrl(selectedId, "ownership") : null,
+          documents.govId ? getPrivateDocumentUrl(selectedId, "govId") : null,
+        ]);
+        if (!active) return;
         setPrivateDocuments({
           listingId: selectedId,
-          ownershipDocumentUrl: data.ownershipDocumentUrl || null,
-          governmentIdUrl: data.governmentIdUrl || null,
+          documents,
+          ownershipUrl: ownershipResult?.url || null,
+          governmentIdUrl: governmentIdResult?.url || null,
+          legacyOwnershipDocument: Boolean(data.ownershipDocumentUrl || data.verificationDocUrl),
+          legacyGovernmentId: Boolean(data.governmentIdUrl),
         });
       })
       .catch(() => {
@@ -79,7 +97,7 @@ export default function AdminListings() {
   }, [selectedId]);
 
   async function handleApprove() {
-    if (!selected || !privateDocumentsReady) return;
+    if (!selected || !privateDocumentsReady || !privateDocumentAssetsReady || !privateDocumentPreviewsReady) return;
     setSaving(true);
     setError("");
     setMessage("");
@@ -187,8 +205,27 @@ export default function AdminListings() {
                   <p className="review-card__label">Submitted verification documents</p>
                   {privateDocumentsLoading && <p className="review-card__document-status" role="status">Loading private documents…</p>}
                   {privateDocumentsError && <p className="review-card__document-status" role="alert">Private documents could not be loaded. Review this listing again before making a decision.</p>}
-                  <DocumentPreview url={selectedPrivateDocuments?.ownershipDocumentUrl || selected.ownershipDocumentUrl || selected.verificationDocUrl} title={selected.title} label="Ownership document" />
-                  <DocumentPreview url={selectedPrivateDocuments?.governmentIdUrl || selected.governmentIdUrl} title={selected.title} label="Government photo ID" />
+                  {selectedPrivateDocuments && !privateDocumentsError && !privateDocumentAssetsReady && (
+                    <p className="review-card__document-status" role="alert">This listing’s documents need private migration before it can be approved. You can request changes or reject it.</p>
+                  )}
+                  <DocumentPreview
+                    asset={selectedPrivateDocuments?.documents?.ownership}
+                    url={selectedPrivateDocuments?.ownershipUrl}
+                    legacyOnly={selectedPrivateDocuments?.legacyOwnershipDocument}
+                    listingId={selected.id}
+                    kind="ownership"
+                    title={selected.title}
+                    label="Ownership document"
+                  />
+                  <DocumentPreview
+                    asset={selectedPrivateDocuments?.documents?.govId}
+                    url={selectedPrivateDocuments?.governmentIdUrl}
+                    legacyOnly={selectedPrivateDocuments?.legacyGovernmentId}
+                    listingId={selected.id}
+                    kind="govId"
+                    title={selected.title}
+                    label="Government photo ID"
+                  />
                 </div>
 
                 <p className="review-card__label">Property photos</p>
@@ -219,7 +256,7 @@ export default function AdminListings() {
                       type="button"
                       className="btn btn--primary"
                       onClick={handleApprove}
-                      disabled={saving || !privateDocumentsReady}
+                      disabled={saving || !privateDocumentsReady || !privateDocumentAssetsReady || !privateDocumentPreviewsReady}
                     >
                       <Check size={16} aria-hidden="true" />
                       Approve
@@ -306,12 +343,17 @@ export default function AdminListings() {
   );
 }
 
-function DocumentPreview({ url, title, label = "Uploaded document" }) {
-  if (!url) {
+function DocumentPreview({ asset, url, legacyOnly, title, label = "Uploaded document" }) {
+  if (!asset && legacyOnly) {
+    return <div className="review-card__document-status" role="alert">This legacy document must be migrated to private storage before it can be previewed.</div>;
+  }
+  if (!asset) {
     return <div className="review-card__doc review-card__doc--placeholder"><ImageIcon size={28} aria-hidden="true" /><span>No document uploaded</span></div>;
   }
 
-  const isPdf = /\.pdf(?:$|[?#])/i.test(url);
+  if (!url) return <p className="review-card__document-status" role="alert">The private document preview could not be loaded. Try selecting the listing again.</p>;
+
+  const isPdf = asset.format?.toLowerCase() === "pdf";
   return (
     <div className="review-card__document">
       <p className="review-card__label">{label}</p>
@@ -330,12 +372,12 @@ function timestampValue(value) {
 }
 
 function privateDocumentData(listing, documents) {
-  const ownershipDocumentUrl = documents?.ownershipDocumentUrl || listing.ownershipDocumentUrl || listing.verificationDocUrl;
-  const governmentIdUrl = documents?.governmentIdUrl || listing.governmentIdUrl;
+  const assets = documents?.documents || {};
   return {
     ownerId: listing.ownerId,
-    ...(ownershipDocumentUrl ? { ownershipDocumentUrl } : {}),
-    ...(governmentIdUrl ? { governmentIdUrl } : {}),
+    ...(Object.keys(assets).length ? { documents: assets } : {}),
+    ...(assets.ownership ? { ownershipDocumentUrl: deleteField() } : {}),
+    ...(assets.govId ? { governmentIdUrl: deleteField() } : {}),
     updatedAt: serverTimestamp(),
   };
 }
