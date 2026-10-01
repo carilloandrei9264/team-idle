@@ -378,8 +378,19 @@ Firebase Storage remains a future migration only if billing is approved. BDO and
 
 ## User Follow-up (2026-10-01)
 
-- Listing submission now creates an admin `listing_submitted` notification in the same Firestore batch as the pending listing. Admin alerts link directly to the selected review item; rules allow only a real owner-created pending listing alert. The admin review queue loads private documents and falls back to legacy public URL fields for old records. PDF/image previews now distinguish by actual file type. These rules remain source-only until deployed.
+- **Admin alert for new listings:** Listing submission creates an admin `listing_submitted` notification in the same Firestore batch as the pending listing. Admin alerts link directly to the review item. The Oct 1 deployed rules permit valid listing-submission alerts; authenticated end-to-end smoke testing remains.
+- **Admin document previews:** The admin review queue loads private documents and falls back to legacy public URL fields for old records. It supports image and PDF previews. The creation form also previews selected local files. Authenticated browser verification of the admin preview flow remains.
 - User notification rows now navigate through their stored link, mark themselves read on open, and offer per-item Clear plus Clear read. Existing mark-read behavior remains.
 - The reported `functions/internal` approval error is mapped to a clear service-unavailable/status-check message. Booking approval still requires the `confirmBooking` callable to be deployed in an approved Functions environment; the UI does not fall back to unsafe direct confirmation.
 - Listing intake and edit now require an explicit For rent / For sale choice. Rentals select short-term (nightly) or long-term (monthly); sale listings display a one-time asking price and cannot be booked. Browse, listing detail, admin review, and My Listings show the purpose. Rental trust comparisons exclude sale listings and compare matching price periods only.
-- Emulator checks cover listing-submission alerts and reject booking requests for sale listings. Full automated gates are recorded after this follow-up’s validation run.
+- Emulator checks cover listing-submission alerts and reject booking requests for sale listings. The frontend was deployed to Hosting on Oct 1; the Firestore rules were deployed the same day. Authenticated end-to-end verification of these listing and notification flows remains outstanding.
+
+## Additional Project Inventory (2026-10-01)
+
+A focused route/source and open-marker scan found the following shipped areas that were not clearly captured in the earlier feature summary, plus these follow-up items:
+
+- **Public account and information pages:** Public profiles, account management, settings, and legal pages are routed in the app. The legal pages include Privacy Policy, Terms of Use, Data & Compliance, and IP Infringement Reports. These are project disclosures, not a completed legal/compliance review; controller/privacy-officer details, retention and deletion processes, and independent assessment remain open as listed above.
+- **Admin and bank operations:** Admin routes include listing review, disputes, users, notifications, and bank-catalog/scraper-job management. The scraper worker must run in a trusted Python environment to process queued jobs; the browser button alone does not execute a scrape.
+- **Bank-source limits:** Metrobank is the only active production scraper. Landbank parsing still needs live selector verification, and BDO contains a placeholder API endpoint and unverified response shape. Keep those sources disabled until verified; BDO and Landbank remain future integrations.
+- **Live demo-data check:** The deployed homepage currently displays a listing titled “Makati listing awaiting review” with a Verified badge. Confirm the live Firestore record is an intentional synthetic fixture and remove or relabel it before a public demo; do not delete it until its test-data status is confirmed.
+- **Booking screenshot evidence:** No image attachment was available in the shared session. The documented `functions/internal` approval failure is consistent with the undeployed `confirmBooking` callable, but the screenshot-specific error details have not been independently inspected.
