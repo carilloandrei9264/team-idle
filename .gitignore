@@ -13,8 +13,11 @@ dist-ssr
 *.local
 
 # Firebase Admin credentials must never be committed.
-serviceAccountKey.json
-**/serviceAccountKey.json
+serviceAccountKey*.json
+**/serviceAccountKey*.json
+*.pem
+.env*
+!.env*.example
 
 # Python
 __pycache__/
