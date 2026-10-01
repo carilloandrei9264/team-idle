@@ -42,7 +42,7 @@ export default function Footer() {
             ))}
           </ul>
           <p className="site-footer__heading site-footer__heading--legal">Legal &amp; data</p>
-          <ul className="site-footer__links">
+          <ul className="site-footer__links site-footer__links--legal">
             {POLICY_LINKS.map(({ to, label }) => (
               <li key={to}>
                 <Link to={to} className="site-footer__link">{label}</Link>

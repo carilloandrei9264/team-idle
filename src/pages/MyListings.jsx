@@ -44,6 +44,8 @@ export default function MyListings({ embedded = false }) {
 
   function renderListing(listing) {
     const cover = listing.photoUrls?.[0];
+    const isSale = listing.listingPurpose === "sale";
+    const priceBasis = isSale ? "asking price" : listing.rentalTerm === "short_term" || listing.pricePeriod === "day" ? "per night" : "per month";
     const pendingCount = pendingRequests?.[listing.id] || 0;
     const details = [
       listing.type,
@@ -59,20 +61,20 @@ export default function MyListings({ embedded = false }) {
           <div className="owner-listing-card__heading">
             <div>
               <h2>{listing.title || "Untitled listing"}</h2>
-              <p>{[listing.city || "Location not provided", ...details].join(" · ")}</p>
+              <p>{[listing.listingPurpose === "sale" ? "For sale" : listing.rentalTerm === "short_term" || listing.pricePeriod === "day" ? "Short-term rental" : "Long-term rental", listing.city || "Location not provided", ...details].join(" · ")}</p>
             </div>
             <span className={`badge badge--${listing.verificationStatus === "verified" ? "verified" : listing.verificationStatus === "rejected" ? "danger" : "pending"}`}>
               {listing.resubmissionRequested ? "changes requested" : listing.verificationStatus || "pending"}
             </span>
           </div>
           <div className="owner-listing-card__details">
-            <strong>{formatCurrency(listing.price)}<span>/{listing.pricePeriod || "month"}</span></strong>
-            <div className="owner-listing-card__requests">
+            <strong>{formatCurrency(listing.price)}<span> · {priceBasis}</span></strong>
+            {!isSale && <div className="owner-listing-card__requests">
               <span>{requestsError ? "Request count unavailable" : pendingRequests === null ? "Loading requests..." : `${pendingCount} pending ${pendingCount === 1 ? "request" : "requests"}`}</span>
               <Link to={`/my-activity?tab=requests&listingId=${encodeURIComponent(listing.id)}`}>
                 Review requests
               </Link>
-            </div>
+            </div>}
           </div>
           {listing.verificationStatus === "rejected" && listing.rejectionReason && (
             <p className="owner-listing-card__review-note">

@@ -3,20 +3,27 @@ import {
   collection,
   onSnapshot,
   doc,
+  deleteField,
+  getDoc,
   serverTimestamp,
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
 import { NOTIFICATION_TYPES } from "../lib/notifications";
+import { getPrivateDocumentUrl } from "../services/api";
 import { Check, X, Image as ImageIcon } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import "./AdminListings.css";
 
 export default function AdminListings() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const requestedListingId = searchParams.get("listingId");
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
+  const [privateDocuments, setPrivateDocuments] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
   const [showDecisionForm, setShowDecisionForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -34,19 +41,63 @@ export default function AdminListings() {
       setError("");
       // Keep the current selection if it still exists; otherwise pick the first.
       setSelectedId((current) =>
-        docs.some((d) => d.id === current) ? current : docs[0]?.id ?? null
+        docs.some((d) => d.id === requestedListingId)
+          ? requestedListingId
+          : docs.some((d) => d.id === current) ? current : docs[0]?.id ?? null
       );
     }, () => {
       setLoading(false);
       setError("The review queue could not be loaded. Check your connection and Firestore index, then refresh.");
     });
     return unsubscribe;
-  }, []);
+  }, [requestedListingId]);
 
   const selected = pending.find((l) => l.id === selectedId) ?? null;
+  const selectedPrivateDocuments = privateDocuments?.listingId === selected?.id ? privateDocuments : null;
+  const privateDocumentsLoading = Boolean(selected && !selectedPrivateDocuments);
+  const privateDocumentsError = Boolean(selectedPrivateDocuments?.error);
+  const privateDocumentsReady = Boolean(selected && selectedPrivateDocuments && !privateDocumentsError);
+  const privateDocumentAssetsReady = Boolean(
+    selectedPrivateDocuments?.documents?.ownership?.publicId
+    && selectedPrivateDocuments?.documents?.govId?.publicId,
+  );
+  const privateDocumentPreviewsReady = Boolean(
+    selectedPrivateDocuments?.ownershipUrl
+    && selectedPrivateDocuments?.governmentIdUrl,
+  );
+
+  useEffect(() => {
+    if (!selectedId) return undefined;
+
+    let active = true;
+    getDoc(doc(db, "listingPrivate", selectedId))
+      .then(async (snapshot) => {
+        if (!active) return;
+        const data = snapshot.exists() ? snapshot.data() : {};
+        const documents = data.documents || {};
+        const [ownershipResult, governmentIdResult] = await Promise.all([
+          documents.ownership ? getPrivateDocumentUrl(selectedId, "ownership") : null,
+          documents.govId ? getPrivateDocumentUrl(selectedId, "govId") : null,
+        ]);
+        if (!active) return;
+        setPrivateDocuments({
+          listingId: selectedId,
+          documents,
+          ownershipUrl: ownershipResult?.url || null,
+          governmentIdUrl: governmentIdResult?.url || null,
+          legacyOwnershipDocument: Boolean(data.ownershipDocumentUrl || data.verificationDocUrl),
+          legacyGovernmentId: Boolean(data.governmentIdUrl),
+        });
+      })
+      .catch(() => {
+        if (active) setPrivateDocuments({ listingId: selectedId, error: true });
+      });
+
+    return () => { active = false; };
+  }, [selectedId]);
 
   async function handleApprove() {
-    if (!selected) return;
+    if (!selected || !privateDocumentsReady || !privateDocumentAssetsReady || !privateDocumentPreviewsReady) return;
     setSaving(true);
     setError("");
     setMessage("");
@@ -56,7 +107,11 @@ export default function AdminListings() {
         verificationStatus: "verified",
         verifiedAt: serverTimestamp(),
         verifiedBy: user?.uid ?? null,
+        ownershipDocumentUrl: deleteField(),
+        governmentIdUrl: deleteField(),
+        verificationDocUrl: deleteField(),
       });
+      batch.set(doc(db, "listingPrivate", selected.id), privateDocumentData(selected, selectedPrivateDocuments), { merge: true });
       batch.set(doc(collection(db, "notifications")), {
         recipientId: selected.ownerId,
         createdBy: user?.uid ?? null,
@@ -80,7 +135,7 @@ export default function AdminListings() {
   }
 
   async function handleDecision(decision) {
-    if (!selected) return;
+    if (!selected || !privateDocumentsReady) return;
     setSaving(true);
     setError("");
     setMessage("");
@@ -93,7 +148,11 @@ export default function AdminListings() {
         resubmissionRequested: decision === "changes_requested",
         verifiedAt: serverTimestamp(),
         verifiedBy: user?.uid ?? null,
+        ownershipDocumentUrl: deleteField(),
+        governmentIdUrl: deleteField(),
+        verificationDocUrl: deleteField(),
       });
+      batch.set(doc(db, "listingPrivate", selected.id), privateDocumentData(selected, selectedPrivateDocuments), { merge: true });
       batch.set(doc(collection(db, "notifications")), {
         recipientId: selected.ownerId,
         createdBy: user?.uid ?? null,
@@ -139,16 +198,43 @@ export default function AdminListings() {
                 <div className="review-card__header">
                   <h2 className="review-card__title">{selected.title || "Untitled listing"}</h2>
                   <p className="review-card__meta">Submitted by {selected.ownerName || selected.ownerId}</p>
+                  <p className="review-card__meta">{selected.listingPurpose === "sale" ? "For sale · one-time asking price" : selected.rentalTerm === "short_term" || selected.pricePeriod === "day" ? "Short-term rental · per night" : "Long-term rental · per month"}</p>
                 </div>
 
-                <DocumentPreview url={selected.ownershipDocumentUrl || selected.verificationDocUrl} title={selected.title} label="Ownership document" />
-                {selected.governmentIdUrl && <DocumentPreview url={selected.governmentIdUrl} title={selected.title} label="Government photo ID" />}
+                <div className="review-card__documents">
+                  <p className="review-card__label">Submitted verification documents</p>
+                  {privateDocumentsLoading && <p className="review-card__document-status" role="status">Loading private documents…</p>}
+                  {privateDocumentsError && <p className="review-card__document-status" role="alert">Private documents could not be loaded. Review this listing again before making a decision.</p>}
+                  {selectedPrivateDocuments && !privateDocumentsError && !privateDocumentAssetsReady && (
+                    <p className="review-card__document-status" role="alert">This listing’s documents need private migration before it can be approved. You can request changes or reject it.</p>
+                  )}
+                  <DocumentPreview
+                    asset={selectedPrivateDocuments?.documents?.ownership}
+                    url={selectedPrivateDocuments?.ownershipUrl}
+                    legacyOnly={selectedPrivateDocuments?.legacyOwnershipDocument}
+                    listingId={selected.id}
+                    kind="ownership"
+                    title={selected.title}
+                    label="Ownership document"
+                  />
+                  <DocumentPreview
+                    asset={selectedPrivateDocuments?.documents?.govId}
+                    url={selectedPrivateDocuments?.governmentIdUrl}
+                    legacyOnly={selectedPrivateDocuments?.legacyGovernmentId}
+                    listingId={selected.id}
+                    kind="govId"
+                    title={selected.title}
+                    label="Government photo ID"
+                  />
+                </div>
 
                 <p className="review-card__label">Property photos</p>
                 {selected.photoUrls?.length ? (
                   <div className="review-card__photos">
                     {selected.photoUrls.map((photoUrl, index) => (
-                      <img key={photoUrl} className="review-card__photo" src={photoUrl} alt={`Property photo ${index + 1}`} />
+                      <a key={photoUrl} className="review-card__photo-link" href={photoUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open property photo ${index + 1} at full size`}>
+                        <img className="review-card__photo" src={photoUrl} alt={`Property photo ${index + 1}`} />
+                      </a>
                     ))}
                   </div>
                 ) : (
@@ -170,7 +256,7 @@ export default function AdminListings() {
                       type="button"
                       className="btn btn--primary"
                       onClick={handleApprove}
-                      disabled={saving}
+                      disabled={saving || !privateDocumentsReady || !privateDocumentAssetsReady || !privateDocumentPreviewsReady}
                     >
                       <Check size={16} aria-hidden="true" />
                       Approve
@@ -179,7 +265,7 @@ export default function AdminListings() {
                       type="button"
                       className="btn btn--danger"
                       onClick={() => setShowDecisionForm(true)}
-                      disabled={saving}
+                      disabled={saving || !privateDocumentsReady}
                     >
                       <X size={16} aria-hidden="true" />
                       Reject
@@ -203,7 +289,7 @@ export default function AdminListings() {
                         type="button"
                         className="btn btn--danger"
                         onClick={() => handleDecision("changes_requested")}
-                        disabled={saving}
+                        disabled={saving || !privateDocumentsReady}
                       >
                         Request changes
                       </button>
@@ -211,7 +297,7 @@ export default function AdminListings() {
                         type="button"
                         className="btn btn--danger"
                         onClick={() => handleDecision("rejected")}
-                        disabled={saving}
+                        disabled={saving || !privateDocumentsReady}
                       >
                         Reject permanently
                       </button>
@@ -257,12 +343,17 @@ export default function AdminListings() {
   );
 }
 
-function DocumentPreview({ url, title, label = "Uploaded document" }) {
-  if (!url) {
+function DocumentPreview({ asset, url, legacyOnly, title, label = "Uploaded document" }) {
+  if (!asset && legacyOnly) {
+    return <div className="review-card__document-status" role="alert">This legacy document must be migrated to private storage before it can be previewed.</div>;
+  }
+  if (!asset) {
     return <div className="review-card__doc review-card__doc--placeholder"><ImageIcon size={28} aria-hidden="true" /><span>No document uploaded</span></div>;
   }
 
-  const isPdf = /(?:\.pdf(?:$|[?#])|[?&]resource_type=raw)/i.test(url);
+  if (!url) return <p className="review-card__document-status" role="alert">The private document preview could not be loaded. Try selecting the listing again.</p>;
+
+  const isPdf = asset.format?.toLowerCase() === "pdf";
   return (
     <div className="review-card__document">
       <p className="review-card__label">{label}</p>
@@ -278,4 +369,15 @@ function DocumentPreview({ url, title, label = "Uploaded document" }) {
 
 function timestampValue(value) {
   return value?.toMillis?.() ?? 0;
+}
+
+function privateDocumentData(listing, documents) {
+  const assets = documents?.documents || {};
+  return {
+    ownerId: listing.ownerId,
+    ...(Object.keys(assets).length ? { documents: assets } : {}),
+    ...(assets.ownership ? { ownershipDocumentUrl: deleteField() } : {}),
+    ...(assets.govId ? { governmentIdUrl: deleteField() } : {}),
+    updatedAt: serverTimestamp(),
+  };
 }

@@ -4,7 +4,7 @@ import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
-import { notificationInboxPath, notificationRecipientForRole, ADMIN_NOTIFICATION_TYPE } from "../lib/notifications";
+import { notificationInboxPath, notificationRecipientForRole, ADMIN_NOTIFICATION_TYPES } from "../lib/notifications";
 
 export default function NotificationBell({ className = "" }) {
   const { user, profile, loading } = useAuth();
@@ -16,7 +16,7 @@ export default function NotificationBell({ className = "" }) {
     const recipientId = notificationRecipientForRole(profile?.role, userId);
     if (!recipientId) return undefined;
     const filters = [where("recipientId", "==", recipientId)];
-    if (profile?.role === "admin") filters.push(where("type", "==", ADMIN_NOTIFICATION_TYPE));
+    if (profile?.role === "admin") filters.push(where("type", "in", ADMIN_NOTIFICATION_TYPES));
     return onSnapshot(
       query(collection(db, "notifications"), ...filters),
       (snapshot) => setUnreadCount(snapshot.docs.filter((item) => item.data().read !== true).length),

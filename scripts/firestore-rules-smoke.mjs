@@ -1,0 +1,287 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { after, before, test } from "node:test";
+import { assertFails, assertSucceeds, initializeTestEnvironment } from "@firebase/rules-unit-testing";
+import { deleteField, doc, getDoc, setDoc, Timestamp, updateDoc, writeBatch } from "firebase/firestore";
+
+let testEnvironment;
+
+before(async () => {
+  testEnvironment = await initializeTestEnvironment({
+    projectId: "demo-trusthome-private-documents",
+    firestore: {
+      rules: await readFile(new URL("../firestore.rules", import.meta.url), "utf8"),
+    },
+  });
+
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await setDoc(doc(db, "users", "owner-1"), { role: "user", status: "active" });
+    await setDoc(doc(db, "users", "renter-1"), { role: "user", status: "active" });
+    await setDoc(doc(db, "users", "admin-1"), { role: "admin", status: "active" });
+    await setDoc(doc(db, "listings", "verified-1"), {
+      ownerId: "owner-1",
+      title: "Synthetic verified listing",
+      verificationStatus: "verified",
+      listingPurpose: "rent",
+      rentalTerm: "long_term",
+    });
+    await setDoc(doc(db, "listings", "sale-1"), {
+      ownerId: "owner-1",
+      title: "Synthetic sale listing",
+      verificationStatus: "verified",
+      listingPurpose: "sale",
+      rentalTerm: null,
+    });
+  });
+});
+
+after(async () => {
+  await testEnvironment?.cleanup();
+});
+
+test("private document metadata stays owner/admin-only while verified listing details remain public", async () => {
+  const ownerDb = testEnvironment.authenticatedContext("owner-1").firestore();
+  const adminDb = testEnvironment.authenticatedContext("admin-1").firestore();
+  const publicDb = testEnvironment.unauthenticatedContext().firestore();
+  const batch = writeBatch(ownerDb);
+
+  batch.set(doc(ownerDb, "listings", "new-1"), {
+    ownerId: "owner-1",
+    title: "Synthetic pending listing",
+    verificationStatus: "pending",
+    listingPurpose: "rent",
+    rentalTerm: "long_term",
+    mapLocation: null,
+  });
+  batch.set(doc(ownerDb, "listingPrivate", "new-1"), {
+    ownerId: "owner-1",
+    address: "Synthetic address",
+    documents: {
+      ownership: {
+        publicId: "trusthome_private_new-1_ownership_123e4567-e89b-12d3-a456-426614174000",
+        format: "png",
+        resourceType: "image",
+      },
+      govId: {
+        publicId: "trusthome_private_new-1_govId_123e4567-e89b-12d3-a456-426614174001",
+        format: "jpg",
+        resourceType: "image",
+      },
+    },
+    updatedAt: new Date(),
+  });
+
+  await assertSucceeds(batch.commit());
+  await assertSucceeds(getDoc(doc(ownerDb, "listingPrivate", "new-1")));
+  await assertSucceeds(getDoc(doc(adminDb, "listingPrivate", "new-1")));
+  await assertFails(getDoc(doc(publicDb, "listingPrivate", "new-1")));
+  await assertFails(updateDoc(doc(ownerDb, "listingPrivate", "new-1"), {
+    "documents.ownership.publicId": "trusthome_private_other-listing_ownership_123e4567-e89b-12d3-a456-426614174002",
+  }));
+
+  const missingDocumentsBatch = writeBatch(ownerDb);
+  missingDocumentsBatch.set(doc(ownerDb, "listings", "missing-documents-1"), {
+    ownerId: "owner-1",
+    title: "Pending listing without verification metadata",
+    verificationStatus: "pending",
+    listingPurpose: "rent",
+  });
+  missingDocumentsBatch.set(doc(ownerDb, "listingPrivate", "missing-documents-1"), {
+    ownerId: "owner-1",
+    address: "Synthetic address",
+    updatedAt: new Date(),
+  });
+  await assertFails(missingDocumentsBatch.commit());
+
+  const publicListing = await assertSucceeds(getDoc(doc(publicDb, "listings", "verified-1")));
+  assert.equal(publicListing.data().ownershipDocumentUrl, undefined);
+  assert.equal(publicListing.data().governmentIdUrl, undefined);
+  assert.equal(publicListing.data().verificationDocUrl, undefined);
+});
+
+test("owners cannot create or add verification URLs on public listings", async () => {
+  const ownerDb = testEnvironment.authenticatedContext("owner-1").firestore();
+
+  await assertFails(setDoc(doc(ownerDb, "listings", "public-url-create"), {
+    ownerId: "owner-1",
+    title: "Synthetic listing",
+    verificationStatus: "pending",
+    ownershipDocumentUrl: "https://example.test/ownership.png",
+  }));
+
+  await assertFails(updateDoc(doc(ownerDb, "listings", "new-1"), {
+    ownershipDocumentUrl: "https://example.test/ownership.png",
+  }));
+});
+
+test("owners can remove legacy public verification URL fields", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "listings", "legacy-owner-1"), {
+      ownerId: "owner-1",
+      title: "Legacy pending listing",
+      verificationStatus: "pending",
+      ownershipDocumentUrl: "https://example.test/ownership.png",
+      governmentIdUrl: "https://example.test/id.png",
+    });
+    await setDoc(doc(context.firestore(), "listingPrivate", "legacy-owner-1"), {
+      ownerId: "owner-1",
+      address: "Synthetic address",
+      ownershipDocumentUrl: "https://example.test/legacy-private.png",
+    });
+  });
+
+  const ownerDb = testEnvironment.authenticatedContext("owner-1").firestore();
+  await assertSucceeds(updateDoc(doc(ownerDb, "listings", "legacy-owner-1"), {
+    ownershipDocumentUrl: deleteField(),
+    governmentIdUrl: deleteField(),
+  }));
+  await assertSucceeds(updateDoc(doc(ownerDb, "listingPrivate", "legacy-owner-1"), {
+    ownershipDocumentUrl: deleteField(),
+  }));
+  await assertFails(updateDoc(doc(ownerDb, "listingPrivate", "legacy-owner-1"), {
+    ownershipDocumentUrl: "https://example.test/reintroduced.png",
+  }));
+});
+
+test("admins can write constrained private document metadata atomically", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "listings", "legacy-admin-1"), {
+      ownerId: "owner-1",
+      title: "Legacy listing for review",
+      verificationStatus: "pending",
+      ownershipDocumentUrl: "https://example.test/ownership.png",
+      governmentIdUrl: "https://example.test/id.png",
+    });
+  });
+
+  const adminDb = testEnvironment.authenticatedContext("admin-1").firestore();
+  const batch = writeBatch(adminDb);
+  batch.update(doc(adminDb, "listings", "legacy-admin-1"), {
+    ownershipDocumentUrl: deleteField(),
+    governmentIdUrl: deleteField(),
+    verificationDocUrl: deleteField(),
+  });
+  batch.set(doc(adminDb, "listingPrivate", "legacy-admin-1"), {
+    ownerId: "owner-1",
+    address: "Synthetic address",
+    documents: {
+      ownership: {
+        publicId: "trusthome_private_legacy-admin-1_ownership_123e4567-e89b-12d3-a456-426614174000",
+        format: "png",
+        resourceType: "image",
+      },
+      govId: {
+        publicId: "trusthome_private_legacy-admin-1_govId_123e4567-e89b-12d3-a456-426614174001",
+        format: "jpg",
+        resourceType: "image",
+      },
+    },
+    updatedAt: new Date(),
+  }, { merge: true });
+
+  await assertSucceeds(batch.commit());
+  const privateRecord = await assertSucceeds(getDoc(doc(adminDb, "listingPrivate", "legacy-admin-1")));
+  assert.equal(privateRecord.data().documents.ownership.resourceType, "image");
+  assert.equal(privateRecord.data().documents.govId.resourceType, "image");
+});
+
+test("owners cannot confirm bookings with a direct Firestore update", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "bookings", "pending-confirmation-1"), {
+      listingId: "verified-1",
+      ownerId: "owner-1",
+      renterId: "renter-1",
+      status: "Pending",
+      startDate: Timestamp.fromDate(new Date("2026-10-10T00:00:00Z")),
+      endDate: Timestamp.fromDate(new Date("2026-10-15T00:00:00Z")),
+    });
+  });
+
+  const ownerDb = testEnvironment.authenticatedContext("owner-1").firestore();
+  await assertFails(updateDoc(doc(ownerDb, "bookings", "pending-confirmation-1"), {
+    status: "Confirmed",
+    address: "Synthetic address",
+    confirmedAt: new Date(),
+    updatedAt: new Date(),
+  }));
+});
+
+test("a pending listing can atomically notify admins for review", async () => {
+  const ownerDb = testEnvironment.authenticatedContext("owner-1").firestore();
+  const adminDb = testEnvironment.authenticatedContext("admin-1").firestore();
+  const publicDb = testEnvironment.unauthenticatedContext().firestore();
+  const batch = writeBatch(ownerDb);
+
+  batch.set(doc(ownerDb, "listings", "listing-alert-1"), {
+    ownerId: "owner-1",
+    title: "Synthetic listing for alert",
+    verificationStatus: "pending",
+    listingPurpose: "rent",
+    rentalTerm: "long_term",
+    mapLocation: null,
+  });
+  batch.set(doc(ownerDb, "listingPrivate", "listing-alert-1"), {
+    ownerId: "owner-1",
+    address: "Synthetic address",
+    documents: {
+      ownership: {
+        publicId: "trusthome_private_listing-alert-1_ownership_123e4567-e89b-12d3-a456-426614174000",
+        format: "png",
+        resourceType: "image",
+      },
+      govId: {
+        publicId: "trusthome_private_listing-alert-1_govId_123e4567-e89b-12d3-a456-426614174001",
+        format: "jpg",
+        resourceType: "image",
+      },
+    },
+    updatedAt: new Date(),
+  });
+  batch.set(doc(ownerDb, "notifications", "listing-alert-1"), {
+    recipientId: "__admins__",
+    createdBy: "owner-1",
+    type: "listing_submitted",
+    title: "New listing submitted for review",
+    message: "Synthetic listing for alert was submitted.",
+    link: "/admin/listings?listingId=listing-alert-1",
+    entityId: "listing-alert-1",
+    entityType: "listing",
+    read: false,
+    createdAt: new Date(),
+  });
+
+  await assertSucceeds(batch.commit());
+  await assertSucceeds(getDoc(doc(adminDb, "notifications", "listing-alert-1")));
+  await assertFails(getDoc(doc(publicDb, "notifications", "listing-alert-1")));
+  await assertFails(setDoc(doc(ownerDb, "notifications", "orphan-listing-alert"), {
+    recipientId: "__admins__",
+    createdBy: "owner-1",
+    type: "listing_submitted",
+    title: "Orphan alert",
+    message: "No matching pending listing.",
+    entityId: "missing-listing",
+    entityType: "listing",
+    read: false,
+  }));
+});
+
+test("renter booking creates are allowed for rentals and denied for sale listings", async () => {
+  const renterDb = testEnvironment.authenticatedContext("renter-1").firestore();
+  const bookingData = {
+    ownerId: "owner-1",
+    renterId: "renter-1",
+    status: "Pending",
+    startDate: Timestamp.fromDate(new Date("2026-10-10T00:00:00Z")),
+    endDate: Timestamp.fromDate(new Date("2026-10-12T00:00:00Z")),
+  };
+
+  await assertSucceeds(setDoc(doc(renterDb, "bookings", "rent-booking-1"), {
+    ...bookingData,
+    listingId: "verified-1",
+  }));
+  await assertFails(setDoc(doc(renterDb, "bookings", "sale-booking-1"), {
+    ...bookingData,
+    listingId: "sale-1",
+  }));
+});

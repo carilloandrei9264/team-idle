@@ -7,10 +7,11 @@ import PropertyMap from "../components/PropertyMap";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { countWords, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
-import { uploadToCloudinary } from "../uploadImage";
+import { documentResourceType, uploadPrivateDocument, uploadToCloudinary } from "../uploadImage";
+import { signPrivateDocumentUpload } from "../services/api";
 import "./UserPages.css";
 
-const PROPERTY_TYPES = ["Room", "Studio", "Apartment", "House", "Condo"];
+const PROPERTY_TYPES = ["Room", "Studio", "Apartment", "House", "Condo", "Land"];
 const AMENITIES = ["Parking", "WiFi", "Furnished", "Pets allowed", "Air conditioning", "Security"];
 
 export default function EditListing() {
@@ -19,7 +20,12 @@ export default function EditListing() {
   const navigate = useNavigate();
   const [form, setForm] = useState(null);
   const [existingPhotos, setExistingPhotos] = useState([]);
-  const [existingDocuments, setExistingDocuments] = useState({ ownership: null, governmentId: null });
+  const [existingDocuments, setExistingDocuments] = useState({
+    ownership: null,
+    governmentId: null,
+    legacyOwnership: false,
+    legacyGovernmentId: false,
+  });
   const [newPhotos, setNewPhotos] = useState([]);
   const [ownershipDocument, setOwnershipDocument] = useState(null);
   const [governmentId, setGovernmentId] = useState(null);
@@ -38,21 +44,31 @@ export default function EditListing() {
       else {
         const data = snapshot.data();
         const privateData = privateSnapshot.exists() ? privateSnapshot.data() : {};
+        const listingPurpose = data.listingPurpose || "rent";
+        const rentalTerm = data.rentalTerm || (data.pricePeriod === "day" ? "short_term" : "long_term");
         setForm({
           title: data.title || "", description: data.description || "", type: data.type || "Apartment",
-          address: privateData.address || data.address || "", city: data.city || "", price: data.price || "", pricePeriod: data.pricePeriod || "month",
+          address: privateData.address || data.address || "", city: data.city || "", price: data.price || "",
+          listingPurpose, rentalTerm, pricePeriod: listingPurpose === "sale" ? "total" : rentalTerm === "short_term" ? "day" : "month",
           bedrooms: data.bedrooms ?? "", bathrooms: data.bathrooms ?? "", floorArea: data.floorArea || "", lotArea: data.lotArea || "",
           availabilityDate: data.availabilityDate || "", amenities: data.amenities || [], showingWindows: normalizeShowingWindows(data.showingWindows),
         });
         setMapLocation(data.mapLocation || null);
         setExistingPhotos(data.photoUrls || []);
-        setExistingDocuments({ ownership: data.ownershipDocumentPath || data.ownershipDocumentUrl || data.verificationDocUrl || null, governmentId: data.governmentIdPath || data.governmentIdUrl || null });
+        setExistingDocuments({
+          ownership: privateData.documents?.ownership || null,
+          governmentId: privateData.documents?.govId || null,
+          legacyOwnership: Boolean(privateData.ownershipDocumentUrl || data.ownershipDocumentPath || data.ownershipDocumentUrl || data.verificationDocUrl),
+          legacyGovernmentId: Boolean(privateData.governmentIdUrl || data.governmentIdPath || data.governmentIdUrl),
+        });
       }
       setLoading(false);
     }).catch(() => { setError("This listing could not be loaded."); setLoading(false); });
   }, [listingId, user.uid]);
 
   function updateField(event) { setForm((current) => ({ ...current, [event.target.name]: event.target.value })); }
+  function updateListingPurpose(listingPurpose) { setForm((current) => { const rentalTerm = current.rentalTerm || "long_term"; return { ...current, listingPurpose, rentalTerm, pricePeriod: listingPurpose === "sale" ? "total" : rentalTerm === "short_term" ? "day" : "month" }; }); }
+  function updateRentalTerm(rentalTerm) { setForm((current) => ({ ...current, rentalTerm, pricePeriod: rentalTerm === "short_term" ? "day" : "month" })); }
   function toggleAmenity(amenity) { setForm((current) => ({ ...current, amenities: current.amenities.includes(amenity) ? current.amenities.filter((item) => item !== amenity) : [...current.amenities, amenity] })); }
   function updateShowingWindow(day, field, value) { setForm((current) => ({ ...current, showingWindows: { ...current.showingWindows, [day]: { ...current.showingWindows[day], [field]: value } } })); }
 
@@ -63,23 +79,40 @@ export default function EditListing() {
     setSaving(true);
     setError("");
     try {
-      const [ownershipDocumentUrl, governmentIdUrl, uploadedPhotoUrls] = await Promise.all([
-        ownershipDocument ? uploadToCloudinary(ownershipDocument, "raw") : existingDocuments.ownership,
-        governmentId ? uploadToCloudinary(governmentId) : existingDocuments.governmentId,
-        Promise.all(newPhotos.map((photo) => uploadToCloudinary(photo))),
+      const ownershipResourceType = ownershipDocument && documentResourceType(ownershipDocument) === "raw" ? "raw" : "image";
+      const [ownershipSignature, governmentIdSignature, uploadedPhotoUrls] = await Promise.all([
+        ownershipDocument ? signPrivateDocumentUpload(listingId, "ownership", ownershipResourceType) : null,
+        governmentId ? signPrivateDocumentUpload(listingId, "govId", documentResourceType(governmentId) === "raw" ? "raw" : "image") : null,
+        Promise.all(newPhotos.map((photo) => uploadToCloudinary(photo, "auto", listingAssetOptions(listingId, "photos", "property-photo")))),
       ]);
+      const [uploadedOwnershipDocument, uploadedGovernmentId] = await Promise.all([
+        ownershipDocument ? uploadPrivateDocument(ownershipDocument, ownershipSignature, ownershipResourceType) : null,
+        governmentId ? uploadPrivateDocument(governmentId, governmentIdSignature, documentResourceType(governmentId) === "raw" ? "raw" : "image") : null,
+      ]);
+      const ownershipDocumentAsset = uploadedOwnershipDocument || (isDocumentAsset(existingDocuments.ownership) ? existingDocuments.ownership : null);
+      const governmentIdAsset = uploadedGovernmentId || (isDocumentAsset(existingDocuments.governmentId) ? existingDocuments.governmentId : null);
       const batch = writeBatch(db);
       batch.update(doc(db, "listings", listingId), {
-        title: form.title.trim(), description: form.description.trim(), type: form.type, address: deleteField(), city: form.city.trim(),
+        title: form.title.trim(), description: form.description.trim(), type: form.type, listingPurpose: form.listingPurpose,
+        rentalTerm: form.listingPurpose === "rent" ? form.rentalTerm : null, address: deleteField(),
+        ownershipDocumentUrl: deleteField(), governmentIdUrl: deleteField(), verificationDocUrl: deleteField(), city: form.city.trim(),
         mapLocation,
         price: Number(form.price), pricePeriod: form.pricePeriod, bedrooms: Number(form.bedrooms), bathrooms: Number(form.bathrooms),
         floorArea: form.floorArea ? Number(form.floorArea) : null, lotArea: form.lotArea ? Number(form.lotArea) : null,
         availabilityDate: form.availabilityDate, amenities: form.amenities, showingWindows: form.showingWindows,
-        photoUrls: [...existingPhotos, ...uploadedPhotoUrls], ownershipDocumentUrl: ownershipDocumentUrl, governmentIdUrl: governmentIdUrl, verificationStatus: "pending", resubmissionRequested: false, updatedAt: serverTimestamp(),
+        photoUrls: [...existingPhotos, ...uploadedPhotoUrls], verificationStatus: "pending", resubmissionRequested: false, updatedAt: serverTimestamp(),
       });
       batch.set(doc(db, "listingPrivate", listingId), {
         ownerId: user.uid,
         address: form.address.trim(),
+        ownershipDocumentUrl: deleteField(),
+        governmentIdUrl: deleteField(),
+        ...(ownershipDocumentAsset || governmentIdAsset ? {
+          documents: {
+            ...(ownershipDocumentAsset ? { ownership: ownershipDocumentAsset } : {}),
+            ...(governmentIdAsset ? { govId: governmentIdAsset } : {}),
+          },
+        } : {}),
         updatedAt: serverTimestamp(),
       }, { merge: true });
       await batch.commit();
@@ -108,6 +141,28 @@ export default function EditListing() {
                   <textarea id="edit-description" name="description" className="listing-form__textarea" rows={8} value={form.description} onChange={updateField} required />
                   <small className="listing-form__hint">{countWords(form.description)} words · recommended 150-400 words</small>
                 </div>
+                <div className="field listing-form__wide">
+                  <span className="field__label">Listing purpose</span>
+                  <div className="listing-form__purpose-options" role="radiogroup" aria-label="Listing purpose">
+                    <label className={`listing-form__purpose-option${form.listingPurpose === "rent" ? " listing-form__purpose-option--selected" : ""}`}>
+                      <input type="radio" name="editListingPurpose" value="rent" checked={form.listingPurpose === "rent"} onChange={() => updateListingPurpose("rent")} />
+                      <span><strong>For rent</strong><small>Short stays or long-term homes</small></span>
+                    </label>
+                    <label className={`listing-form__purpose-option${form.listingPurpose === "sale" ? " listing-form__purpose-option--selected" : ""}`}>
+                      <input type="radio" name="editListingPurpose" value="sale" checked={form.listingPurpose === "sale"} onChange={() => updateListingPurpose("sale")} />
+                      <span><strong>For sale</strong><small>One-time asking price</small></span>
+                    </label>
+                  </div>
+                </div>
+                {form.listingPurpose === "rent" && (
+                  <div className="field">
+                    <label className="field__label" htmlFor="edit-rentalTerm">Rental term</label>
+                    <select id="edit-rentalTerm" className="field__input" value={form.rentalTerm} onChange={(event) => updateRentalTerm(event.target.value)}>
+                      <option value="short_term">Short-term stay · per night</option>
+                      <option value="long_term">Long-term home · per month</option>
+                    </select>
+                  </div>
+                )}
                 <SelectField id="edit-type" name="type" label="Property type" value={form.type} onChange={updateField} options={PROPERTY_TYPES} />
                 <Field id="edit-address" name="address" label="Private address or area" value={form.address} onChange={updateField} />
                 <Field id="edit-city" name="city" label="City" value={form.city} onChange={updateField} />
@@ -116,8 +171,7 @@ export default function EditListing() {
                   <PropertyMap location={mapLocation} onLocationChange={setMapLocation} addressHint={form.address} />
                   {mapLocation && <button type="button" className="btn btn--secondary" onClick={() => setMapLocation(null)}>Remove map pin</button>}
                 </div>
-                <Field id="edit-price" name="price" label="Price" type="number" value={form.price} onChange={updateField} />
-                <SelectField id="edit-period" name="pricePeriod" label="Price period" value={form.pricePeriod} onChange={updateField} options={["month", "day"]} />
+                <Field id="edit-price" name="price" label={form.listingPurpose === "sale" ? "Asking price" : form.rentalTerm === "short_term" ? "Price per night" : "Price per month"} type="number" value={form.price} onChange={updateField} />
                 <Field id="edit-bedrooms" name="bedrooms" label="Bedrooms" type="number" value={form.bedrooms} onChange={updateField} />
                 <Field id="edit-bathrooms" name="bathrooms" label="Bathrooms" type="number" step="0.5" value={form.bathrooms} onChange={updateField} />
                 <Field id="edit-availability" name="availabilityDate" label="Available from" type="date" value={form.availabilityDate} onChange={updateField} />
@@ -138,8 +192,8 @@ export default function EditListing() {
               <p className="listing-form__hint">Keep at least 4 property photos. Existing documents remain valid unless replaced.</p>
               <div className="listing-form__uploads">
                 <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Additional property photos</span><small>{newPhotos.length ? `${newPhotos.length} selected` : `${existingPhotos.length} already saved`}</small><input type="file" accept="image/*" multiple onChange={(event) => setNewPhotos(Array.from(event.target.files || []).slice(0, 8))} /></label>
-                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Ownership document</span><small>{ownershipDocument?.name || (existingDocuments.ownership ? "Existing document saved" : "Required")}</small><input type="file" accept="image/*,.pdf" onChange={(event) => setOwnershipDocument(event.target.files?.[0] || null)} /></label>
-                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Government photo ID</span><small>{governmentId?.name || (existingDocuments.governmentId ? "Existing ID saved" : "Required")}</small><input type="file" accept="image/*" onChange={(event) => setGovernmentId(event.target.files?.[0] || null)} /></label>
+                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Ownership document</span><small>{ownershipDocument?.name || (existingDocuments.ownership ? "Existing private document saved" : existingDocuments.legacyOwnership ? "Re-upload required to protect this document" : "Required")}</small><input type="file" accept="image/*,.pdf" onChange={(event) => setOwnershipDocument(event.target.files?.[0] || null)} /></label>
+                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Government photo ID</span><small>{governmentId?.name || (existingDocuments.governmentId ? "Existing private ID saved" : existingDocuments.legacyGovernmentId ? "Re-upload required to protect this document" : "Required")}</small><input type="file" accept="image/*,.pdf" onChange={(event) => setGovernmentId(event.target.files?.[0] || null)} /></label>
               </div>
             </section>
             {error && <p className="user-page__form-error" role="alert">{error}</p>}
@@ -151,6 +205,11 @@ export default function EditListing() {
   );
 }
 
+function isDocumentAsset(value) {
+  return Boolean(value && typeof value === "object" && value.publicId && value.format && value.resourceType);
+}
+
 function Field({ id, name, label, value, onChange, type = "text", step, wide = false }) { return <div className={`field${wide ? " listing-form__wide" : ""}`}><label className="field__label" htmlFor={id}>{label}</label><input id={id} name={name} className="field__input" type={type} min={type === "number" ? "0" : undefined} step={step} value={value} onChange={onChange} required /></div>; }
 function SelectField({ id, name, label, value, onChange, options }) { return <div className="field"><label className="field__label" htmlFor={id}>{label}</label><select id={id} name={name} className="field__input" value={value} onChange={onChange} required>{options.map((option) => <option key={option}>{option}</option>)}</select></div>; }
 function normalizeShowingWindows(windows = {}) { return Object.fromEntries(SHOWING_DAYS.map((day) => [day, { enabled: Boolean(windows[day]?.enabled), start: windows[day]?.start || "09:00", end: windows[day]?.end || "17:00" }])); }
+function listingAssetOptions(id, assetFolder, assetType) { return { assetFolder: `trusthome/listings/${id}/${assetFolder}`, tags: ["trusthome", assetType] }; }

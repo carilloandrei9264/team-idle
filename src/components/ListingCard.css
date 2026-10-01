@@ -110,6 +110,12 @@ html.dark .listing-card__image-placeholder {
   color: var(--color-neutral-400);
   margin: 0;
 }
+.listing-card__purpose {
+  margin: 0;
+  color: var(--color-neutral-600);
+  font-size: 12px;
+  font-weight: 600;
+}
 
 /* Price pinned to bottom */
 .listing-card__price {
@@ -127,5 +133,7 @@ html.dark .listing-card__image-placeholder {
 .listing-card__period {
   font-size: 12px;
   font-weight: 400;
-  /* inherits gradient — intentional */
+  margin-left: 4px;
+  -webkit-text-fill-color: initial;
+  color: var(--color-neutral-600);
 }

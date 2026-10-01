@@ -47,6 +47,8 @@ export default function ListingDetail() {
   }, [listingId]);
 
   const isOwner = listing && user?.uid === listing.ownerId;
+  const isSale = listing?.listingPurpose === "sale";
+  const priceBasis = isSale ? "asking price" : listing?.rentalTerm === "short_term" || listing?.pricePeriod === "day" ? "per night" : "per month";
 
   return (
     <div className="user-page">
@@ -73,11 +75,11 @@ export default function ListingDetail() {
                 </div>
                 {isOwner && <Link to={`/listings/${listing.id}/edit`} className="btn btn--secondary"><Pencil size={15} aria-hidden="true" /> Edit</Link>}
               </div>
-              <p className="listing-detail__price">{formatCurrency(listing.price)} <span>/{listing.pricePeriod || "month"}</span></p>
-              <div className="listing-detail__facts" aria-label="Trust and fairness summary">
+              <p className="listing-detail__price">{formatCurrency(listing.price)} <span>{priceBasis}</span></p>
+              {!isSale && <div className="listing-detail__facts" aria-label="Trust and fairness summary">
                 <span>Trust score <strong>{trustScore ? `${(Number(trustScore.score) * 5).toFixed(1)} / 5` : "Building history"}</strong></span>
                 <span>Price fairness <strong>{trustScore?.priceFairnessLabel || "Insufficient data"}</strong></span>
-              </div>
+              </div>}
               <p className="listing-detail__description">{listing.description || "No description provided."}</p>
               {isValidMapLocation(listing.mapLocation) && (
                 <section className="listing-detail__map" aria-labelledby="listing-map-title">
@@ -92,13 +94,14 @@ export default function ListingDetail() {
                 </div>
               )}
               <div className="listing-detail__facts">
+                <span>Purpose <strong>{isSale ? "For sale" : listing.rentalTerm === "short_term" || listing.pricePeriod === "day" ? "Short-term rental" : "Long-term rental"}</strong></span>
                 <span>Type <strong>{listing.type || "Not specified"}</strong></span>
                 <span>Floor area <strong>{listing.floorArea ? `${listing.floorArea} sqm` : "Not specified"}</strong></span>
                 <span>Lot area <strong>{listing.lotArea ? `${listing.lotArea} sqm` : "Not specified"}</strong></span>
               </div>
               {listing.verificationStatus === "verified" && <>
                 <p className="listing-detail__verified"><ShieldCheck size={16} aria-hidden="true" /> Ownership document reviewed by TrustHome</p>
-                {!isOwner && user && <Link to={`/listings/${listing.id}/book`} className="btn btn--primary">Request booking</Link>}
+                {!isSale && !isOwner && user && <Link to={`/listings/${listing.id}/book`} className="btn btn--primary">Request booking</Link>}
               </>}
               <section className="listing-detail__reviews" aria-labelledby="listing-reviews-title">
                 <h2 id="listing-reviews-title">Reviews</h2>

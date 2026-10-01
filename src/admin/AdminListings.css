@@ -86,6 +86,13 @@
   display: grid;
   gap: var(--space-2);
 }
+.review-card__documents {
+  display: grid;
+  gap: var(--space-3);
+}
+.review-card__documents > .review-card__label {
+  margin-bottom: 0;
+}
 .review-card__pdf {
   width: 100%;
   height: 320px;
@@ -103,12 +110,22 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-2);
 }
-.review-card__photo {
-  width: 100%;
+.review-card__photo-link {
+  display: block;
   aspect-ratio: 4 / 3;
-  object-fit: cover;
+  overflow: hidden;
   border: 1px solid var(--color-neutral-200);
   border-radius: var(--radius-input);
+}
+.review-card__photo-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.review-card__photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   background: var(--color-neutral-50);
 }
 .review-card__match {

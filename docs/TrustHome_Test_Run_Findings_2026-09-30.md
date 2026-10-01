@@ -175,3 +175,15 @@ An unauthenticated Firestore read of a verified synthetic listing returned its `
 4. Hide suspended owners' listings and fix the bank catalog's 800-899px filter breakpoint.
 5. Review scraper data quality and loan currency formatting; add confirmation to account suspension.
 6. Continue the remaining workbook cases, starting with blocked security cases and the end-to-end renter-owner-admin flow.
+
+## Follow-up (2026-10-01)
+
+- A generated 1x1 PNG was uploaded through the real `uploadToCloudinary` helper and `trusthome_uploads` preset. Cloudinary returned HTTP 200, `asset_folder=trusthome/_smoke-test`, and the expected `trusthome,smoke-test` tags. The synthetic test asset remains in that folder for cleanup; no existing asset was opened or deleted.
+- The Cloudinary account uses Dynamic Folders. The `trusthome` and `trusthome/legacy-unclassified` folders were created. The 11 reported root-level assets were not moved; foldering is organizational and does not restrict delivery.
+- New create/edit writes now put verification URLs in the owner/admin-restricted `listingPrivate` document. Admin review reads that record and removes legacy public URL fields when it makes a decision. A dry-run-first migration was added at `bank_scraper/migrate_verification_documents.py` and four fake-Firestore migration tests pass.
+- The updated Firestore rules compiled in the local emulator, and five emulator tests passed for private-record access, rejection of public URL writes, owner/admin cleanup of legacy fields, and denial of direct owner booking confirmation. These Oct 1 rules have not been deployed to `trusthome-ph`; no live migration was applied.
+- F-16 remains open: existing public listing records require migration, and Cloudinary file delivery itself is still public when a URL is known. Do not upload real identity or ownership documents until delivery access is restricted and tested.
+- F-05 remains open in the deployed app. Source now uses an authenticated `confirmBooking` callable with a per-listing transaction lock and removes the direct owner update rule. The Functions emulator test rejected an existing overlap and allowed only one of two concurrent overlapping requests to confirm, handing the exact address to the winning renter. The emulator used host Node 24 while `functions/package.json` targets Node 20; repeat under Node 20 before deployment. The callable has not been deployed or tested against the live project; deployment may require Blaze approval.
+- The local create-listing route redirected to sign-in, so the photo/PDF preview workflow was not manually exercised in the browser. The production build and automated suite are the current code-level checks.
+- The current automated gates pass: 43 Node tests, 21 Python tests, ESLint, production build, and npm audit (0 vulnerabilities).
+- The workbook remains unchanged: 166 cases are currently 6 Passed, 27 Passed (Dev), 27 Blocked, 103 Not Run, 1 Failed, and 2 Retired. `TC-MAP-003` remains marked Failed in the workbook; the Sep 30 run separately recorded that the exact-address shortcut rendered. F-01 credential revocation/history exposure remain unverified.

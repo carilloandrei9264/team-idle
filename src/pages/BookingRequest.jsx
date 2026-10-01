@@ -24,7 +24,8 @@ export default function BookingRequest() {
 
   useEffect(() => {
     getDoc(doc(db, "listings", listingId)).then((snapshot) => {
-      if (snapshot.exists() && snapshot.data().verificationStatus === "verified") setListing({ id: snapshot.id, ...snapshot.data() });
+      if (snapshot.exists() && snapshot.data().verificationStatus === "verified" && snapshot.data().listingPurpose !== "sale") setListing({ id: snapshot.id, ...snapshot.data() });
+      else if (snapshot.exists() && snapshot.data().listingPurpose === "sale") setError("This property is for sale and does not accept booking requests.");
       else setError("This verified listing could not be found.");
       setLoading(false);
     }).catch(() => { setError("This listing could not be loaded."); setLoading(false); });
@@ -54,6 +55,8 @@ export default function BookingRequest() {
         ownerName: listing.ownerName || "Property owner",
         renterId: user.uid,
         renterName: profile?.name || user.displayName || user.email,
+        listingPurpose: listing.listingPurpose || "rent",
+        rentalTerm: listing.rentalTerm || (listing.pricePeriod === "day" ? "short_term" : "long_term"),
         startDate: dateInputToTimestamp(startDate),
         endDate: dateInputToTimestamp(endDate),
         price: listing.price ?? null,

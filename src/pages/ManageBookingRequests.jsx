@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
 import { Check } from "lucide-react";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
-import { hasConfirmedConflict, toDate } from "../lib/booking";
-import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
+import { bookingConfirmationErrorMessage, toDate } from "../lib/booking";
+import { confirmBooking } from "../services/api";
 import "./UserPages.css";
 
 export default function ManageBookingRequests() {
@@ -32,44 +32,16 @@ export default function ManageBookingRequests() {
     setMessage("");
     try {
       if (status === "Confirmed") {
-        const ownerSnapshot = await getDocs(query(collection(db, "bookings"), where("ownerId", "==", user.uid)));
-        const confirmedBookings = ownerSnapshot.docs
-          .filter((item) => item.id !== request.id && item.data().listingId === request.listingId && item.data().status === "Confirmed")
-          .map((item) => item.data());
-        if (hasConfirmedConflict(confirmedBookings, request.startDate, request.endDate)) throw new Error("BOOKING_CONFLICT");
-
-        const privateListing = await getDoc(doc(db, "listingPrivate", request.listingId));
-        const privateAddress = privateListing.exists() ? privateListing.data().address : "";
-        const bookingUpdates = {
-          status,
-          updatedAt: serverTimestamp(),
-          confirmedAt: serverTimestamp(),
-          ...(privateAddress ? { address: privateAddress } : {}),
-        };
-
-        await updateDoc(doc(db, "bookings", request.id), bookingUpdates);
-        try {
-          await createNotification(db, {
-            recipientId: request.renterId,
-            createdBy: user.uid,
-            type: NOTIFICATION_TYPES.BOOKING_UPDATE,
-            title: "Booking request confirmed",
-            message: `${request.listingTitle || "Your booking"} has been confirmed by the owner.`,
-            link: "/my-bookings",
-            entityId: request.id,
-            entityType: "booking",
-          });
-        } catch {
-          // The booking update remains valid if notification delivery is unavailable.
-        }
+        await confirmBooking(request.id);
         setMessage("Booking request confirmed.");
       } else if (status === "Completed") {
         await updateDoc(doc(db, "bookings", request.id), { status, updatedAt: serverTimestamp(), completedAt: serverTimestamp() });
         setMessage("Booking marked as completed.");
       }
     } catch (updateError) {
-      const code = updateError?.code ? ` (${updateError.code})` : "";
-      setError(updateError.message === "BOOKING_CONFLICT" ? "This request overlaps an existing confirmed booking." : `${updateError.message || "The booking request could not be updated."}${code}`);
+      setError(status === "Confirmed"
+        ? bookingConfirmationErrorMessage(updateError)
+        : `${updateError.message || "The booking request could not be updated."}${updateError?.code ? ` (${updateError.code})` : ""}`);
     }
   }
 

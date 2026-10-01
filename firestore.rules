@@ -30,6 +30,54 @@ service cloud.firestore {
           && data.mapLocation.geohash.matches('^[0123456789bcdefghjkmnpqrstuvwxyz]{5}$'));
     }
 
+    function hasValidDocumentAsset(asset, listingId, kind, resourceTypes) {
+      return asset is map
+        && asset.keys().hasOnly(['publicId', 'format', 'resourceType'])
+        && asset.publicId is string
+        && asset.publicId.matches('^trusthome_private_' + listingId + '_' + kind + '_[A-Za-z0-9-]{36}$')
+        && asset.format is string
+        && asset.format.matches('^[A-Za-z0-9]{1,10}$')
+        && asset.resourceType in resourceTypes;
+    }
+
+    function hasValidPrivateDocuments(data, listingId) {
+      return !data.keys().hasAny(['documents'])
+        || (data.documents is map
+          && data.documents.keys().hasOnly(['ownership', 'govId'])
+          && (!data.documents.keys().hasAny(['ownership'])
+            || hasValidDocumentAsset(data.documents.ownership, listingId, 'ownership', ['image', 'raw']))
+          && (!data.documents.keys().hasAny(['govId'])
+            || hasValidDocumentAsset(data.documents.govId, listingId, 'govId', ['image', 'raw'])));
+    }
+
+    function hasNoLegacyPrivateDocumentUrls(data) {
+      return !data.keys().hasAny(['ownershipDocumentUrl', 'governmentIdUrl']);
+    }
+
+    function hasRequiredPrivateDocumentsForPendingListing(data, listingId) {
+      return getAfter(/databases/$(database)/documents/listings/$(listingId)).data.verificationStatus != 'pending'
+        || (data.documents is map
+          && data.documents.keys().hasAll(['ownership', 'govId'])
+          && hasValidDocumentAsset(data.documents.ownership, listingId, 'ownership', ['image', 'raw'])
+          && hasValidDocumentAsset(data.documents.govId, listingId, 'govId', ['image', 'raw']));
+    }
+
+    function hasNoPublicVerificationUrls(data) {
+      return !data.keys().hasAny(['verificationDocUrl', 'ownershipDocumentUrl', 'governmentIdUrl']);
+    }
+
+    function hasValidListingPurpose(data) {
+      return !data.keys().hasAny(['listingPurpose'])
+        || (data.listingPurpose in ['rent', 'sale']
+          && (data.listingPurpose == 'sale'
+            ? data.rentalTerm == null
+            : data.rentalTerm in ['short_term', 'long_term']));
+    }
+
+    function hasExplicitListingPurpose(data) {
+      return data.keys().hasAny(['listingPurpose']) && hasValidListingPurpose(data);
+    }
+
     // User profiles are private to the account owner and admins.
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
@@ -54,6 +102,8 @@ service cloud.firestore {
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.verificationStatus == 'pending'
         && !request.resource.data.keys().hasAny(['address'])
+        && hasExplicitListingPurpose(request.resource.data)
+        && hasNoPublicVerificationUrls(request.resource.data)
         && hasValidPublicMapLocation(request.resource.data);
 
       // Admins control verification fields. Owners may edit their own listing
@@ -62,15 +112,17 @@ service cloud.firestore {
         || (isActiveUser()
           && isOwner(resource.data.ownerId)
           && request.resource.data.ownerId == resource.data.ownerId
+          && hasValidListingPurpose(request.resource.data)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'title', 'description', 'type', 'city', 'price', 'pricePeriod', 'mapLocation',
+            'title', 'description', 'type', 'listingPurpose', 'rentalTerm', 'city', 'price', 'pricePeriod', 'mapLocation',
             'bedrooms', 'bathrooms', 'floorArea', 'lotArea', 'availabilityDate',
-            'amenities', 'showingWindows', 'photoUrls', 'verificationDocUrl', 'ownershipDocumentUrl',
-            'governmentIdUrl', 'resubmissionRequested',
+            'amenities', 'showingWindows', 'photoUrls', 'verificationDocUrl',
+            'ownershipDocumentUrl', 'governmentIdUrl', 'resubmissionRequested',
             'verificationStatus', 'updatedAt'
           ])
           && request.resource.data.verificationStatus == 'pending'
           && !request.resource.data.keys().hasAny(['address'])
+          && hasNoPublicVerificationUrls(request.resource.data)
           && hasValidPublicMapLocation(request.resource.data));
 
       allow delete: if isAdmin()
@@ -83,15 +135,32 @@ service cloud.firestore {
       allow read: if isActiveUser()
         && (isAdmin() || isOwner(resource.data.ownerId));
       allow create: if isActiveUser()
-        && isOwner(request.resource.data.ownerId)
-        && request.resource.data.address is string
-        && request.resource.data.address.size() > 0
-        && getAfter(/databases/$(database)/documents/listings/$(listingId)).data.ownerId == request.auth.uid;
+        && request.resource.data.keys().hasOnly([
+          'ownerId', 'address', 'documents', 'updatedAt'
+        ])
+        && hasValidPrivateDocuments(request.resource.data, listingId)
+        && hasNoLegacyPrivateDocumentUrls(request.resource.data)
+        && hasRequiredPrivateDocumentsForPendingListing(request.resource.data, listingId)
+        && ((isOwner(request.resource.data.ownerId)
+            && request.resource.data.address is string
+            && request.resource.data.address.size() > 0
+            && getAfter(/databases/$(database)/documents/listings/$(listingId)).data.ownerId == request.auth.uid)
+          || (isAdmin()
+            && request.resource.data.ownerId == get(/databases/$(database)/documents/listings/$(listingId)).data.ownerId));
       allow update: if isAdmin()
         || (isActiveUser()
           && isOwner(resource.data.ownerId)
           && request.resource.data.ownerId == resource.data.ownerId
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['address', 'updatedAt'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'address', 'documents', 'ownershipDocumentUrl', 'governmentIdUrl', 'updatedAt'
+          ])
+          && hasValidPrivateDocuments(request.resource.data, listingId)
+          && hasNoLegacyPrivateDocumentUrls(request.resource.data)
+          && (hasRequiredPrivateDocumentsForPendingListing(request.resource.data, listingId)
+            || (request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'ownershipDocumentUrl', 'governmentIdUrl'
+            ])
+              && hasNoLegacyPrivateDocumentUrls(request.resource.data)))
           && request.resource.data.address is string
           && request.resource.data.address.size() > 0);
       allow delete: if isAdmin() || (isActiveUser() && isOwner(resource.data.ownerId));
@@ -116,6 +185,8 @@ service cloud.firestore {
         && request.resource.data.startDate < request.resource.data.endDate
         && request.resource.data.listingId is string
         && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.verificationStatus == 'verified'
+        && (!get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.keys().hasAny(['listingPurpose'])
+          || get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.listingPurpose == 'rent')
         && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.ownerId == request.resource.data.ownerId;
       allow update: if isAdmin()
         || (isActiveUser() && resource.data.renterId == request.auth.uid
@@ -130,12 +201,6 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'status', 'disputedAt', 'disputeId', 'updatedAt'
           ]))
-        || (isActiveUser() && resource.data.ownerId == request.auth.uid
-          && resource.data.status == 'Pending'
-          && request.resource.data.status == 'Confirmed'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'address', 'confirmedAt', 'updatedAt'])
-          && request.resource.data.address is string
-          && request.resource.data.address.size() > 0)
         || (isActiveUser() && resource.data.renterId == request.auth.uid
           && resource.data.status == 'Confirmed'
           && request.resource.data.status == 'Confirmed'
@@ -207,7 +272,7 @@ service cloud.firestore {
 
     function canAccessNotification(recipientId, type) {
       return isActiveUser()
-        && ((isAdmin() && recipientId == '__admins__' && type == 'dispute_update')
+        && ((isAdmin() && recipientId == '__admins__' && type in ['dispute_update', 'listing_submitted'])
           || (!isAdmin() && recipientId == request.auth.uid));
     }
 
@@ -232,6 +297,12 @@ service cloud.firestore {
             && request.resource.data.entityId is string
             && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.ownerId == request.auth.uid
             && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.renterId == request.resource.data.recipientId)
+          || (!isAdmin() && request.resource.data.recipientId == '__admins__'
+            && request.resource.data.type == 'listing_submitted'
+            && request.resource.data.entityType == 'listing'
+            && request.resource.data.entityId is string
+            && getAfter(/databases/$(database)/documents/listings/$(request.resource.data.entityId)).data.ownerId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/listings/$(request.resource.data.entityId)).data.verificationStatus == 'pending')
           || (!isAdmin() && request.resource.data.recipientId == '__admins__'
             && request.resource.data.type == 'dispute_update'
             && request.resource.data.entityType == 'dispute'
