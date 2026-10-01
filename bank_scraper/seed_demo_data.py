@@ -56,6 +56,8 @@ def build_listing(listing_id, owner_id, title, city, property_type, price, floor
         "title": title,
         "description": "Synthetic demo listing for testing TrustHome workflows. Not a real property offer.",
         "type": property_type,
+        "listingPurpose": "rent",
+        "rentalTerm": "long_term",
         "city": city,
         "price": price,
         "pricePeriod": "month",

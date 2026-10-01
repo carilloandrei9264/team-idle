@@ -38,6 +38,8 @@ def recompute_trust_scores():
     writes = []
 
     for listing in listings:
+        if listing.get("listingPurpose", "rent") == "sale":
+            continue
         listing_id = listing["id"]
         listing_bookings = completed_by_listing.get(listing_id, [])
         listing_ratings = ratings_by_listing.get(listing_id, [])
@@ -77,6 +79,8 @@ def recompute_trust_scores():
 
 
 def calculate_fairness(listing, listings):
+    if listing.get("listingPurpose", "rent") == "sale":
+        return 0, "Not applicable"
     listing_area = float(listing.get("floorArea") or 0)
     listing_price = float(listing.get("price") or 0)
     if listing_area <= 0 or listing_price <= 0:
@@ -89,6 +93,10 @@ def calculate_fairness(listing, listings):
         if candidate["id"] == listing["id"] or candidate_area <= 0 or candidate_price <= 0:
             continue
         if candidate.get("city") != listing.get("city") or candidate.get("type") != listing.get("type"):
+            continue
+        if candidate.get("listingPurpose", "rent") == "sale":
+            continue
+        if candidate.get("pricePeriod", "month") != listing.get("pricePeriod", "month"):
             continue
         if abs(candidate_area - listing_area) / listing_area <= 0.2:
             comparable_prices.append(candidate_price / candidate_area)

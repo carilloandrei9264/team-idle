@@ -17,6 +17,31 @@ class TrustScoreTests(unittest.TestCase):
         self.assertEqual(score, 0)
         self.assertEqual(label, "Insufficient data")
 
+    def test_sale_listing_does_not_receive_a_rental_fairness_score(self):
+        score, label = calculate_fairness(
+            {"id": "sale-1", "listingPurpose": "sale", "city": "Cebu", "type": "Room", "price": 2500000, "floorArea": 20},
+            [{"id": "rent-1", "city": "Cebu", "type": "Room", "price": 12000, "floorArea": 20}],
+        )
+
+        self.assertEqual(score, 0)
+        self.assertEqual(label, "Not applicable")
+
+    def test_sale_and_different_rental_periods_do_not_affect_rent_comparisons(self):
+        listing = {
+            "id": "rent-1", "listingPurpose": "rent", "rentalTerm": "long_term",
+            "pricePeriod": "month", "city": "Cebu", "type": "Apartment", "price": 20000, "floorArea": 20,
+        }
+        comparables = [
+            {"id": "rent-2", "listingPurpose": "rent", "pricePeriod": "month", "city": "Cebu", "type": "Apartment", "price": 20000, "floorArea": 20},
+            {"id": "rent-short", "listingPurpose": "rent", "pricePeriod": "day", "city": "Cebu", "type": "Apartment", "price": 2000, "floorArea": 20},
+            {"id": "sale-1", "listingPurpose": "sale", "pricePeriod": "total", "city": "Cebu", "type": "Apartment", "price": 60000, "floorArea": 20},
+        ]
+
+        score, label = calculate_fairness(listing, [listing, *comparables])
+
+        self.assertEqual(score, 0.8)
+        self.assertEqual(label, "At market")
+
     def test_self_booking_pattern_requires_three_completed_bookings(self):
         bookings = [
             {

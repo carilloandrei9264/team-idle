@@ -17,11 +17,21 @@ before(async () => {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
     await setDoc(doc(db, "users", "owner-1"), { role: "user", status: "active" });
+    await setDoc(doc(db, "users", "renter-1"), { role: "user", status: "active" });
     await setDoc(doc(db, "users", "admin-1"), { role: "admin", status: "active" });
     await setDoc(doc(db, "listings", "verified-1"), {
       ownerId: "owner-1",
       title: "Synthetic verified listing",
       verificationStatus: "verified",
+      listingPurpose: "rent",
+      rentalTerm: "long_term",
+    });
+    await setDoc(doc(db, "listings", "sale-1"), {
+      ownerId: "owner-1",
+      title: "Synthetic sale listing",
+      verificationStatus: "verified",
+      listingPurpose: "sale",
+      rentalTerm: null,
     });
   });
 });
@@ -40,6 +50,8 @@ test("verification URLs stay private while verified listing details remain publi
     ownerId: "owner-1",
     title: "Synthetic pending listing",
     verificationStatus: "pending",
+    listingPurpose: "rent",
+    rentalTerm: "long_term",
     mapLocation: null,
   });
   batch.set(doc(ownerDb, "listingPrivate", "new-1"), {
@@ -143,5 +155,72 @@ test("owners cannot confirm bookings with a direct Firestore update", async () =
     address: "Synthetic address",
     confirmedAt: new Date(),
     updatedAt: new Date(),
+  }));
+});
+
+test("a pending listing can atomically notify admins for review", async () => {
+  const ownerDb = testEnvironment.authenticatedContext("owner-1").firestore();
+  const adminDb = testEnvironment.authenticatedContext("admin-1").firestore();
+  const publicDb = testEnvironment.unauthenticatedContext().firestore();
+  const batch = writeBatch(ownerDb);
+
+  batch.set(doc(ownerDb, "listings", "listing-alert-1"), {
+    ownerId: "owner-1",
+    title: "Synthetic listing for alert",
+    verificationStatus: "pending",
+    listingPurpose: "rent",
+    rentalTerm: "long_term",
+    mapLocation: null,
+  });
+  batch.set(doc(ownerDb, "listingPrivate", "listing-alert-1"), {
+    ownerId: "owner-1",
+    address: "Synthetic address",
+    updatedAt: new Date(),
+  });
+  batch.set(doc(ownerDb, "notifications", "listing-alert-1"), {
+    recipientId: "__admins__",
+    createdBy: "owner-1",
+    type: "listing_submitted",
+    title: "New listing submitted for review",
+    message: "Synthetic listing for alert was submitted.",
+    link: "/admin/listings?listingId=listing-alert-1",
+    entityId: "listing-alert-1",
+    entityType: "listing",
+    read: false,
+    createdAt: new Date(),
+  });
+
+  await assertSucceeds(batch.commit());
+  await assertSucceeds(getDoc(doc(adminDb, "notifications", "listing-alert-1")));
+  await assertFails(getDoc(doc(publicDb, "notifications", "listing-alert-1")));
+  await assertFails(setDoc(doc(ownerDb, "notifications", "orphan-listing-alert"), {
+    recipientId: "__admins__",
+    createdBy: "owner-1",
+    type: "listing_submitted",
+    title: "Orphan alert",
+    message: "No matching pending listing.",
+    entityId: "missing-listing",
+    entityType: "listing",
+    read: false,
+  }));
+});
+
+test("renter booking creates are allowed for rentals and denied for sale listings", async () => {
+  const renterDb = testEnvironment.authenticatedContext("renter-1").firestore();
+  const bookingData = {
+    ownerId: "owner-1",
+    renterId: "renter-1",
+    status: "Pending",
+    startDate: Timestamp.fromDate(new Date("2026-10-10T00:00:00Z")),
+    endDate: Timestamp.fromDate(new Date("2026-10-12T00:00:00Z")),
+  };
+
+  await assertSucceeds(setDoc(doc(renterDb, "bookings", "rent-booking-1"), {
+    ...bookingData,
+    listingId: "verified-1",
+  }));
+  await assertFails(setDoc(doc(renterDb, "bookings", "sale-booking-1"), {
+    ...bookingData,
+    listingId: "sale-1",
   }));
 });

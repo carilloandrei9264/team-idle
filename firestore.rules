@@ -34,6 +34,18 @@ service cloud.firestore {
       return !data.keys().hasAny(['verificationDocUrl', 'ownershipDocumentUrl', 'governmentIdUrl']);
     }
 
+    function hasValidListingPurpose(data) {
+      return !data.keys().hasAny(['listingPurpose'])
+        || (data.listingPurpose in ['rent', 'sale']
+          && (data.listingPurpose == 'sale'
+            ? data.rentalTerm == null
+            : data.rentalTerm in ['short_term', 'long_term']));
+    }
+
+    function hasExplicitListingPurpose(data) {
+      return data.keys().hasAny(['listingPurpose']) && hasValidListingPurpose(data);
+    }
+
     // User profiles are private to the account owner and admins.
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
@@ -58,6 +70,7 @@ service cloud.firestore {
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.verificationStatus == 'pending'
         && !request.resource.data.keys().hasAny(['address'])
+        && hasExplicitListingPurpose(request.resource.data)
         && hasNoPublicVerificationUrls(request.resource.data)
         && hasValidPublicMapLocation(request.resource.data);
 
@@ -67,8 +80,9 @@ service cloud.firestore {
         || (isActiveUser()
           && isOwner(resource.data.ownerId)
           && request.resource.data.ownerId == resource.data.ownerId
+          && hasValidListingPurpose(request.resource.data)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'title', 'description', 'type', 'city', 'price', 'pricePeriod', 'mapLocation',
+            'title', 'description', 'type', 'listingPurpose', 'rentalTerm', 'city', 'price', 'pricePeriod', 'mapLocation',
             'bedrooms', 'bathrooms', 'floorArea', 'lotArea', 'availabilityDate',
             'amenities', 'showingWindows', 'photoUrls', 'verificationDocUrl',
             'ownershipDocumentUrl', 'governmentIdUrl', 'resubmissionRequested',
@@ -131,6 +145,8 @@ service cloud.firestore {
         && request.resource.data.startDate < request.resource.data.endDate
         && request.resource.data.listingId is string
         && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.verificationStatus == 'verified'
+        && (!get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.keys().hasAny(['listingPurpose'])
+          || get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.listingPurpose == 'rent')
         && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.ownerId == request.resource.data.ownerId;
       allow update: if isAdmin()
         || (isActiveUser() && resource.data.renterId == request.auth.uid
@@ -216,7 +232,7 @@ service cloud.firestore {
 
     function canAccessNotification(recipientId, type) {
       return isActiveUser()
-        && ((isAdmin() && recipientId == '__admins__' && type == 'dispute_update')
+        && ((isAdmin() && recipientId == '__admins__' && type in ['dispute_update', 'listing_submitted'])
           || (!isAdmin() && recipientId == request.auth.uid));
     }
 
@@ -241,6 +257,12 @@ service cloud.firestore {
             && request.resource.data.entityId is string
             && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.ownerId == request.auth.uid
             && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.renterId == request.resource.data.recipientId)
+          || (!isAdmin() && request.resource.data.recipientId == '__admins__'
+            && request.resource.data.type == 'listing_submitted'
+            && request.resource.data.entityType == 'listing'
+            && request.resource.data.entityId is string
+            && get(/databases/$(database)/documents/listings/$(request.resource.data.entityId)).data.ownerId == request.auth.uid
+            && get(/databases/$(database)/documents/listings/$(request.resource.data.entityId)).data.verificationStatus == 'pending')
           || (!isAdmin() && request.resource.data.recipientId == '__admins__'
             && request.resource.data.type == 'dispute_update'
             && request.resource.data.entityType == 'dispute'

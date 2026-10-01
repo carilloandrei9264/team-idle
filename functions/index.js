@@ -55,7 +55,8 @@ exports.confirmBooking = onCall({ region: "asia-southeast1" }, async (request) =
 
     if (!listingSnapshot.exists
       || listingSnapshot.data().verificationStatus !== "verified"
-      || listingSnapshot.data().ownerId !== ownerId) {
+      || listingSnapshot.data().ownerId !== ownerId
+      || listingSnapshot.data().listingPurpose === "sale") {
       throw new HttpsError("failed-precondition", "This listing is no longer available for booking.");
     }
     if (!privateSnapshot.exists
@@ -113,6 +114,7 @@ exports.recomputeTrustScores = onSchedule("every day 02:00", async () => {
 
   for (const listing of listings.docs) {
     const data = listing.data();
+    if (data.listingPurpose === "sale") continue;
     const [completed, ratings, comparable] = await Promise.all([
       db.collection("bookings").where("listingId", "==", listing.id).where("status", "==", "Completed").get(),
       db.collection("ratings").where("listingId", "==", listing.id).get(),
@@ -137,6 +139,8 @@ exports.recomputeTrustScores = onSchedule("every day 02:00", async () => {
     const price = Number(data.price);
     const comparablePrices = comparable.docs
       .map((item) => item.data())
+      .filter((item) => item.listingPurpose !== "sale")
+      .filter((item) => (item.pricePeriod || "month") === (data.pricePeriod || "month"))
       .filter((item) => floorArea > 0 && Number(item.floorArea) > 0)
       .filter((item) => Math.abs(Number(item.floorArea) - floorArea) / floorArea <= 0.2)
       .map((item) => Number(item.price) / Number(item.floorArea))

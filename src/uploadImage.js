@@ -1,6 +1,10 @@
 const CLOUD_NAME = "v6pkogdi";
 const UPLOAD_PRESET = "trusthome_uploads";
 
+export function documentResourceType(file) {
+  return file?.type === "application/pdf" || file?.name?.toLowerCase().endsWith(".pdf") ? "raw" : "auto";
+}
+
 export async function uploadToCloudinary(file, resourceType = "auto", { assetFolder, tags = [] } = {}) {
   const formData = new FormData();
   formData.append("file", file);

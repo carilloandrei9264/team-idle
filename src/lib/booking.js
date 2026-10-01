@@ -47,6 +47,13 @@ export function canRevealExactAddress(status) {
   return ["Confirmed", "Completed", "Disputed"].includes(status);
 }
 
+export function bookingConfirmationErrorMessage(error) {
+  if (["functions/internal", "functions/not-found", "functions/unavailable", "functions/network-request-failed"].includes(error?.code)) {
+    return "The booking confirmation service is unavailable. Refresh to check the request status, then try again or contact support.";
+  }
+  return error?.message || "The booking request could not be updated. Please try again.";
+}
+
 export function dateInputToTimestamp(value) {
   return Timestamp.fromDate(new Date(`${value}T00:00:00`));
 }

@@ -7,10 +7,10 @@ import PropertyMap from "../components/PropertyMap";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { countWords, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
-import { uploadToCloudinary } from "../uploadImage";
+import { documentResourceType, uploadToCloudinary } from "../uploadImage";
 import "./UserPages.css";
 
-const PROPERTY_TYPES = ["Room", "Studio", "Apartment", "House", "Condo"];
+const PROPERTY_TYPES = ["Room", "Studio", "Apartment", "House", "Condo", "Land"];
 const AMENITIES = ["Parking", "WiFi", "Furnished", "Pets allowed", "Air conditioning", "Security"];
 
 export default function EditListing() {
@@ -38,9 +38,12 @@ export default function EditListing() {
       else {
         const data = snapshot.data();
         const privateData = privateSnapshot.exists() ? privateSnapshot.data() : {};
+        const listingPurpose = data.listingPurpose || "rent";
+        const rentalTerm = data.rentalTerm || (data.pricePeriod === "day" ? "short_term" : "long_term");
         setForm({
           title: data.title || "", description: data.description || "", type: data.type || "Apartment",
-          address: privateData.address || data.address || "", city: data.city || "", price: data.price || "", pricePeriod: data.pricePeriod || "month",
+          address: privateData.address || data.address || "", city: data.city || "", price: data.price || "",
+          listingPurpose, rentalTerm, pricePeriod: listingPurpose === "sale" ? "total" : rentalTerm === "short_term" ? "day" : "month",
           bedrooms: data.bedrooms ?? "", bathrooms: data.bathrooms ?? "", floorArea: data.floorArea || "", lotArea: data.lotArea || "",
           availabilityDate: data.availabilityDate || "", amenities: data.amenities || [], showingWindows: normalizeShowingWindows(data.showingWindows),
         });
@@ -56,6 +59,8 @@ export default function EditListing() {
   }, [listingId, user.uid]);
 
   function updateField(event) { setForm((current) => ({ ...current, [event.target.name]: event.target.value })); }
+  function updateListingPurpose(listingPurpose) { setForm((current) => { const rentalTerm = current.rentalTerm || "long_term"; return { ...current, listingPurpose, rentalTerm, pricePeriod: listingPurpose === "sale" ? "total" : rentalTerm === "short_term" ? "day" : "month" }; }); }
+  function updateRentalTerm(rentalTerm) { setForm((current) => ({ ...current, rentalTerm, pricePeriod: rentalTerm === "short_term" ? "day" : "month" })); }
   function toggleAmenity(amenity) { setForm((current) => ({ ...current, amenities: current.amenities.includes(amenity) ? current.amenities.filter((item) => item !== amenity) : [...current.amenities, amenity] })); }
   function updateShowingWindow(day, field, value) { setForm((current) => ({ ...current, showingWindows: { ...current.showingWindows, [day]: { ...current.showingWindows[day], [field]: value } } })); }
 
@@ -67,13 +72,14 @@ export default function EditListing() {
     setError("");
     try {
       const [ownershipDocumentUrl, governmentIdUrl, uploadedPhotoUrls] = await Promise.all([
-        ownershipDocument ? uploadToCloudinary(ownershipDocument, "raw", listingAssetOptions(listingId, "verification/ownership-document", "ownership-document")) : existingDocuments.ownership,
+        ownershipDocument ? uploadToCloudinary(ownershipDocument, documentResourceType(ownershipDocument), listingAssetOptions(listingId, "verification/ownership-document", "ownership-document")) : existingDocuments.ownership,
         governmentId ? uploadToCloudinary(governmentId, "auto", listingAssetOptions(listingId, "verification/government-id", "government-id")) : existingDocuments.governmentId,
         Promise.all(newPhotos.map((photo) => uploadToCloudinary(photo, "auto", listingAssetOptions(listingId, "photos", "property-photo")))),
       ]);
       const batch = writeBatch(db);
       batch.update(doc(db, "listings", listingId), {
-        title: form.title.trim(), description: form.description.trim(), type: form.type, address: deleteField(),
+        title: form.title.trim(), description: form.description.trim(), type: form.type, listingPurpose: form.listingPurpose,
+        rentalTerm: form.listingPurpose === "rent" ? form.rentalTerm : null, address: deleteField(),
         ownershipDocumentUrl: deleteField(), governmentIdUrl: deleteField(), verificationDocUrl: deleteField(), city: form.city.trim(),
         mapLocation,
         price: Number(form.price), pricePeriod: form.pricePeriod, bedrooms: Number(form.bedrooms), bathrooms: Number(form.bathrooms),
@@ -114,6 +120,28 @@ export default function EditListing() {
                   <textarea id="edit-description" name="description" className="listing-form__textarea" rows={8} value={form.description} onChange={updateField} required />
                   <small className="listing-form__hint">{countWords(form.description)} words · recommended 150-400 words</small>
                 </div>
+                <div className="field listing-form__wide">
+                  <span className="field__label">Listing purpose</span>
+                  <div className="listing-form__purpose-options" role="radiogroup" aria-label="Listing purpose">
+                    <label className={`listing-form__purpose-option${form.listingPurpose === "rent" ? " listing-form__purpose-option--selected" : ""}`}>
+                      <input type="radio" name="editListingPurpose" value="rent" checked={form.listingPurpose === "rent"} onChange={() => updateListingPurpose("rent")} />
+                      <span><strong>For rent</strong><small>Short stays or long-term homes</small></span>
+                    </label>
+                    <label className={`listing-form__purpose-option${form.listingPurpose === "sale" ? " listing-form__purpose-option--selected" : ""}`}>
+                      <input type="radio" name="editListingPurpose" value="sale" checked={form.listingPurpose === "sale"} onChange={() => updateListingPurpose("sale")} />
+                      <span><strong>For sale</strong><small>One-time asking price</small></span>
+                    </label>
+                  </div>
+                </div>
+                {form.listingPurpose === "rent" && (
+                  <div className="field">
+                    <label className="field__label" htmlFor="edit-rentalTerm">Rental term</label>
+                    <select id="edit-rentalTerm" className="field__input" value={form.rentalTerm} onChange={(event) => updateRentalTerm(event.target.value)}>
+                      <option value="short_term">Short-term stay · per night</option>
+                      <option value="long_term">Long-term home · per month</option>
+                    </select>
+                  </div>
+                )}
                 <SelectField id="edit-type" name="type" label="Property type" value={form.type} onChange={updateField} options={PROPERTY_TYPES} />
                 <Field id="edit-address" name="address" label="Private address or area" value={form.address} onChange={updateField} />
                 <Field id="edit-city" name="city" label="City" value={form.city} onChange={updateField} />
@@ -122,8 +150,7 @@ export default function EditListing() {
                   <PropertyMap location={mapLocation} onLocationChange={setMapLocation} addressHint={form.address} />
                   {mapLocation && <button type="button" className="btn btn--secondary" onClick={() => setMapLocation(null)}>Remove map pin</button>}
                 </div>
-                <Field id="edit-price" name="price" label="Price" type="number" value={form.price} onChange={updateField} />
-                <SelectField id="edit-period" name="pricePeriod" label="Price period" value={form.pricePeriod} onChange={updateField} options={["month", "day"]} />
+                <Field id="edit-price" name="price" label={form.listingPurpose === "sale" ? "Asking price" : form.rentalTerm === "short_term" ? "Price per night" : "Price per month"} type="number" value={form.price} onChange={updateField} />
                 <Field id="edit-bedrooms" name="bedrooms" label="Bedrooms" type="number" value={form.bedrooms} onChange={updateField} />
                 <Field id="edit-bathrooms" name="bathrooms" label="Bathrooms" type="number" step="0.5" value={form.bathrooms} onChange={updateField} />
                 <Field id="edit-availability" name="availabilityDate" label="Available from" type="date" value={form.availabilityDate} onChange={updateField} />

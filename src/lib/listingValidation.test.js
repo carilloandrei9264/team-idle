@@ -43,6 +43,28 @@ test("short but meaningful descriptions remain valid when they are not empty", (
   assert.deepEqual(errors, []);
 });
 
+test("sale listings do not require a rental term", () => {
+  const errors = validateListingForm({
+    form: { ...validForm, listingPurpose: "sale", pricePeriod: "total", rentalTerm: "" },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+
+  assert.deepEqual(errors, []);
+});
+
+test("rental listings require a supported rental term", () => {
+  const errors = validateListingForm({
+    form: { ...validForm, listingPurpose: "rent", rentalTerm: "weekly" },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+
+  assert.match(errors.join(" "), /short-term or long-term/);
+});
+
 test("invalid or malformed map pins are rejected before submission", () => {
   const errors = validateListingForm({
     form: { ...validForm, mapLocation: { geohash: "bad", precision: "approximate" } },

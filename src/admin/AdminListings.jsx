@@ -12,10 +12,13 @@ import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
 import { NOTIFICATION_TYPES } from "../lib/notifications";
 import { Check, X, Image as ImageIcon } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import "./AdminListings.css";
 
 export default function AdminListings() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const requestedListingId = searchParams.get("listingId");
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
@@ -37,14 +40,16 @@ export default function AdminListings() {
       setError("");
       // Keep the current selection if it still exists; otherwise pick the first.
       setSelectedId((current) =>
-        docs.some((d) => d.id === current) ? current : docs[0]?.id ?? null
+        docs.some((d) => d.id === requestedListingId)
+          ? requestedListingId
+          : docs.some((d) => d.id === current) ? current : docs[0]?.id ?? null
       );
     }, () => {
       setLoading(false);
       setError("The review queue could not be loaded. Check your connection and Firestore index, then refresh.");
     });
     return unsubscribe;
-  }, []);
+  }, [requestedListingId]);
 
   const selected = pending.find((l) => l.id === selectedId) ?? null;
   const selectedPrivateDocuments = privateDocuments?.listingId === selected?.id ? privateDocuments : null;
@@ -175,6 +180,7 @@ export default function AdminListings() {
                 <div className="review-card__header">
                   <h2 className="review-card__title">{selected.title || "Untitled listing"}</h2>
                   <p className="review-card__meta">Submitted by {selected.ownerName || selected.ownerId}</p>
+                  <p className="review-card__meta">{selected.listingPurpose === "sale" ? "For sale · one-time asking price" : selected.rentalTerm === "short_term" || selected.pricePeriod === "day" ? "Short-term rental · per night" : "Long-term rental · per month"}</p>
                 </div>
 
                 <div className="review-card__documents">
@@ -305,7 +311,7 @@ function DocumentPreview({ url, title, label = "Uploaded document" }) {
     return <div className="review-card__doc review-card__doc--placeholder"><ImageIcon size={28} aria-hidden="true" /><span>No document uploaded</span></div>;
   }
 
-  const isPdf = /(?:\.pdf(?:$|[?#])|[?&]resource_type=raw)/i.test(url);
+  const isPdf = /\.pdf(?:$|[?#])/i.test(url);
   return (
     <div className="review-card__document">
       <p className="review-card__label">{label}</p>

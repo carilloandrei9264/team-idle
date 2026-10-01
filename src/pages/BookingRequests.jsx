@@ -5,7 +5,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db, functions } from "../firebase";
-import { formatBookingDate } from "../lib/booking";
+import { bookingConfirmationErrorMessage, formatBookingDate } from "../lib/booking";
 import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./UserPages.css";
 
@@ -61,8 +61,7 @@ export default function BookingRequests({ embedded = false }) {
 
       setMessage("This request is waiting for confirmation.");
     } catch (decisionError) {
-      const code = decisionError?.code ? ` (${decisionError.code})` : "";
-      setError(`${decisionError.message || "The booking request could not be updated."}${code}`);
+      setError(bookingConfirmationErrorMessage(decisionError));
     } finally {
       setSavingId(null);
     }

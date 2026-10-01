@@ -16,6 +16,13 @@ const PROPERTY_TYPE_OPTIONS = [
   { value: "House", label: "House" },
   { value: "Condo", label: "Condo" },
   { value: "Room", label: "Room" },
+  { value: "Land", label: "Land" },
+];
+
+const PURPOSE_OPTIONS = [
+  { value: "", label: "Rent or sale" },
+  { value: "rent", label: "For rent" },
+  { value: "sale", label: "For sale" },
 ];
 
 const SORT_OPTIONS = [
@@ -57,6 +64,7 @@ export default function Browse() {
   const [error, setError] = useState("");
 
   const [city, setCity]       = useState(searchParams.get("city") || "");
+  const [purpose, setPurpose] = useState(searchParams.get("purpose") || "");
   const [type, setType]       = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
@@ -90,6 +98,7 @@ export default function Browse() {
     let list = allListings.filter((l) => {
       if (city.trim() && !l.city?.toLowerCase().includes(city.trim().toLowerCase())) return false;
       if (type && l.type !== type) return false;
+      if (purpose && (l.listingPurpose || "rent") !== purpose) return false;
       if (minPrice && numericValue(l.price) < numericValue(minPrice)) return false;
       if (maxPrice && numericValue(l.price) > numericValue(maxPrice)) return false;
       return true;
@@ -108,14 +117,25 @@ export default function Browse() {
     });
 
     return list;
-  }, [allListings, trustScores, city, type, minPrice, maxPrice, sort]);
+  }, [allListings, trustScores, city, purpose, type, minPrice, maxPrice, sort]);
 
   function handleCityChange(value) {
     setCity(value);
-    setSearchParams(value.trim() ? { city: value.trim() } : {});
+    const nextParams = new URLSearchParams(searchParams);
+    if (value.trim()) nextParams.set("city", value.trim());
+    else nextParams.delete("city");
+    setSearchParams(nextParams);
   }
 
-  const animationKey = `${city}-${type}-${minPrice}-${maxPrice}-${sort}`;
+  function handlePurposeChange(value) {
+    setPurpose(value);
+    const nextParams = new URLSearchParams(searchParams);
+    if (value) nextParams.set("purpose", value);
+    else nextParams.delete("purpose");
+    setSearchParams(nextParams);
+  }
+
+  const animationKey = `${city}-${purpose}-${type}-${minPrice}-${maxPrice}-${sort}`;
 
   return (
     <div className="browse">
@@ -150,6 +170,17 @@ export default function Browse() {
               onChange={setType}
               options={PROPERTY_TYPE_OPTIONS}
               placeholder="Any type"
+            />
+          </div>
+
+          <div className="field">
+            <label className="field__label" htmlFor="purpose">Purpose</label>
+            <AnimatedSelect
+              id="purpose"
+              value={purpose}
+              onChange={handlePurposeChange}
+              options={PURPOSE_OPTIONS}
+              placeholder="Rent or sale"
             />
           </div>
 

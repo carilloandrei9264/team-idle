@@ -10,8 +10,10 @@ import "./ListingCard.css";
  */
 export default function ListingCard({ listing, trustScore }) {
   const cover = listing.photoUrls?.[0];
-  const display = trustScore ? (trustScore.score * 5).toFixed(1) : null;
-  const label = trustScore ? trustLabel(trustScore.score) : "New listing";
+  const isSale = listing.listingPurpose === "sale";
+  const display = trustScore && !isSale ? (trustScore.score * 5).toFixed(1) : null;
+  const label = isSale ? "For sale" : trustScore ? trustLabel(trustScore.score) : "New listing";
+  const priceBasis = isSale ? "asking price" : listing.rentalTerm === "short_term" || listing.pricePeriod === "day" ? "per night" : "per month";
 
   return (
     <Link to={`/listings/${listing.id}`} className="listing-card">
@@ -27,14 +29,13 @@ export default function ListingCard({ listing, trustScore }) {
       <div className="listing-card__body">
         <div className="listing-card__top-row">
           <h3 className="listing-card__title">{listing.title || "Untitled listing"}</h3>
-          <span className="listing-card__trust">
-            {display ? `${display} · ${label}` : label}
-          </span>
+          {!isSale && <span className="listing-card__trust">{display ? `${display} · ${label}` : label}</span>}
         </div>
         <p className="listing-card__location">{listing.city}</p>
+        <p className="listing-card__purpose">{isSale ? "For sale" : listing.rentalTerm === "short_term" || listing.pricePeriod === "day" ? "Short-term rental" : "Long-term rental"}</p>
         <p className="listing-card__price">
           {formatCurrency(listing.price)}
-          {listing.pricePeriod ? <span className="listing-card__period">/{listing.pricePeriod}</span> : null}
+          <span className="listing-card__period">{priceBasis}</span>
         </p>
       </div>
     </Link>

@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { uploadToCloudinary } from "./uploadImage.js";
+import { documentResourceType, uploadToCloudinary } from "./uploadImage.js";
+
+test("ownership PDFs use raw delivery while image documents use image delivery", () => {
+  assert.equal(documentResourceType({ type: "application/pdf", name: "title.pdf" }), "raw");
+  assert.equal(documentResourceType({ type: "image/png", name: "title.png" }), "auto");
+  assert.equal(documentResourceType({ type: "", name: "title.PDF" }), "raw");
+});
 
 test("Cloudinary uploads include their Dynamic Folder and purpose tags", async () => {
   const originalFetch = globalThis.fetch;

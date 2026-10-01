@@ -5,7 +5,7 @@ import { Check } from "lucide-react";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db, functions } from "../firebase";
-import { toDate } from "../lib/booking";
+import { bookingConfirmationErrorMessage, toDate } from "../lib/booking";
 import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./UserPages.css";
 
@@ -56,8 +56,9 @@ export default function ManageBookingRequests() {
         setMessage("Booking marked as completed.");
       }
     } catch (updateError) {
-      const code = updateError?.code ? ` (${updateError.code})` : "";
-      setError(updateError.message === "BOOKING_CONFLICT" ? "This request overlaps an existing confirmed booking." : `${updateError.message || "The booking request could not be updated."}${code}`);
+      setError(status === "Confirmed"
+        ? bookingConfirmationErrorMessage(updateError)
+        : `${updateError.message || "The booking request could not be updated."}${updateError?.code ? ` (${updateError.code})` : ""}`);
     }
   }
 

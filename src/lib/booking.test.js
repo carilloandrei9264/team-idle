@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BOOKING_STATUSES, canRevealExactAddress, canTransitionBookingStatus, datesOverlap, hasConfirmedConflict, isValidDateRange } from "./booking.js";
+import { BOOKING_STATUSES, bookingConfirmationErrorMessage, canRevealExactAddress, canTransitionBookingStatus, datesOverlap, hasConfirmedConflict, isValidDateRange } from "./booking.js";
 
 test("booking status machine contains only the required MVP statuses", () => {
   assert.deepEqual(BOOKING_STATUSES, ["Pending", "Confirmed", "Completed", "Disputed"]);
@@ -34,6 +34,12 @@ test("exact address sharing is only available after confirmation", () => {
   assert.equal(canRevealExactAddress("Confirmed"), true);
   assert.equal(canRevealExactAddress("Completed"), true);
   assert.equal(canRevealExactAddress("Disputed"), true);
+});
+
+test("callable internal errors explain that confirmation service is unavailable", () => {
+  assert.match(bookingConfirmationErrorMessage({ code: "functions/internal" }), /service is unavailable/i);
+  assert.match(bookingConfirmationErrorMessage({ code: "functions/not-found" }), /refresh to check/i);
+  assert.equal(bookingConfirmationErrorMessage({ message: "This request overlaps an existing confirmed booking." }), "This request overlaps an existing confirmed booking.");
 });
 
 test("date ranges must end after they start", () => {

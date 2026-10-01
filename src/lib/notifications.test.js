@@ -30,6 +30,14 @@ test("admin inbox contains dispute alerts but excludes booking requests", () => 
     recipientId: ADMIN_NOTIFICATION_RECIPIENT,
     type: NOTIFICATION_TYPES.BOOKING_REQUEST,
   }), false);
+  assert.equal(isAdminInboxNotification({
+    recipientId: ADMIN_NOTIFICATION_RECIPIENT,
+    type: NOTIFICATION_TYPES.LISTING_SUBMITTED,
+  }), true);
+  assert.equal(isAdminInboxNotification({
+    recipientId: "owner-1",
+    type: NOTIFICATION_TYPES.LISTING_SUBMITTED,
+  }), false);
 });
 
 test("notifications are sorted newest first", () => {

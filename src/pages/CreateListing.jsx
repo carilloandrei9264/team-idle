@@ -7,10 +7,11 @@ import PropertyMap from "../components/PropertyMap";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { countWords, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
-import { uploadToCloudinary } from "../uploadImage";
+import { ADMIN_NOTIFICATION_RECIPIENT, createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
+import { documentResourceType, uploadToCloudinary } from "../uploadImage";
 import "./UserPages.css";
 
-const PROPERTY_TYPES = ["Room", "Studio", "Apartment", "House", "Condo"];
+const PROPERTY_TYPES = ["Room", "Studio", "Apartment", "House", "Condo", "Land"];
 const AMENITIES = ["Parking", "WiFi", "Furnished", "Pets allowed", "Air conditioning", "Security"];
 
 export default function CreateListing() {
@@ -20,6 +21,8 @@ export default function CreateListing() {
     title: "",
     description: "",
     type: "Apartment",
+    listingPurpose: "rent",
+    rentalTerm: "long_term",
     address: "",
     city: "",
     price: "",
@@ -50,6 +53,26 @@ export default function CreateListing() {
   function updateField(event) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function updateListingPurpose(listingPurpose) {
+    setForm((current) => {
+      const rentalTerm = current.rentalTerm || "long_term";
+      return {
+        ...current,
+        listingPurpose,
+        rentalTerm,
+        pricePeriod: listingPurpose === "sale" ? "total" : rentalTerm === "short_term" ? "day" : "month",
+      };
+    });
+  }
+
+  function updateRentalTerm(rentalTerm) {
+    setForm((current) => ({
+      ...current,
+      rentalTerm,
+      pricePeriod: rentalTerm === "short_term" ? "day" : "month",
+    }));
   }
 
   function handlePhotos(event) {
@@ -113,7 +136,7 @@ export default function CreateListing() {
       const listingRef = doc(collection(db, "listings"));
       const privateListingRef = doc(db, "listingPrivate", listingRef.id);
       const [ownershipDocumentUrl, governmentIdUrl, photoUrls] = await Promise.all([
-        uploadToCloudinary(ownershipDocument, "raw", listingAssetOptions(listingRef.id, "verification/ownership-document", "ownership-document")),
+        uploadToCloudinary(ownershipDocument, documentResourceType(ownershipDocument), listingAssetOptions(listingRef.id, "verification/ownership-document", "ownership-document")),
         uploadToCloudinary(governmentId, "auto", listingAssetOptions(listingRef.id, "verification/government-id", "government-id")),
         Promise.all(photos.map((photo) => uploadToCloudinary(photo, "auto", listingAssetOptions(listingRef.id, "photos", "property-photo")))),
       ]);
@@ -125,6 +148,8 @@ export default function CreateListing() {
         title: form.title.trim(),
         description: form.description.trim(),
         type: form.type,
+        listingPurpose: form.listingPurpose,
+        rentalTerm: form.listingPurpose === "rent" ? form.rentalTerm : null,
         city: form.city.trim(),
         mapLocation,
         price: Number(form.price),
@@ -148,7 +173,29 @@ export default function CreateListing() {
         updatedAt: serverTimestamp(),
       });
       await batch.commit();
-      navigate("/my-listings", { replace: true });
+      let adminAlertSent = true;
+      try {
+        await createNotification(db, {
+          recipientId: ADMIN_NOTIFICATION_RECIPIENT,
+          createdBy: user.uid,
+          type: NOTIFICATION_TYPES.LISTING_SUBMITTED,
+          title: "New listing submitted for review",
+          message: `${form.title.trim()} is ready for verification review.`,
+          link: `/admin/listings?listingId=${listingRef.id}`,
+          entityId: listingRef.id,
+          entityType: "listing",
+        });
+      } catch {
+        adminAlertSent = false;
+      }
+      navigate("/my-listings", {
+        replace: true,
+        state: {
+          submissionNotice: adminAlertSent
+            ? "Listing submitted for review."
+            : "Listing submitted, but the admin alert could not be delivered. It remains in the review queue.",
+        },
+      });
     } catch (uploadError) {
       setError(uploadError.message || "Your listing could not be submitted. Please try again.");
     } finally {
@@ -182,6 +229,28 @@ export default function CreateListing() {
                 <textarea id="description" name="description" className="listing-form__textarea" value={form.description} onChange={updateField} rows={8} placeholder="Describe the property accurately, including layout, condition, access, and nearby landmarks." required />
                 <small className="listing-form__hint">{countWords(form.description)} words · recommended 150-400 words</small>
               </div>
+              <div className="field listing-form__wide">
+                <span className="field__label">Listing purpose</span>
+                <div className="listing-form__purpose-options" role="radiogroup" aria-label="Listing purpose">
+                  <label className={`listing-form__purpose-option${form.listingPurpose === "rent" ? " listing-form__purpose-option--selected" : ""}`}>
+                    <input type="radio" name="listingPurpose" value="rent" checked={form.listingPurpose === "rent"} onChange={() => updateListingPurpose("rent")} />
+                    <span><strong>For rent</strong><small>Short stays or long-term homes</small></span>
+                  </label>
+                  <label className={`listing-form__purpose-option${form.listingPurpose === "sale" ? " listing-form__purpose-option--selected" : ""}`}>
+                    <input type="radio" name="listingPurpose" value="sale" checked={form.listingPurpose === "sale"} onChange={() => updateListingPurpose("sale")} />
+                    <span><strong>For sale</strong><small>One-time asking price</small></span>
+                  </label>
+                </div>
+              </div>
+              {form.listingPurpose === "rent" && (
+                <div className="field">
+                  <label className="field__label" htmlFor="rentalTerm">Rental term</label>
+                  <select id="rentalTerm" className="field__input" value={form.rentalTerm} onChange={(event) => updateRentalTerm(event.target.value)}>
+                    <option value="short_term">Short-term stay · per night</option>
+                    <option value="long_term">Long-term home · per month</option>
+                  </select>
+                </div>
+              )}
               <div className="field">
                 <label className="field__label" htmlFor="type">Property type</label>
                 <select id="type" name="type" className="field__input" value={form.type} onChange={updateField}>{PROPERTY_TYPES.map((type) => <option key={type}>{type}</option>)}</select>
@@ -201,12 +270,8 @@ export default function CreateListing() {
                 {mapLocation && <button type="button" className="btn btn--secondary" onClick={() => setMapLocation(null)}>Remove map pin</button>}
               </div>
               <div className="field">
-                <label className="field__label" htmlFor="price">Price</label>
+                <label className="field__label" htmlFor="price">{form.listingPurpose === "sale" ? "Asking price" : form.rentalTerm === "short_term" ? "Price per night" : "Price per month"}</label>
                 <input id="price" name="price" type="number" min="1" className="field__input" value={form.price} onChange={updateField} placeholder="₱0" required />
-              </div>
-              <div className="field">
-                <label className="field__label" htmlFor="pricePeriod">Price period</label>
-                <select id="pricePeriod" name="pricePeriod" className="field__input" value={form.pricePeriod} onChange={updateField}><option value="month">Per month</option><option value="day">Per day</option></select>
               </div>
               <div className="field">
                 <label className="field__label" htmlFor="bedrooms">Bedrooms</label>

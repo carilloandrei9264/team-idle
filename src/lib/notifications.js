@@ -2,6 +2,7 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
 export const NOTIFICATION_TYPES = {
   LISTING_REVIEW: "listing_review",
+  LISTING_SUBMITTED: "listing_submitted",
   BOOKING_UPDATE: "booking_update",
   DISPUTE_UPDATE: "dispute_update",
   BOOKING_REQUEST: "booking_request",
@@ -9,10 +10,14 @@ export const NOTIFICATION_TYPES = {
 
 export const ADMIN_NOTIFICATION_RECIPIENT = "__admins__";
 export const ADMIN_NOTIFICATION_TYPE = NOTIFICATION_TYPES.DISPUTE_UPDATE;
+export const ADMIN_NOTIFICATION_TYPES = [
+  NOTIFICATION_TYPES.DISPUTE_UPDATE,
+  NOTIFICATION_TYPES.LISTING_SUBMITTED,
+];
 
 export function isAdminInboxNotification(notification) {
   return notification.recipientId === ADMIN_NOTIFICATION_RECIPIENT
-    && notification.type === ADMIN_NOTIFICATION_TYPE;
+    && ADMIN_NOTIFICATION_TYPES.includes(notification.type);
 }
 
 export function notificationRecipientForRole(role, userId) {
