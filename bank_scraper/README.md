@@ -62,6 +62,19 @@ python seed_demo_data.py                        # write synthetic demo data to F
 
 ## Verification-document privacy migration
 
+Before any live migration, create and verify a private JSONL backup:
+
+```bash
+python backup_firestore.py
+python restore_firestore.py "$HOME/TrustHomeBackups/backup-YYYYMMDD-HHMMSS.jsonl"
+```
+
+The restore command is a dry run unless `--apply` is supplied. Keep backup files
+outside the repository in an access-controlled location; they contain personal
+data. The backup command defaults to a timestamped file under the current user's
+home directory. Replace `YYYYMMDD-HHMMSS` with the timestamp printed by the backup
+command. Never test a restore against the live project.
+
 The migration at `migrate_verification_documents.py` is dry-run by default. Before
 applying it, take and verify a Firestore JSON backup. Review the dry-run counts and
 confirm the Cloudinary cloud name matches the project. The dry run does not print
