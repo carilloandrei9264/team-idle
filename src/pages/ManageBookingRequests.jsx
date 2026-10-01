@@ -1,15 +1,12 @@
 import { useEffect, useState } from "react";
 import { collection, deleteDoc, doc, onSnapshot, query, updateDoc, serverTimestamp, where } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
 import { Check } from "lucide-react";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
-import { db, functions } from "../firebase";
+import { db } from "../firebase";
 import { bookingConfirmationErrorMessage, toDate } from "../lib/booking";
-import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
+import { confirmBooking } from "../services/api";
 import "./UserPages.css";
-
-const confirmBooking = httpsCallable(functions, "confirmBooking");
 
 export default function ManageBookingRequests() {
   const { user } = useAuth();
@@ -35,21 +32,7 @@ export default function ManageBookingRequests() {
     setMessage("");
     try {
       if (status === "Confirmed") {
-        await confirmBooking({ bookingId: request.id });
-        try {
-          await createNotification(db, {
-            recipientId: request.renterId,
-            createdBy: user.uid,
-            type: NOTIFICATION_TYPES.BOOKING_UPDATE,
-            title: "Booking request confirmed",
-            message: `${request.listingTitle || "Your booking"} has been confirmed by the owner.`,
-            link: "/my-bookings",
-            entityId: request.id,
-            entityType: "booking",
-          });
-        } catch {
-          // The booking update remains valid if notification delivery is unavailable.
-        }
+        await confirmBooking(request.id);
         setMessage("Booking request confirmed.");
       } else if (status === "Completed") {
         await updateDoc(doc(db, "bookings", request.id), { status, updatedAt: serverTimestamp(), completedAt: serverTimestamp() });
