@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getAdminAccessState } from "./adminAccess.js";
+import { normalizeUserProfileData } from "./userProfile.js";
 
 const user = { uid: "member-1" };
 
@@ -27,4 +28,20 @@ test("missing or unreadable profiles fail closed as unverified", () => {
 
 test("signed-out sessions cannot enter admin routes", () => {
   assert.equal(getAdminAccessState({ user: null, profile: null }), "signed-out");
+});
+
+test("legacy or incomplete user profiles are normalized to active user accounts", () => {
+  assert.deepEqual(normalizeUserProfileData({}, { name: "Jane Doe", email: "jane@example.com", role: "user" }), {
+    name: "Jane Doe",
+    email: "jane@example.com",
+    status: "active",
+    role: "user",
+  });
+
+  assert.deepEqual(normalizeUserProfileData({ role: "admin", status: "inactive" }, { name: "Admin User", email: "admin@example.com" }), {
+    role: "admin",
+    status: "active",
+    name: "Admin User",
+    email: "admin@example.com",
+  });
 });

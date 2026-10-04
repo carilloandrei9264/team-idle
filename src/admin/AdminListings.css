@@ -105,6 +105,25 @@
   font-size: 13px;
   font-weight: 600;
 }
+.review-card__document-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.review-card__document-download {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-primary-dark);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.review-card__document-download:hover,
+.review-card__document-link:hover {
+  text-decoration: underline;
+}
 .review-card__photos {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

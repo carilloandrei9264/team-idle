@@ -54,8 +54,21 @@ service cloud.firestore {
         && request.resource.data.status == 'active';
       allow update: if isAdmin()
         || (isOwner(userId)
-          && request.resource.data.role == resource.data.role
-          && request.resource.data.status == resource.data.status);
+          && (
+            (
+              request.resource.data.role == resource.data.role
+              && request.resource.data.status == resource.data.status
+            )
+            || (
+              request.resource.data.role == 'user'
+              && request.resource.data.status == 'active'
+              && (
+                !resource.data.keys().hasAny(['role'])
+                || !resource.data.keys().hasAny(['status'])
+                || (resource.data.role == 'user' && resource.data.status == 'active')
+              )
+            )
+          ));
       allow delete: if false;
     }
 
@@ -149,6 +162,14 @@ service cloud.firestore {
           || get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.listingPurpose == 'rent')
         && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.ownerId == request.resource.data.ownerId;
       allow update: if isAdmin()
+        || (isActiveUser()
+          && resource.data.ownerId == request.auth.uid
+          && resource.data.status == 'Pending'
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.status == 'Confirmed'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'updatedAt', 'confirmedAt'
+          ]))
         || (isActiveUser() && resource.data.renterId == request.auth.uid
           && resource.data.status == 'Confirmed'
           && request.resource.data.status == 'Completed'
@@ -251,24 +272,24 @@ service cloud.firestore {
           || (!isAdmin() && request.resource.data.recipientId == request.auth.uid)
           || (!isAdmin() && request.resource.data.entityType == 'booking'
             && request.resource.data.entityId is string
-            && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.renterId == request.auth.uid
-            && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.ownerId == request.resource.data.recipientId)
+            && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.renterId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.ownerId == request.resource.data.recipientId)
           || (!isAdmin() && request.resource.data.entityType == 'booking'
             && request.resource.data.entityId is string
-            && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.ownerId == request.auth.uid
-            && get(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.renterId == request.resource.data.recipientId)
+            && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.ownerId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.renterId == request.resource.data.recipientId)
           || (!isAdmin() && request.resource.data.recipientId == '__admins__'
             && request.resource.data.type == 'listing_submitted'
             && request.resource.data.entityType == 'listing'
             && request.resource.data.entityId is string
-            && get(/databases/$(database)/documents/listings/$(request.resource.data.entityId)).data.ownerId == request.auth.uid
-            && get(/databases/$(database)/documents/listings/$(request.resource.data.entityId)).data.verificationStatus == 'pending')
+            && getAfter(/databases/$(database)/documents/listings/$(request.resource.data.entityId)).data.ownerId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/listings/$(request.resource.data.entityId)).data.verificationStatus == 'pending')
           || (!isAdmin() && request.resource.data.recipientId == '__admins__'
             && request.resource.data.type == 'dispute_update'
             && request.resource.data.entityType == 'dispute'
             && request.resource.data.entityId is string
-            && get(/databases/$(database)/documents/disputes/$(request.resource.data.entityId)).data.raisedBy == request.auth.uid
-            && get(/databases/$(database)/documents/disputes/$(request.resource.data.entityId)).data.status == 'Open'));
+            && getAfter(/databases/$(database)/documents/disputes/$(request.resource.data.entityId)).data.raisedBy == request.auth.uid
+            && getAfter(/databases/$(database)/documents/disputes/$(request.resource.data.entityId)).data.status == 'Open'));
       allow delete: if canAccessNotification(resource.data.recipientId, resource.data.type);
     }
 

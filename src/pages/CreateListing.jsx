@@ -364,11 +364,19 @@ export default function CreateListing() {
 
 function FilePreview({ preview, label }) {
   const { file, url } = preview;
+  const [previewFailed, setPreviewFailed] = useState(false);
   const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
   return (
     <figure className="listing-form__file-preview">
       {isPdf ? (
-        <iframe className="listing-form__file-preview-pdf" src={url} title={`${label} preview`} />
+        previewFailed ? (
+          <div className="listing-form__file-preview-pdf listing-form__file-preview-pdf--fallback">
+            <p>Preview blocked by the browser.</p>
+            <a href={url} target="_blank" rel="noreferrer">Open PDF</a>
+          </div>
+        ) : (
+          <iframe className="listing-form__file-preview-pdf" src={url} title={`${label} preview`} type="application/pdf" onError={() => setPreviewFailed(true)} />
+        )
       ) : (
         <img className="listing-form__file-preview-image" src={url} alt={`${label}: ${file.name}`} />
       )}

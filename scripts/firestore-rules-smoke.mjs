@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { after, before, test } from "node:test";
 import { assertFails, assertSucceeds, initializeTestEnvironment } from "@firebase/rules-unit-testing";
-import { deleteField, doc, getDoc, setDoc, Timestamp, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, deleteField, doc, getDoc, getDocs, query, setDoc, Timestamp, updateDoc, where, writeBatch } from "firebase/firestore";
 
 let testEnvironment;
 
@@ -38,6 +38,25 @@ before(async () => {
 
 after(async () => {
   await testEnvironment?.cleanup();
+});
+
+test("owners can repair missing active user metadata required for listing writes", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "users", "legacy-owner-1"), {
+      name: "Legacy owner",
+      email: "legacy-owner@example.com",
+    });
+  });
+
+  const legacyOwnerDb = testEnvironment.authenticatedContext("legacy-owner-1").firestore();
+  await assertSucceeds(updateDoc(doc(legacyOwnerDb, "users", "legacy-owner-1"), {
+    role: "user",
+    status: "active",
+  }));
+
+  const profile = await assertSucceeds(getDoc(doc(legacyOwnerDb, "users", "legacy-owner-1")));
+  assert.equal(profile.data().role, "user");
+  assert.equal(profile.data().status, "active");
 });
 
 test("verification URLs stay private while verified listing details remain public", async () => {
@@ -137,25 +156,67 @@ test("admins can move legacy verification URLs to listingPrivate atomically", as
   assert.equal(privateRecord.data().governmentIdUrl, "https://example.test/id.png");
 });
 
-test("owners cannot confirm bookings with a direct Firestore update", async () => {
+test("owners can confirm pending bookings without changing protected fields", async () => {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
-    await setDoc(doc(context.firestore(), "bookings", "pending-confirmation-1"), {
-      listingId: "verified-1",
-      ownerId: "owner-1",
-      renterId: "renter-1",
-      status: "Pending",
-      startDate: Timestamp.fromDate(new Date("2026-10-10T00:00:00Z")),
-      endDate: Timestamp.fromDate(new Date("2026-10-15T00:00:00Z")),
-    });
+    for (const bookingId of ["pending-confirmation-safe", "pending-confirmation-unsafe"]) {
+      await setDoc(doc(context.firestore(), "bookings", bookingId), {
+        listingId: "verified-1",
+        ownerId: "owner-1",
+        renterId: "renter-1",
+        status: "Pending",
+        startDate: Timestamp.fromDate(new Date("2026-10-10T00:00:00Z")),
+        endDate: Timestamp.fromDate(new Date("2026-10-15T00:00:00Z")),
+      });
+    }
   });
 
   const ownerDb = testEnvironment.authenticatedContext("owner-1").firestore();
-  await assertFails(updateDoc(doc(ownerDb, "bookings", "pending-confirmation-1"), {
+  await assertSucceeds(updateDoc(doc(ownerDb, "bookings", "pending-confirmation-safe"), {
+    status: "Confirmed",
+    confirmedAt: new Date(),
+    updatedAt: new Date(),
+  }));
+  await assertFails(updateDoc(doc(ownerDb, "bookings", "pending-confirmation-unsafe"), {
     status: "Confirmed",
     address: "Synthetic address",
     confirmedAt: new Date(),
     updatedAt: new Date(),
   }));
+});
+
+test("owners can query confirmed bookings when the query is scoped to their bookings", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await setDoc(doc(db, "bookings", "confirmed-owner-booking"), {
+      listingId: "query-test-listing",
+      ownerId: "owner-1",
+      renterId: "renter-1",
+      status: "Confirmed",
+    });
+    await setDoc(doc(db, "bookings", "confirmed-other-owner-booking"), {
+      listingId: "query-test-listing",
+      ownerId: "owner-2",
+      renterId: "renter-2",
+      status: "Confirmed",
+    });
+  });
+
+  const ownerDb = testEnvironment.authenticatedContext("owner-1").firestore();
+  const scopedQuery = query(
+    collection(ownerDb, "bookings"),
+    where("listingId", "==", "query-test-listing"),
+    where("ownerId", "==", "owner-1"),
+    where("status", "==", "Confirmed")
+  );
+  const snapshot = await assertSucceeds(getDocs(scopedQuery));
+  assert.equal(snapshot.size, 1);
+
+  const unscopedQuery = query(
+    collection(ownerDb, "bookings"),
+    where("listingId", "==", "query-test-listing"),
+    where("status", "==", "Confirmed")
+  );
+  await assertFails(getDocs(unscopedQuery));
 });
 
 test("a pending listing can atomically notify admins for review", async () => {
