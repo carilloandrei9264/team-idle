@@ -88,9 +88,17 @@ def upsert_properties(bank: str, scraped_listings: list[dict]):
                 "lotArea": item.get("lot_area"),
                 "listingUrl": item.get("listing_url"),
                 "imageUrl": item.get("image_url"),
+                "tctNumber": item.get("tct_number"),
+                "classification": item.get("classification"),
                 "status": "active",
                 "lastSeen": now,
                 **({"firstSeen": now} if not existed else {}),
+                # gallery/problems are only in `item` when they were actually
+                # (re-)fetched this run — include the keys at all only then,
+                # so a skipped-because-already-cached property doesn't have
+                # its previously-saved gallery/problems overwritten with None.
+                **({"images": item["gallery"]} if "gallery" in item else {}),
+                **({"problems": item["problems"]} if "problems" in item else {}),
             },
             merge=True,  # <-- this one flag does the "insert-or-update" for us
         )
@@ -120,8 +128,25 @@ def init_db():
     Firestore has no schema/tables to create ahead of time — collections
     and documents are created automatically the first time you write to
     them — so this just verifies the connection works.
+
+    get_db() alone only constructs the client object — it does no network
+    I/O, so it succeeds even with a dead/revoked key. The actual auth
+    handshake only happens on the first real request, which used to be
+    buried deep inside a 25-minute scrape — meaning a bad key wasn't
+    discovered until all that work was already wasted. Force one cheap
+    real read here instead, so a bad key fails in a couple of seconds,
+    before any scraping starts.
     """
-    get_db()
+    db = get_db()
+    try:
+        db.collection("bankProperties").limit(1).get()
+    except Exception as error:
+        raise RuntimeError(
+            "Firestore credentials look present but authentication failed — "
+            "the service account key is likely stale or revoked. Generate a "
+            "fresh one (Firebase Console → Project Settings → Service "
+            f"Accounts → Generate new private key). Original error: {error!r}"
+        ) from error
     print("Firestore connection OK — no schema setup needed (collections are created on first write).")
 
 

@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-import { numericValue } from "../lib/number";
+import { formatCurrency, numericValue } from "../lib/number";
 import PublicNav from "../components/PublicNav";
 import ListingCard from "../components/ListingCard";
 import AnimatedSelect from "../components/AnimatedSelect";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import "./Browse.css";
 
@@ -69,6 +69,27 @@ export default function Browse() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [sort, setSort]       = useState("trust");
+
+  // Mobile/tablet filter drawer — same pattern as the Bank Catalog page
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const closeRef = useRef(null);
+
+  useEffect(() => {
+    if (!filtersOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const mq = window.matchMedia("(min-width: 900px)");
+    const onKey = (e) => { if (e.key === "Escape") setFiltersOpen(false); };
+    const onResize = () => { if (mq.matches) setFiltersOpen(false); };
+    document.addEventListener("keydown", onKey);
+    mq.addEventListener("change", onResize);
+    closeRef.current?.focus();
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
+      mq.removeEventListener("change", onResize);
+    };
+  }, [filtersOpen]);
 
   async function loadListings() {
     setError("");
@@ -135,6 +156,29 @@ export default function Browse() {
     setSearchParams(nextParams);
   }
 
+  function clearFilters() {
+    handleCityChange("");
+    handlePurposeChange("");
+    setType("");
+    setMinPrice("");
+    setMaxPrice("");
+  }
+
+  const typeLabel = PROPERTY_TYPE_OPTIONS.find((o) => o.value === type)?.label;
+  const purposeLabel = PURPOSE_OPTIONS.find((o) => o.value === purpose)?.label;
+  const priceLabel = minPrice && maxPrice
+    ? `${formatCurrency(minPrice)} – ${formatCurrency(maxPrice)}`
+    : minPrice ? `From ${formatCurrency(minPrice)}`
+    : maxPrice ? `Up to ${formatCurrency(maxPrice)}`
+    : null;
+
+  const chips = [
+    city.trim() && { label: `City: ${city.trim()}`, clear: () => handleCityChange("") },
+    type && { label: typeLabel, clear: () => setType("") },
+    purpose && { label: purposeLabel, clear: () => handlePurposeChange("") },
+    priceLabel && { label: priceLabel, clear: () => { setMinPrice(""); setMaxPrice(""); } },
+  ].filter(Boolean);
+
   const animationKey = `${city}-${purpose}-${type}-${minPrice}-${maxPrice}-${sort}`;
 
   return (
@@ -142,82 +186,120 @@ export default function Browse() {
       <PublicNav />
 
       <div className="browse__layout">
-        {/* ── Filter sidebar ── */}
-        <aside className="browse__filters">
-          <div className="browse__filters-heading">
-            <SlidersHorizontal size={16} aria-hidden="true" />
-            <h2 className="panel__title panel__title--inline">Filters</h2>
+        {/* ── Filter sidebar: sticky on desktop, slide-in drawer below 900px ── */}
+        <aside className={`browse__filters${filtersOpen ? " browse__filters--open" : ""}`} aria-label="Filters">
+          <div className="browse__filters-head">
+            <h2 className="browse__filters-heading">
+              <SlidersHorizontal size={15} aria-hidden="true" /> Filters
+            </h2>
+            {chips.length > 0 && (
+              <button type="button" className="browse__filters-clear" onClick={clearFilters}>Clear all</button>
+            )}
+            <button
+              type="button"
+              className="browse__filters-close"
+              onClick={() => setFiltersOpen(false)}
+              ref={closeRef}
+              aria-label="Close filters"
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
           </div>
 
-          {/* City — plain text input, no dropdown */}
-          <div className="field">
-            <label className="field__label" htmlFor="city">City</label>
-            <input
-              id="city"
-              className="field__input"
-              value={city}
-              onChange={(e) => handleCityChange(e.target.value)}
-              placeholder="e.g. Cabuyao"
-            />
-          </div>
-
-          {/* Property type — animated custom select */}
-          <div className="field">
-            <label className="field__label" htmlFor="type">Property type</label>
-            <AnimatedSelect
-              id="type"
-              value={type}
-              onChange={setType}
-              options={PROPERTY_TYPE_OPTIONS}
-              placeholder="Any type"
-            />
-          </div>
-
-          <div className="field">
-            <label className="field__label" htmlFor="purpose">Purpose</label>
-            <AnimatedSelect
-              id="purpose"
-              value={purpose}
-              onChange={handlePurposeChange}
-              options={PURPOSE_OPTIONS}
-              placeholder="Rent or sale"
-            />
-          </div>
-
-          {/* Price range — plain number inputs */}
-          <div className="browse__price-row">
+          <div className="browse__filters-body">
+            {/* City — plain text input, no dropdown */}
             <div className="field">
-              <label className="field__label" htmlFor="minPrice">Min price</label>
+              <label className="field__label" htmlFor="city">City</label>
               <input
-                id="minPrice"
-                type="number"
+                id="city"
                 className="field__input"
-                value={minPrice}
-                onChange={(e) => setMinPrice(e.target.value)}
-                placeholder="₱0"
+                value={city}
+                onChange={(e) => handleCityChange(e.target.value)}
+                placeholder="e.g. Cabuyao"
               />
             </div>
+
+            {/* Property type — animated custom select */}
             <div className="field">
-              <label className="field__label" htmlFor="maxPrice">Max price</label>
-              <input
-                id="maxPrice"
-                type="number"
-                className="field__input"
-                value={maxPrice}
-                onChange={(e) => setMaxPrice(e.target.value)}
-                placeholder="No limit"
+              <label className="field__label" htmlFor="type">Property type</label>
+              <AnimatedSelect
+                id="type"
+                value={type}
+                onChange={setType}
+                options={PROPERTY_TYPE_OPTIONS}
+                placeholder="Any type"
               />
             </div>
+
+            <div className="field">
+              <label className="field__label" htmlFor="purpose">Purpose</label>
+              <AnimatedSelect
+                id="purpose"
+                value={purpose}
+                onChange={handlePurposeChange}
+                options={PURPOSE_OPTIONS}
+                placeholder="Rent or sale"
+              />
+            </div>
+
+            {/* Price range — plain number inputs */}
+            <div className="field">
+              <span className="field__label">Price range</span>
+              <div className="browse__price-row">
+                <input
+                  id="minPrice"
+                  type="number"
+                  className="field__input"
+                  value={minPrice}
+                  onChange={(e) => setMinPrice(e.target.value)}
+                  placeholder="₱0"
+                  aria-label="Minimum price"
+                />
+                <span aria-hidden="true">to</span>
+                <input
+                  id="maxPrice"
+                  type="number"
+                  className="field__input"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                  placeholder="No limit"
+                  aria-label="Maximum price"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="browse__filters-foot">
+            <button type="button" className="btn btn--primary" onClick={() => setFiltersOpen(false)}>
+              {loading ? "Show listings" : `Show ${results.length} listing${results.length === 1 ? "" : "s"}`}
+            </button>
           </div>
         </aside>
+        {filtersOpen && <div className="browse__scrim" onClick={() => setFiltersOpen(false)} />}
 
         {/* ── Results panel ── */}
         <main className="browse__results">
-          <div className="browse__results-header">
+          <div className="browse__toolbar">
+            <button
+              type="button"
+              className="btn btn--secondary browse__toolbar-filters"
+              onClick={() => {
+                // Belt-and-suspenders: never lock page scroll for a drawer that
+                // has no visible way to close on a screen wide enough that the
+                // sidebar is already shown inline.
+                if (window.matchMedia("(min-width: 900px)").matches) return;
+                setFiltersOpen(true);
+              }}
+            >
+              <SlidersHorizontal size={16} aria-hidden="true" />
+              Filters
+              {chips.length > 0 && <span className="browse__toolbar-badge">{chips.length}</span>}
+            </button>
+
             <p className="browse__count">
               {loading ? "Loading…" : `${results.length} listing${results.length === 1 ? "" : "s"}`}
             </p>
-            {/* Sort — animated custom select */}
+
             <div className="field browse__sort">
               <label className="field__label browse__sort-label" htmlFor="sort">Sort by</label>
               <AnimatedSelect
@@ -228,6 +310,18 @@ export default function Browse() {
               />
             </div>
           </div>
+
+          {chips.length > 0 && (
+            <ul className="browse__chips" aria-label="Active filters">
+              {chips.map((c) => (
+                <li key={c.label}>
+                  <button type="button" className="browse__chip" onClick={c.clear} aria-label={`Remove filter: ${c.label}`}>
+                    {c.label}<X size={12} aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
           {error ? (
             <div className="browse__empty" role="alert">
