@@ -145,11 +145,11 @@ The app has timestamps on individual records, notifications, dispute resolution 
 ## Verification limits
 This audit confirms code structure and Firestore Rules behavior from repository source. It does not independently reproduce the map, booking-completion, or post-fix suspension behavior in a browser session, inspect production data, or deploy any changes. The reported completion failure should be reproduced locally; the suspension fix is locally tested but not deployed.
 
-## Account/contact addendum - 2026-10-13
+## Account/contact addendum - 2026-10-15
 
 ### 11. Account contact details and owner inquiry
-**Status: Partially implemented locally on 2026-10-13; private phone storage and sale inquiry remain gaps.**
+**Status: Opt-in public contact display updated on 2026-10-15; private phone storage and sale inquiry remain gaps.**
 
-Account now allows owners to opt in to displaying their Auth email and an optional E.164 phone number on their publicly readable profile. Listing detail and public-profile pages show email/call actions only when those fields exist. The phone is not stored privately when it is not shared, and no Firestore Rules/server changes were made. Rental booking requests remain the contact path when no direct contact is shared; sale inquiry/viewing is not implemented. Listing creation still has an Auth-email fallback for public `ownerName`, which remains a privacy issue. Listing review also does not constitute account identity verification.
+Account allows owners to opt in to displaying their Auth email and an optional E.164 phone number on their publicly readable profile. Listing detail and public-profile pages display each shared value alongside its email/call action. The phone is not stored privately when it is not shared, and no Firestore Rules/server changes were made. Rental booking requests remain the contact path when no direct contact is shared; sale inquiry/viewing is not implemented. Listing creation still has an Auth-email fallback for public `ownerName`, which remains a privacy issue. Listing review also does not constitute account identity verification.
 
 **Recommendation:** follow `docs/Account_Profile_and_Contact_Preferences.md`. Treat opted-in contact values as public; add a private phone field only with approved Firestore access rules and tests; remove the email fallback; distinguish listing review from identity verification; and define a protected sale inquiry/viewing flow before promising direct contact. The Account plan/QR preview is not a paid or verified state.

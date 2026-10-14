@@ -25,6 +25,7 @@ A rental marketplace prototype for the Philippines, with owner-submitted listing
 - **Bookings** use a calendar-based workflow with status tracking. Owner approvals serialize overlap checks through a per-listing lease; a backend-authoritative callable is not deployed.
 - **Trust & Fairness Score** ranks listings using completed booking history, ratings, and price fairness, not just recency or price.
 - **Disputes** can be reviewed by admins; founded-dispute counts are shown on public accountability profiles.
+- **Public owner profiles** show verified listings and ratings, plus the email address or phone number only when the owner opts in. Shared contact details are publicly visible and have direct email/call actions.
 - **Loan calculator** helps users estimate financing for bank-acquired listings.
 
 ---

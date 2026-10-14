@@ -1,7 +1,7 @@
 # Account Profile and Contact Preferences
 
-**Status:** Opt-in public contact display implemented locally; private phone storage and contact workflows remain unimplemented  
-**Updated:** 2026-10-13
+**Status:** Opt-in public contact display implemented; private phone storage and contact workflows remain unimplemented
+**Updated:** 2026-10-15
 
 This document records the current account/profile behavior and privacy boundaries. The local Account UI can opt in to publishing the sign-in email and an optional phone number on `publicProfiles`; no Firestore Rules, backend service, Firebase billing, or production data were changed.
 
@@ -10,6 +10,7 @@ This document records the current account/profile behavior and privacy boundarie
 - `/account` lets a signed-in user edit their display name and explicitly choose whether to publish their sign-in email and an optional phone number. The Auth email remains read-only. The page also shows account status, role, listing count, and recent account activity.
 - `users/{uid}` holds private account/profile data. `publicProfiles/{uid}` is publicly readable and currently exposes a display name; it is used for reputation and accountability information.
 - The opt-in contact implementation writes `contactEmail` and `contactPhone` to publicly readable `publicProfiles/{uid}` only when selected. It does not store an unshared phone number privately; if private contact storage is later required, add a `users/{uid}` field with appropriate rules first.
+- Public owner profiles display each opted-in email address or phone number as text beside its email/call action. Anyone who can read the public profile can see the selected value; the action button is not a privacy boundary.
 - Owner-submitted listing documents contain `ownerId` and `ownerName`. `CreateListing` currently falls back to the authentication email when neither a profile name nor Auth display name exists. Because verified listings are public, that fallback can expose an email address in listing data and should be removed in a follow-up implementation.
 - A rental's **Request booking** action is the current way for a prospective renter to send the owner a booking request. It is not general messaging. Sale listings have no inquiry or viewing-request workflow.
 - The `PublicProfile` page currently labels a profile **Verified account**, but the account model has no identity-verification field or documented account-verification process. Listing-document review is not the same as verifying a person's identity.
@@ -45,7 +46,7 @@ There is currently no buyer inquiry, viewing request, messaging, or offer workfl
 
 ### Public owner profile
 
-Show the public display name and evidence-backed reputation information: verified listing count, public ratings/count/average, founded-dispute count with neutral wording, and member-since date only if it can be derived reliably. A **View profile** link helps users assess the owner but is not itself a contact channel. Show opt-in contact methods only when present. Do not expose private booking records, exact addresses, or document contents.
+Show the public display name and evidence-backed reputation information: verified listing count, public ratings/count/average, founded-dispute count with neutral wording, and member-since date only if it can be derived reliably. Display each opted-in email or phone value next to its email/call action; these values are public to all profile readers. Show contact methods only when present. Do not expose private booking records, exact addresses, or document contents.
 
 Do not label every profile **Verified account**. Listing review only means listing documents were reviewed; it does not establish the owner's identity. Add an account-level verification badge only after defining an actual verification process and a separately stored, auditable state.
 
@@ -69,7 +70,7 @@ If a paid plan is approved later, define the price, benefits, refund/cancellatio
 - Define whether a private copy of the phone number is required; it is not stored when the current user declines public sharing.
 - If private contact storage is added, define the private Firestore field, owner/admin read/write rules, validation, consent defaults, and deletion behavior before implementation.
 - Add tests for public opt-in, opt-out/removal, and (if private storage is added) unauthorized reads.
-- Keep Account and PublicProfile copy clear that selected contact methods are public; distinguish them from the private Auth email.
+- Keep Account and PublicProfile copy clear that selected contact methods are public; distinguish them from the private Auth email and unshared phone number.
 - Add a sale inquiry/viewing flow only as a separate, explicitly scoped feature; the current rental booking flow is not a substitute.
 - Replace the static account-verification label with a truthful state before presenting identity verification as implemented.
 

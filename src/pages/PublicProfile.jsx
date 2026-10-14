@@ -61,9 +61,19 @@ export default function PublicProfile() {
               <span>Average rating <strong>{average !== null ? `${average.toFixed(1)} / 5` : "No ratings yet"}</strong></span>
             </div>
             {(contactEmail || contactPhone) && (
-              <div className="public-profile__contact" aria-label="Owner contact options">
-                {contactEmail && <a className="btn btn--secondary" href={`mailto:${contactEmail}`}><Mail size={15} aria-hidden="true" /> Email owner</a>}
-                {contactPhone && <a className="btn btn--secondary" href={`tel:${contactPhone}`}><Phone size={15} aria-hidden="true" /> Call owner</a>}
+              <div className="public-profile__contact" aria-label="Owner contact details">
+                {contactEmail && (
+                  <div className="public-profile__contact-method">
+                    <span className="public-profile__contact-value"><Mail size={16} aria-hidden="true" /><span>{contactEmail}</span></span>
+                    <a className="btn btn--secondary" href={`mailto:${contactEmail}`}>Email owner</a>
+                  </div>
+                )}
+                {contactPhone && (
+                  <div className="public-profile__contact-method">
+                    <span className="public-profile__contact-value"><Phone size={16} aria-hidden="true" /><span>{contactPhone}</span></span>
+                    <a className="btn btn--secondary" href={`tel:${contactPhone}`}>Call owner</a>
+                  </div>
+                )}
               </div>
             )}
           </section>

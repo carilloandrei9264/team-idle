@@ -14,7 +14,7 @@ The code is not release-ready. In particular, Cloudinary currently blocks delive
 
 ## Account and contact design addendum - 2026-10-13
 
-Account now offers explicit opt-ins to publish the read-only Auth email and an optional E.164 phone number through `publicProfiles`. Listing details and public owner profiles show email/call links only when those public fields exist. This uses the existing public-readable/owner-writable profile document; no Firestore Rules, server workflow, or production deployment changed. A phone number is not retained privately when the owner does not share it. See [Account Profile and Contact Preferences](Account_Profile_and_Contact_Preferences.md) for field boundaries and remaining work.
+Account now offers explicit opt-ins to publish the read-only Auth email and an optional E.164 phone number through `publicProfiles`. Listing details and public owner profiles display the selected values with email/call actions only when those public fields exist. Anyone who can read the public profile can see opted-in values. This uses the existing public-readable/owner-writable profile document; no Firestore Rules, server workflow, or production deployment changed. A phone number is not retained privately when the owner does not share it. See [Account Profile and Contact Preferences](Account_Profile_and_Contact_Preferences.md) for field boundaries and remaining work.
 
 ## Status At A Glance
 

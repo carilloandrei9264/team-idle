@@ -143,7 +143,7 @@ Status: Partially addressed in local frontend on 2026-10-13; no Firestore Rules 
 
 Evidence:
 - `src/pages/Account.jsx` edits a name, displays the Auth email read-only, and allows explicit opt-in to publish that email and an optional E.164 phone number on `publicProfiles`.
-- `src/pages/ListingDetail.jsx` and `src/pages/PublicProfile.jsx` display email/call actions only for contact fields present on the public profile. `publicProfiles` is publicly readable, so opted-in values are public rather than private storage.
+- `src/pages/ListingDetail.jsx` and `src/pages/PublicProfile.jsx` display opted-in contact values with email/call actions only for fields present on the public profile. `publicProfiles` is publicly readable, so opted-in values are public rather than private storage.
 - An unshared phone number is not retained privately. Firestore Rules were not changed; contact fields are written only to the existing owner-writable `publicProfiles` document.
 - `src/pages/CreateListing.jsx` uses `user.email` as the last `ownerName` fallback. Verified listing documents are publicly readable, so an account email can become a public listing label when no display name is available.
 - Listing review is not identity verification. Public profiles should use evidence-backed listing, rating, and accountability signals; identity verification requires a separate documented process and state.
