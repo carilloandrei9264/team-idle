@@ -19,6 +19,12 @@ test("suspended accounts are explicitly blocked", () => {
   assert.equal(getAdminAccessState({ user, profile: { role: "admin", status: "suspended" } }), "suspended");
 });
 
+test("profile normalization preserves an explicit suspended status", () => {
+  const profile = normalizeUserProfileData({ role: "admin", status: "suspended" });
+  assert.equal(profile.status, "suspended");
+  assert.equal(getAdminAccessState({ user, profile }), "suspended");
+});
+
 test("missing or unreadable profiles fail closed as unverified", () => {
   assert.equal(getAdminAccessState({ user, profile: null }), "unverified");
   assert.equal(getAdminAccessState({ user, profile: { status: "active" } }), "unverified");

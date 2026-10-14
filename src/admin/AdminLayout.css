@@ -7,8 +7,8 @@
 }
 
 .admin-sidebar {
-  background: var(--color-neutral-900);
-  color: var(--color-white);
+  background: #0B1437;
+  color: #F1F6F4;
   display: flex;
   flex-direction: column;
   padding: var(--space-6) var(--space-4);
@@ -26,7 +26,7 @@
 .admin-sidebar__name {
   font-weight: 700;
   font-size: 18px;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 .admin-sidebar__sub {
   font-size: 12px;
@@ -59,8 +59,8 @@
   color: var(--color-white);
 }
 .admin-sidebar__link--active {
-  background: var(--color-primary);
-  color: var(--color-white);
+  background: rgba(255, 255, 255, 0.14);
+  color: #93C5FD;
 }
 .admin-sidebar__link:focus-visible {
   outline: 2px solid var(--color-white);
@@ -249,21 +249,35 @@
     top: 0;
     width: 100%;
     height: auto;
-    flex-direction: row;
-    justify-content: space-between;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
     padding: var(--space-2) var(--space-3);
   }
   .admin-sidebar__brand {
     align-items: flex-start;
     padding: 0;
   }
+  .admin-sidebar__sub { display: block; font-size: 12px; }
   .admin-sidebar__nav {
     flex-direction: row;
-    gap: 2px;
+    width: 100%;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: thin;
   }
   .admin-sidebar__link {
-    width: 38px;
-    height: 38px;
+    flex: 0 0 64px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    width: 64px;
+    height: 56px;
+    padding: 4px;
+    font-size: 10px;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
   }
   .admin-topbar {
     display: flex;

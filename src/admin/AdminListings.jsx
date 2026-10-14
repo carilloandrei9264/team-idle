@@ -62,7 +62,7 @@ export default function AdminListings() {
 
     let active = true;
     getDoc(doc(db, "listingPrivate", selectedId))
-      .then((snapshot) => {
+      .then(async (snapshot) => {
         if (!active) return;
         const data = snapshot.exists() ? snapshot.data() : {};
         setPrivateDocuments({
@@ -118,6 +118,12 @@ export default function AdminListings() {
 
   async function handleDecision(decision) {
     if (!selected || !privateDocumentsReady) return;
+    const feedback = rejectReason.trim();
+    if (!feedback) {
+      setError("Add feedback for the owner before submitting this decision.");
+      return;
+    }
+
     setSaving(true);
     setError("");
     setMessage("");
@@ -125,7 +131,7 @@ export default function AdminListings() {
       const batch = writeBatch(db);
       batch.update(doc(db, "listings", selected.id), {
         verificationStatus: "rejected",
-        rejectionReason: rejectReason.trim() || "No reason given",
+        rejectionReason: feedback,
         reviewDecision: decision,
         resubmissionRequested: decision === "changes_requested",
         verifiedAt: serverTimestamp(),
@@ -140,7 +146,7 @@ export default function AdminListings() {
         createdBy: user?.uid ?? null,
         type: NOTIFICATION_TYPES.LISTING_REVIEW,
         title: decision === "changes_requested" ? "Changes requested for your listing" : "Listing review update",
-        message: `${selected.title || "Your listing"}: ${rejectReason.trim() || "No reason given"}`,
+        message: `${selected.title || "Your listing"}: ${feedback}`,
         link: "/my-listings",
         entityId: selected.id,
         entityType: "listing",
@@ -173,7 +179,7 @@ export default function AdminListings() {
           <p className="panel__empty">No listings waiting for review right now.</p>
         </div>
       ) : (
-        <div className="listings-queue__layout">
+        <div className={`listings-queue__layout${pending.length === 1 ? " listings-queue__layout--single" : ""}`}>
           <section className="panel review-card">
             {selected && (
               <>
@@ -235,24 +241,26 @@ export default function AdminListings() {
                     </button>
                   </div>
                 ) : (
-                  <div className="review-card__reject-form">
-                    <label className="field__label" htmlFor="rejectReason">
-                      Reason for rejection
-                    </label>
+                    <div className="review-card__reject-form">
+                      <label className="field__label" htmlFor="rejectReason">
+                        Feedback for the owner (required)
+                      </label>
                     <textarea
                       id="rejectReason"
                       className="review-card__textarea"
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
-                      placeholder="e.g. Name on document doesn't match account"
+                        placeholder="Explain what needs to be corrected or clarified"
                       rows={3}
+                        required
                     />
+                      <p className="review-card__feedback-hint">This feedback will be sent to the owner and shown with the listing status.</p>
                     <div className="review-card__actions">
                       <button
                         type="button"
                         className="btn btn--danger"
                         onClick={() => handleDecision("changes_requested")}
-                        disabled={saving || !privateDocumentsReady}
+                        disabled={saving || !privateDocumentsReady || !rejectReason.trim()}
                       >
                         Request changes
                       </button>
@@ -260,7 +268,7 @@ export default function AdminListings() {
                         type="button"
                         className="btn btn--danger"
                         onClick={() => handleDecision("rejected")}
-                        disabled={saving || !privateDocumentsReady}
+                        disabled={saving || !privateDocumentsReady || !rejectReason.trim()}
                       >
                         Reject permanently
                       </button>
@@ -279,27 +287,29 @@ export default function AdminListings() {
             )}
           </section>
 
-          <aside className="panel up-next">
-            <h2 className="panel__title">Up next ({pending.length - 1 >= 0 ? pending.length - 1 : 0})</h2>
-            <ul className="up-next__list">
-              {pending
-                .filter((l) => l.id !== selectedId)
-                .map((l) => (
-                  <li key={l.id}>
-                    <button
-                      type="button"
-                      className="up-next__item"
-                      onClick={() => {
-                        setSelectedId(l.id);
-                        setShowDecisionForm(false);
-                      }}
-                    >
-                      {l.title || "Untitled listing"} <span className="badge badge--pending">pending</span>
-                    </button>
-                  </li>
-                ))}
-            </ul>
-          </aside>
+          {pending.length > 1 && (
+            <aside className="panel up-next">
+              <h2 className="panel__title">Up next ({pending.length - 1})</h2>
+              <ul className="up-next__list">
+                {pending
+                  .filter((l) => l.id !== selectedId)
+                  .map((l) => (
+                    <li key={l.id}>
+                      <button
+                        type="button"
+                        className="up-next__item"
+                        onClick={() => {
+                          setSelectedId(l.id);
+                          setShowDecisionForm(false);
+                        }}
+                      >
+                        {l.title || "Untitled listing"} <span className="badge badge--pending">pending</span>
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </aside>
+          )}
         </div>
       )}
     </div>

@@ -12,6 +12,10 @@ The current working copy includes user and admin workflows for account access, l
 
 The code is not release-ready. In particular, Cloudinary currently blocks delivery of the uploaded PDF with `show_original_customer_untrusted`; verification files are stored in Firestore's owner/admin-only `listingPrivate` documents, but the Cloudinary delivery URLs themselves are not private. The new admin Download link cannot bypass this account-level block. The direct client-side booking approval works without a deployed Cloud Function, but overlap checking happens before the write transaction and is not safe against simultaneous approvals. The current client path also does not copy the exact private address onto a confirmed booking.
 
+## Account and contact design addendum - 2026-10-13
+
+Account now offers explicit opt-ins to publish the read-only Auth email and an optional E.164 phone number through `publicProfiles`. Listing details and public owner profiles show email/call links only when those public fields exist. This uses the existing public-readable/owner-writable profile document; no Firestore Rules, server workflow, or production deployment changed. A phone number is not retained privately when the owner does not share it. See [Account Profile and Contact Preferences](Account_Profile_and_Contact_Preferences.md) for field boundaries and remaining work.
+
 ## Status At A Glance
 
 | Area | Current source state | Evidence or caveat |
@@ -40,7 +44,7 @@ The code is not release-ready. In particular, Cloudinary currently blocks delive
 
 ### Signed-in user
 
-- Manage account/profile details and device-local appearance/accessibility preferences.
+- Manage a display name, view a read-only authentication email, optionally publish contact email/phone on a public profile, and set device-local appearance/accessibility preferences. Public contact opt-in is not private phone storage.
 - Create, edit, and track owned listings.
 - Request bookings on verified rental listings; view and manage their renter-side bookings.
 - As listing owner, inspect booking requests, check dates, approve or decline pending requests.
@@ -75,7 +79,7 @@ Routes are declared in `src/App.jsx`; user routes require authentication, and `/
 | `/bookings/:bookingId/review` | Rating form for eligible completed booking |
 | `/bookings/:bookingId/dispute` | Dispute submission for eligible booking |
 | `/notifications` | User-scoped in-app notifications |
-| `/settings`, `/account`, `/login` | Preferences, account, authentication |
+| `/settings`, `/account`, `/login` | Device-local preferences, basic account profile with opt-in public contact fields, authentication |
 | `/bank-catalog` | Bank-acquired property search |
 | `/bank-catalog/:propertyId` | Bank property detail and loan estimate |
 | `/profiles/:userId` | Public profile and accountability summary |
@@ -136,9 +140,9 @@ Notifications are in-app Firestore records. Personal feeds are scoped to the use
 
 | Firestore collection | Purpose and key fields | Intended access |
 |---|---|---|
-| `users/{uid}` | Private profile, name/email, role, active/suspended status, creation time | Owner and active admins; rules govern profile repair and admin writes |
-| `publicProfiles/{uid}` | Public profile display fields | Public read; owner/admin write |
-| `listings/{listingId}` | Public listing fields, owner ID, photos, purpose, coarse map location, verification status | Public reads only verified records; owners read own records; admins review |
+| `users/{uid}` | Current private profile, name/email, role, active/suspended status, creation time. No phone field is currently stored privately. | Owner and active admins; rules govern profile repair and admin writes |
+| `publicProfiles/{uid}` | Public display/reputation fields plus opt-in `contactEmail` and `contactPhone` fields when the owner chooses to share them | Public read; owner/admin write under existing rules |
+| `listings/{listingId}` | Public listing fields, owner ID/name, photos, purpose, coarse map location, verification status. Current creation code can use Auth email as the `ownerName` fallback; remove this before treating owner labels as privacy-safe. | Public reads only verified records; owners read own records; admins review |
 | `listingPrivate/{listingId}` | Exact address and ownership/government document URLs, owner ID | Active owner/admin reads; tightly constrained create/update rules |
 | `bookings/{bookingId}` | Renter/owner/listing IDs, dates, status, optional deposit reference/address | Renter, owner, admins; transition rules restrict writes |
 | `ratings/{ratingId}` | Booking/reviewer/owner, score 1-5, comment | Public read; eligible renter creates after completion; admins moderate |
@@ -239,7 +243,7 @@ Cloudinary currently blocks the PDF asset because the customer is marked untrust
 
 ### P0 - Make booking overlap/address guarantees match the product claim
 
-Current client approval checks existing confirmed bookings before the transaction, then transacts only on the request document. Concurrent approvals can race. The current client route also does not hand the exact private address to the renter. The safer locking callable exists in `functions/index.js` but is not the active path and was not verified deployed. Choose an approved backend approach or explicitly limit the demo claim; test concurrency and address access before production use.
+Both current owner approval routes now share `src/lib/bookingConfirmation.js`. The client acquires a short-lived per-listing lease, checks confirmed bookings while holding it, then confirms the request and releases the lease in one transaction. Firestore Rules require this lease transition; `npm run test:firestore-rules` verifies direct confirmation is denied and only one of two concurrent overlapping app confirmations succeeds. This is a no-Blaze client-side mitigation, not an authoritative backend guarantee: Rules cannot independently inspect the full confirmed-booking query, and a modified client could bypass the overlap check while following the lease protocol. The callable in `functions/index.js` is not the active frontend path and deployment remains unverified. The client route also does not hand the exact private address to the renter. Do not claim production-grade booking guarantees until a backend-authoritative approach is available and deployed.
 
 ### P1 - Deployment parity and end-to-end evidence
 

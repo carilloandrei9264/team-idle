@@ -3,11 +3,41 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getStorage } = require("firebase-admin/storage");
 const { dateToMillis, hasConfirmedOverlap } = require("./booking");
 
 initializeApp();
 setGlobalOptions({ region: "asia-southeast1", maxInstances: 1 });
 const db = getFirestore();
+const storage = getStorage();
+
+exports.getSecureDocumentUrl = onCall({ region: "asia-southeast1" }, async (request) => {
+  const userId = request.auth?.uid;
+  if (!userId) throw new HttpsError("unauthenticated", "Sign in to view this document.");
+
+  const path = typeof request.data?.path === "string" ? request.data.path.trim() : "";
+  const expiresInSeconds = Number(request.data?.expiresInSeconds || 300);
+  if (!path) {
+    throw new HttpsError("invalid-argument", "A storage path is required.");
+  }
+
+  const [userSnapshot, isOwnerPath] = await Promise.all([
+    db.collection("users").doc(userId).get(),
+    Promise.resolve(path.startsWith(`verification/${userId}/`)),
+  ]);
+  const isAdmin = userSnapshot.exists && userSnapshot.data()?.role === "admin";
+  if (!isOwnerPath && !isAdmin) {
+    throw new HttpsError("permission-denied", "You do not have access to this document.");
+  }
+
+  const expiresAt = Date.now() + Math.max(60, Math.min(expiresInSeconds, 900)) * 1000;
+  const [url] = await storage.bucket().file(path).getSignedUrl({
+    action: "read",
+    expires: expiresAt,
+  });
+
+  return { url };
+});
 
 exports.confirmBooking = onCall({ region: "asia-southeast1" }, async (request) => {
   const ownerId = request.auth?.uid;

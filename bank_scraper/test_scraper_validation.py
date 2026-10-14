@@ -1,5 +1,7 @@
 import unittest
+from unittest.mock import patch
 
+import scraper
 from scraper import is_valid_listing, metrobank_item_to_listing, validate_listings
 
 
@@ -61,6 +63,27 @@ class ScraperValidationTests(unittest.TestCase):
     def test_empty_valid_result_fails_closed(self):
         with self.assertRaisesRegex(RuntimeError, "catalog was left unchanged"):
             validate_listings([{"title": "No reference"}, None])
+
+    def test_unverified_sources_are_blocked_before_firebase_initializes(self):
+        with patch.object(scraper, "init_db") as init_db, \
+                patch.object(scraper.requests, "get", side_effect=AssertionError("network access is blocked")), \
+                patch.object(scraper.time, "sleep"):
+            result = scraper.run_banks(["Landbank", "bdo"])
+
+        self.assertEqual(result, {"successful": [], "failed": ["landbank", "bdo"]})
+        init_db.assert_not_called()
+
+    def test_mixed_request_writes_only_active_sources(self):
+        listings = [{"reference_no": "MB-200", "title": "Test property", "price": 12000}]
+        with patch.dict(scraper.ACTIVE_SCRAPERS, {"metrobank": lambda: listings}), \
+                patch.object(scraper, "init_db") as init_db, \
+                patch.object(scraper, "upsert_properties") as upsert_properties, \
+                patch.object(scraper.time, "sleep"):
+            result = scraper.run_banks(["metrobank", "bdo"])
+
+        self.assertEqual(result, {"successful": ["metrobank"], "failed": ["bdo"]})
+        init_db.assert_called_once_with()
+        upsert_properties.assert_called_once_with("metrobank", listings)
 
 
 if __name__ == "__main__":

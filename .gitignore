@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
 
 # Firebase Admin credentials must never be committed.
 serviceAccountKey.json

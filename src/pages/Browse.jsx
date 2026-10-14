@@ -279,6 +279,11 @@ export default function Browse() {
 
         {/* ── Results panel ── */}
         <main className="browse__results">
+          <header className="browse__page-heading">
+            <p>Property search</p>
+            <h1>Browse properties</h1>
+            <span>Compare verified rentals and properties for sale.</span>
+          </header>
           <div className="browse__toolbar">
             <button
               type="button"

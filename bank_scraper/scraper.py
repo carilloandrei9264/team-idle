@@ -12,8 +12,10 @@ One function per bank. Each returns a list of dicts shaped like:
         "image_url": "...",
     }
 
-Run this file directly to scrape all three banks once and save to the database:
+Run this file directly to scrape the production-enabled source and save to the database:
     python scraper.py
+
+Unverified parsers can only be inspected with --dry-run; they cannot write to the catalog.
 """
 
 from __future__ import annotations  # lets list[dict]-style hints run on Python 3.8
@@ -21,6 +23,7 @@ from __future__ import annotations  # lets list[dict]-style hints run on Python 
 import time
 import re
 import argparse
+from decimal import Decimal, InvalidOperation
 from urllib.parse import urljoin
 
 import requests
@@ -252,13 +255,22 @@ def fetch_metrobank_page(page: int, attempts: int = 3) -> tuple[list[dict], int]
 
 def metrobank_item_to_listing(item: dict) -> dict:
     reference_no = item.get("propAcctNo")
+    category = clean_text(item.get("propCategory"))
+    property_type = clean_text(item.get("propType"))
+    if not property_type or property_type.lower() in {"property", "real estate"} or property_type.lower().endswith(" real estate"):
+        title_category = category or property_type
+        title_category = re.sub(r"\s*real estate$", "", title_category, flags=re.IGNORECASE).strip()
+        locality = clean_text(item.get("city") or item.get("province"))
+        title = f"{title_category or 'Metrobank'} property in {locality}" if locality else f"{title_category or 'Metrobank'} property"
+    else:
+        title = clean_text(" ".join(filter(None, [category, property_type])))
     location = clean_text(", ".join(filter(None, [
         item.get("address") or item.get("city"), item.get("province"),
     ]))) or None
     image_id = item.get("defaultImage")
     return {
         "reference_no": reference_no,
-        "title": clean_text(" ".join(filter(None, [item.get("propCategory"), item.get("propType")]))) or "Metrobank acquired property",
+        "title": title or "Metrobank acquired property",
         "location": location,
         "price": item.get("price"),  # already a plain number from the API
         "floor_area": format_area(item.get("floorArea"), item.get("floorAreaUnit")),
@@ -332,24 +344,40 @@ def scrape_bdo() -> list[dict]:
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
-SCRAPERS = {
-    "landbank": scrape_landbank,
+ACTIVE_SCRAPERS = {
     "metrobank": scrape_metrobank,
+}
+
+UNVERIFIED_SCRAPERS = {
+    "landbank": scrape_landbank,
     "bdo": scrape_bdo,
 }
 
+SCRAPERS = {**ACTIVE_SCRAPERS, **UNVERIFIED_SCRAPERS}
+
 
 def run_banks(banks=None):
-    init_db()
-    selected_banks = [bank.lower() for bank in (banks or DEFAULT_BANKS)]
+    selected_banks = [str(bank).strip().lower() for bank in (banks or DEFAULT_BANKS) if str(bank).strip()]
+    active_banks = []
     successful_banks = []
     failed_banks = []
 
     for bank_name in selected_banks:
-        scrape_fn = SCRAPERS.get(bank_name)
-        if not scrape_fn:
-            print(f"[{bank_name}] SKIPPED: unsupported bank")
-            continue
+        if bank_name not in SCRAPERS:
+            print(f"[{bank_name}] BLOCKED: unsupported bank")
+            failed_banks.append(bank_name)
+        elif bank_name not in ACTIVE_SCRAPERS:
+            print(f"[{bank_name}] BLOCKED: source is unverified and disabled for catalog writes")
+            failed_banks.append(bank_name)
+        else:
+            active_banks.append(bank_name)
+
+    if not active_banks:
+        return {"successful": successful_banks, "failed": failed_banks}
+
+    init_db()
+    for bank_name in active_banks:
+        scrape_fn = ACTIVE_SCRAPERS[bank_name]
         try:
             print(f"Scraping {bank_name}...")
             listings = validate_listings(scrape_fn())
@@ -369,13 +397,16 @@ def dry_run(banks):
     global _DRY_RUN
     _DRY_RUN = True
     for bank_name in banks:
-        scrape_fn = SCRAPERS.get(bank_name.lower())
+        normalized_bank = str(bank_name).strip().lower()
+        scrape_fn = SCRAPERS.get(normalized_bank)
         if not scrape_fn:
-            print(f"[{bank_name}] SKIPPED: unsupported bank")
+            print(f"[{normalized_bank}] SKIPPED: unsupported bank")
             continue
+        if normalized_bank not in ACTIVE_SCRAPERS:
+            print(f"[{normalized_bank}] UNVERIFIED: diagnostic dry-run only; no catalog writes")
         try:
             listings = validate_listings(scrape_fn())
-            print(f"[{bank_name}] parsed {len(listings)} properties")
+            print(f"[{normalized_bank}] parsed {len(listings)} properties")
             for listing in listings[:3]:
                 print(
                     f"  - {listing.get('reference_no')}: {listing.get('title')}"
@@ -383,7 +414,7 @@ def dry_run(banks):
                     f" | {listing.get('classification') or '(none)'}"
                 )
         except Exception as error:
-            print(f"[{bank_name}] FAILED: {error}")
+            print(f"[{normalized_bank}] FAILED: {error}")
 
 
 def run_all():
@@ -395,8 +426,23 @@ def clean_text(value):
 
 
 def is_valid_listing(listing):
-    """Return whether a scraped record has the identity needed for upsert."""
-    return isinstance(listing, dict) and bool(clean_text(listing.get("reference_no")))
+    """Return whether a scraped record has an identity and meaningful price."""
+    return (
+        isinstance(listing, dict)
+        and bool(clean_text(listing.get("reference_no")))
+        and is_valid_price(listing.get("price"))
+    )
+
+
+def is_valid_price(value):
+    if value is None or isinstance(value, bool):
+        return False
+    normalized = re.sub(r"[^0-9.+-]", "", str(value))
+    try:
+        price = Decimal(normalized)
+    except InvalidOperation:
+        return False
+    return price.is_finite() and price > Decimal("1")
 
 
 def validate_listings(listings):
@@ -404,7 +450,7 @@ def validate_listings(listings):
     valid = [listing for listing in listings if is_valid_listing(listing)]
     skipped = len(listings) - len(valid)
     if skipped:
-        print(f"Skipped {skipped} malformed property records.")
+        print(f"Skipped {skipped} malformed or unpriced property records.")
     if not valid:
         raise RuntimeError("Scraper returned no valid property records; existing catalog was left unchanged.")
     return valid
@@ -490,4 +536,6 @@ if __name__ == "__main__":
     if args.dry_run:
         dry_run(args.banks)
     else:
-        run_banks(args.banks)
+        result = run_banks(args.banks)
+        if result["failed"]:
+            raise SystemExit(1)

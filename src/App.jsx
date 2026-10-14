@@ -30,6 +30,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
 const AdminLayout = lazy(() => import("./admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
+const AdminActivityLog = lazy(() => import("./admin/AdminActivityLog"));
 const AdminNotifications = lazy(() => import("./admin/AdminNotifications"));
 const AdminListings = lazy(() => import("./admin/AdminListings"));
 const AdminDisputes = lazy(() => import("./admin/AdminDisputes"));
@@ -82,6 +83,7 @@ function AppRoutes() {
           }
         >
           <Route index element={<AdminDashboard />} />
+          <Route path="activity" element={<AdminActivityLog />} />
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="settings" element={<Settings adminMode />} />
           <Route path="listings" element={<AdminListings />} />

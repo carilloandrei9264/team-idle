@@ -13,17 +13,8 @@ html, body, #root {
   box-sizing: border-box;
 }
 
-/* ── Page background: subtle mesh gradient (light mode) ─────────────────────
-   Two radial spots (blue-100/40 top-left, violet-100/30 bottom-right)
-   over a near-white base (#F8F9FE). Creates depth without pattern noise.    */
 body {
-  /* Mesh: base + two radial overlays */
   background-color: var(--page-bg);
-  background-image:
-    radial-gradient(ellipse 80% 60% at 10% 5%,  rgba(219, 234, 254, 0.40) 0%, transparent 70%),
-    radial-gradient(ellipse 70% 55% at 90% 95%, rgba(237, 233, 254, 0.30) 0%, transparent 70%);
-  background-attachment: fixed;
-
   color: var(--color-neutral-900);
   font-family: var(--font-sans);
   font-size: 1rem;
@@ -58,12 +49,8 @@ html.reduce-motion *::after {
   transition-duration: 0.01ms !important;
 }
 
-/* Dark mode: radial glow at top-center, no mesh (too noisy on dark) */
 html.dark body {
   background-color: var(--page-bg);
-  background-image:
-    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(37, 99, 235, 0.12) 0%, transparent 65%);
-  background-attachment: fixed;
 }
 
 button, input, textarea {

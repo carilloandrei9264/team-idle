@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
-import { Bell, CheckCheck } from "lucide-react";
+import { collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { Bell, Check, CheckCheck, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { db } from "../firebase";
 import {
@@ -44,6 +44,14 @@ export default function AdminNotifications() {
     await Promise.all(notifications.filter((item) => !item.read).map((item) => markRead(item)));
   }
 
+  async function clearNotification(notification) {
+    try {
+      await deleteDoc(doc(db, "notifications", notification.id));
+    } catch {
+      setError("This notification could not be cleared.");
+    }
+  }
+
   const unreadCount = notifications.filter((item) => !item.read).length;
   return <section className="admin-page notifications-page">
     <header className="admin-page__header notifications-page__header">
@@ -63,7 +71,28 @@ export default function AdminNotifications() {
         ) : (
           <div className="notification-item__content"><h2>{notification.title}</h2><p>{notification.message}</p><time>{formatNotificationDate(notification.createdAt)}</time></div>
         )}
-        {!notification.read && <button type="button" className="btn btn--secondary" onClick={() => markRead(notification)}>Mark read</button>}
+        <div className="notification-item__actions">
+          {!notification.read && (
+            <button
+              type="button"
+              className="notification-item__action"
+              onClick={() => markRead(notification)}
+              aria-label={`Mark as read: ${notification.title}`}
+              title="Mark as read"
+            >
+              <Check size={16} aria-hidden="true" />
+            </button>
+          )}
+          <button
+            type="button"
+            className="notification-item__action notification-item__action--clear"
+            onClick={() => clearNotification(notification)}
+            aria-label={`Clear notification: ${notification.title}`}
+            title="Clear notification"
+          >
+            <Trash2 size={15} aria-hidden="true" />
+          </button>
+        </div>
       </article>)}</div>
     </>}
   </section>;

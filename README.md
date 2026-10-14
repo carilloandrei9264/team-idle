@@ -22,7 +22,7 @@ A rental marketplace prototype for the Philippines, with owner-submitted listing
 
 - **Renters** browse verified rental listings and request bookings. Users can also browse a separate catalog of bank-acquired properties.
 - **Homeowners** list a room, unit, or house for rent; listings only go public after a verification step.
-- **Bookings** use a calendar-based workflow with status tracking and a client-side overlap check. Concurrent approval race protection remains a release gap.
+- **Bookings** use a calendar-based workflow with status tracking. Owner approvals serialize overlap checks through a per-listing lease; a backend-authoritative callable is not deployed.
 - **Trust & Fairness Score** ranks listings using completed booking history, ratings, and price fairness, not just recency or price.
 - **Disputes** can be reviewed by admins; founded-dispute counts are shown on public accountability profiles.
 - **Loan calculator** helps users estimate financing for bank-acquired listings.
@@ -36,7 +36,7 @@ A rental marketplace prototype for the Philippines, with owner-submitted listing
 | Frontend | React + Vite |
 | Database | Firebase Firestore |
 | Auth | Firebase Authentication |
-| File uploads | Cloudinary |
+| File uploads | Cloudinary for listing photos and verification documents; Firebase Storage is not enabled for this Spark project |
 | Hosting | Firebase Hosting |
 | Optional backend jobs | Firebase Functions source exists; deployment is not verified and requires an approved billing-enabled environment |
 | Bank scraper | Python (`requests` + `BeautifulSoup`) |
@@ -111,6 +111,17 @@ From the project root:
 
 ```bash
 npm install
+```
+
+Local development uses the Firebase Auth, Firestore, and Storage emulators by default so it does not write to the shared `trusthome-ph` project. Start them in a separate terminal with `npm run emulators` (Firebase CLI and Java required). Functions are not needed for the current browser workflows and are not started by this command. To intentionally use the shared project during local development, set `VITE_USE_SHARED_FIREBASE=true` in an untracked `.env.local` file; avoid this for routine testing. Validate the verification-file Storage rules locally with `npm run test:storage-rules`; this uses a demo project ID and does not access the shared project.
+
+Run these in two terminals from the project root:
+
+```bash
+# Terminal 1
+npm run emulators
+
+# Terminal 2
 npm run dev
 ```
 
@@ -121,7 +132,7 @@ npm run build
 npm run preview
 ```
 
-The client configuration in `src/firebase.js` points to the shared `trusthome-ph` Firebase project. A local clone uses that same project unless the configuration is changed; local development does not create a separate database. Coordinate test data and writes with the team.
+The client configuration in `src/firebase.js` contains the app's Firebase project identifiers. Vite development connects to local emulators by default; production builds use the configured Firebase project. Shared-project access from local development must be explicitly enabled with `VITE_USE_SHARED_FIREBASE=true`.
 
 ### Bank scraper
 
@@ -156,9 +167,13 @@ Use these commands from the repository root:
 ```bash
 npm install
 npm test
+npm run test:firestore-rules
+npm run test:storage-rules
 npm run lint
 npm run build
 ```
+
+`npm run test:firestore-rules` and `npm run test:storage-rules` require the Firebase CLI and Java and use demo project IDs with local emulators.
 
 This creates a production bundle in the `dist/` folder for deployment or previewing. For local development, use:
 
@@ -182,6 +197,9 @@ npm run dev
 | `TrustHome_PH_08_QA_and_Testing_Strategy.pdf` | Test evidence levels, procedures, and workbook usage. |
 | `TrustHome_PH_09_Release_Roadmap_and_Versioning_Plan.pdf` | Version history, release blockers, ownership, and release practices. |
 | `TrustHome_PH_Use_Cases_and_Test_Cases_2026-10-04.xlsx` | Use cases, test cases, requirements, summary, and known gaps. |
+| `Local_Firebase_Emulator_Guide.md` | Local emulator setup, isolated test accounts, Google sign-in simulation, and safety boundaries. |
+| `docs/Account_Profile_and_Contact_Preferences.md` | Account contact-sharing behavior, privacy boundaries, owner contact flow, and remaining public trust-profile gaps. |
+| `Project_Audit_2026-10-12.md` | Current project audit, fixes implemented, remaining risks, and verification evidence. |
 | `TrustHome_Current_Progress_Report_2026-10-04.md` | Source-backed system flows, evidence, current status, and release gaps. |
 | `TrustHomePH_SWOT_Analysis.pdf` | SWOT and project reflection summary. |
 
@@ -205,9 +223,10 @@ npm run dev
 - TrustHome does not hold, transfer, or recover deposit funds. A deposit reference is a text record only.
 - Listing document review is a plausibility check, not a legal title search.
 - Metrobank is the only active bank catalog source. Landbank parsing is unverified and BDO remains a placeholder.
-- Cloudinary currently blocks delivery of the PDF with `show_original_customer_untrusted`. The admin download link cannot bypass that account-level restriction.
-- Verification-document URLs are stored in Firestore's private listing record, but Cloudinary delivery is not yet securely authenticated. Do not run the authenticated-document migration on live data until the app supports short-lived authenticated delivery URLs.
-- The current owner booking approval path checks overlapping confirmed bookings before the Firestore write transaction; simultaneous approvals can race. Stronger server-side confirmation exists in Functions source but is not verified deployed.
+- Cloudinary currently blocks delivery of verification PDFs with `show_original_customer_untrusted`, including legacy uploads. The admin download link cannot bypass that account-level restriction; new verification PDFs use the same Cloudinary path.
+- Verification documents continue to use Cloudinary URLs. Firebase Console confirms this project is on Spark and its Storage page requires Blaze, so the app does not use Firebase Storage for document uploads. Cloudinary PDF delivery remains blocked for some assets, and direct URLs are not short-lived authenticated links; treat document handling as a release blocker.
+- Both owner approval routes now use a shared client flow that acquires a 60-second per-listing lease, checks confirmed bookings, and atomically confirms the booking while releasing the lease. Firestore Rules require the lease transition, and local emulator tests cover concurrent approvals. Rules cannot independently verify that an intentionally modified client checked for overlaps; a backend-authoritative callable is not deployed.
+- Deployment parity is not current: the live Hosting release is dated Oct 1, 2026; live Firestore Rules do not include the booking lease requirement, and the live index list is missing the repository's new `bookings(listingId, ownerId, status)` index. See the audit before considering the local booking changes production-ready.
 - Firebase Functions require an approved billing-enabled deployment environment. The current frontend booking approval does not require a deployed callable.
 - Native mobile development and BDO/Landbank activation are outside the currently verified implementation.
 

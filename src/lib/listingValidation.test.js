@@ -65,6 +65,33 @@ test("rental listings require a supported rental term", () => {
   assert.match(errors.join(" "), /short-term or long-term/);
 });
 
+test("condition and furnishing details remain optional but validate when supplied", () => {
+  const requiredOnlyErrors = validateListingForm({
+    form: validForm,
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+  assert.deepEqual(requiredOnlyErrors, []);
+
+  const supportedDetailsErrors = validateListingForm({
+    form: { ...validForm, propertyCondition: "good", furnishingStatus: "partially_furnished" },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+  assert.deepEqual(supportedDetailsErrors, []);
+
+  const unsupportedDetailsErrors = validateListingForm({
+    form: { ...validForm, propertyCondition: "unknown", furnishingStatus: "unknown" },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+  assert.match(unsupportedDetailsErrors.join(" "), /condition/i);
+  assert.match(unsupportedDetailsErrors.join(" "), /furnishing/i);
+});
+
 test("invalid or malformed map pins are rejected before submission", () => {
   const errors = validateListingForm({
     form: { ...validForm, mapLocation: { geohash: "bad", precision: "approximate" } },

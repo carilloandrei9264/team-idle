@@ -6,7 +6,7 @@ import PublicNav from "../components/PublicNav";
 import PropertyMap from "../components/PropertyMap";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
-import { countWords, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
+import { countWords, FURNISHING_STATUSES, PROPERTY_CONDITIONS, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
 import { documentResourceType, uploadToCloudinary } from "../uploadImage";
 import "./UserPages.css";
 
@@ -42,6 +42,7 @@ export default function EditListing() {
         const rentalTerm = data.rentalTerm || (data.pricePeriod === "day" ? "short_term" : "long_term");
         setForm({
           title: data.title || "", description: data.description || "", type: data.type || "Apartment",
+          propertyCondition: data.propertyCondition || "", furnishingStatus: data.furnishingStatus || "",
           address: privateData.address || data.address || "", city: data.city || "", price: data.price || "",
           listingPurpose, rentalTerm, pricePeriod: listingPurpose === "sale" ? "total" : rentalTerm === "short_term" ? "day" : "month",
           bedrooms: data.bedrooms ?? "", bathrooms: data.bathrooms ?? "", floorArea: data.floorArea || "", lotArea: data.lotArea || "",
@@ -50,8 +51,8 @@ export default function EditListing() {
         setMapLocation(data.mapLocation || null);
         setExistingPhotos(data.photoUrls || []);
         setExistingDocuments({
-          ownership: privateData.ownershipDocumentUrl || data.ownershipDocumentPath || data.ownershipDocumentUrl || data.verificationDocUrl || null,
-          governmentId: privateData.governmentIdUrl || data.governmentIdPath || data.governmentIdUrl || null,
+          ownership: privateData.ownershipDocumentUrl || data.ownershipDocumentUrl || data.verificationDocUrl || null,
+          governmentId: privateData.governmentIdUrl || data.governmentIdUrl || null,
         });
       }
       setLoading(false);
@@ -79,6 +80,7 @@ export default function EditListing() {
       const batch = writeBatch(db);
       batch.update(doc(db, "listings", listingId), {
         title: form.title.trim(), description: form.description.trim(), type: form.type, listingPurpose: form.listingPurpose,
+        propertyCondition: form.propertyCondition || null, furnishingStatus: form.type === "Land" ? null : form.furnishingStatus || null,
         rentalTerm: form.listingPurpose === "rent" ? form.rentalTerm : null, address: deleteField(),
         ownershipDocumentUrl: deleteField(), governmentIdUrl: deleteField(), verificationDocUrl: deleteField(), city: form.city.trim(),
         mapLocation,
@@ -134,15 +136,37 @@ export default function EditListing() {
                   </div>
                 </div>
                 {form.listingPurpose === "rent" && (
-                  <div className="field">
-                    <label className="field__label" htmlFor="edit-rentalTerm">Rental term</label>
-                    <select id="edit-rentalTerm" className="field__input" value={form.rentalTerm} onChange={(event) => updateRentalTerm(event.target.value)}>
-                      <option value="short_term">Short-term stay · per night</option>
-                      <option value="long_term">Long-term home · per month</option>
-                    </select>
+                  <div className="field listing-form__wide">
+                    <span className="field__label">Rental term</span>
+                    <div className="listing-form__purpose-options" role="radiogroup" aria-label="Rental term">
+                      <label className={`listing-form__purpose-option${form.rentalTerm === "short_term" ? " listing-form__purpose-option--selected" : ""}`}>
+                        <input type="radio" name="editRentalTerm" value="short_term" checked={form.rentalTerm === "short_term"} onChange={() => updateRentalTerm("short_term")} />
+                        <span><strong>Short-term stay</strong><small>Price per night</small></span>
+                      </label>
+                      <label className={`listing-form__purpose-option${form.rentalTerm === "long_term" ? " listing-form__purpose-option--selected" : ""}`}>
+                        <input type="radio" name="editRentalTerm" value="long_term" checked={form.rentalTerm === "long_term"} onChange={() => updateRentalTerm("long_term")} />
+                        <span><strong>Long-term lease</strong><small>Price per month</small></span>
+                      </label>
+                    </div>
                   </div>
                 )}
                 <SelectField id="edit-type" name="type" label="Property type" value={form.type} onChange={updateField} options={PROPERTY_TYPES} />
+                <div className="field">
+                  <label className="field__label" htmlFor="edit-propertyCondition">Property condition (optional)</label>
+                  <select id="edit-propertyCondition" name="propertyCondition" className="field__input" value={form.propertyCondition} onChange={updateField}>
+                    <option value="">Not specified</option>
+                    {PROPERTY_CONDITIONS.map((condition) => <option key={condition} value={condition}>{formatOptionLabel(condition)}</option>)}
+                  </select>
+                </div>
+                {form.type !== "Land" && (
+                  <div className="field">
+                    <label className="field__label" htmlFor="edit-furnishingStatus">Furnishing (optional)</label>
+                    <select id="edit-furnishingStatus" name="furnishingStatus" className="field__input" value={form.furnishingStatus} onChange={updateField}>
+                      <option value="">Not specified</option>
+                      {FURNISHING_STATUSES.map((status) => <option key={status} value={status}>{formatOptionLabel(status)}</option>)}
+                    </select>
+                  </div>
+                )}
                 <Field id="edit-address" name="address" label="Private address or area" value={form.address} onChange={updateField} />
                 <Field id="edit-city" name="city" label="City" value={form.city} onChange={updateField} />
                 <div className="field listing-form__wide">
@@ -162,8 +186,8 @@ export default function EditListing() {
                   <span className="field__label">Showing windows</span>
                   <div className="listing-form__showing-windows">{SHOWING_DAYS.map((day) => <div className="listing-form__showing-row" key={day}><label className="listing-form__amenity"><input type="checkbox" checked={form.showingWindows[day].enabled} onChange={(event) => updateShowingWindow(day, "enabled", event.target.checked)} />{day}</label><input className="field__input" type="time" value={form.showingWindows[day].start} disabled={!form.showingWindows[day].enabled} onChange={(event) => updateShowingWindow(day, "start", event.target.value)} aria-label={`${day} showing start`} /><span>to</span><input className="field__input" type="time" value={form.showingWindows[day].end} disabled={!form.showingWindows[day].enabled} onChange={(event) => updateShowingWindow(day, "end", event.target.value)} aria-label={`${day} showing end`} /></div>)}</div>
                 </div>
-                <Field id="edit-floor" name="floorArea" label="Floor area (sqm)" type="number" value={form.floorArea} onChange={updateField} />
-                <Field id="edit-lot" name="lotArea" label="Lot area (sqm)" type="number" value={form.lotArea} onChange={updateField} />
+                <Field id="edit-floor" name="floorArea" label="Floor area (sqm)" type="number" value={form.floorArea} onChange={updateField} required={false} />
+                <Field id="edit-lot" name="lotArea" label="Lot area (sqm)" type="number" value={form.lotArea} onChange={updateField} required={false} />
               </div>
             </section>
             <section className="user-page__empty listing-form__section">
@@ -184,7 +208,8 @@ export default function EditListing() {
   );
 }
 
-function Field({ id, name, label, value, onChange, type = "text", step, wide = false }) { return <div className={`field${wide ? " listing-form__wide" : ""}`}><label className="field__label" htmlFor={id}>{label}</label><input id={id} name={name} className="field__input" type={type} min={type === "number" ? "0" : undefined} step={step} value={value} onChange={onChange} required /></div>; }
+function Field({ id, name, label, value, onChange, type = "text", step, wide = false, required = true }) { return <div className={`field${wide ? " listing-form__wide" : ""}`}><label className="field__label" htmlFor={id}>{label}</label><input id={id} name={name} className="field__input" type={type} min={type === "number" ? "0" : undefined} step={step} value={value} onChange={onChange} required={required} /></div>; }
 function SelectField({ id, name, label, value, onChange, options }) { return <div className="field"><label className="field__label" htmlFor={id}>{label}</label><select id={id} name={name} className="field__input" value={value} onChange={onChange} required>{options.map((option) => <option key={option}>{option}</option>)}</select></div>; }
+function formatOptionLabel(value) { return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function normalizeShowingWindows(windows = {}) { return Object.fromEntries(SHOWING_DAYS.map((day) => [day, { enabled: Boolean(windows[day]?.enabled), start: windows[day]?.start || "09:00", end: windows[day]?.end || "17:00" }])); }
 function listingAssetOptions(id, assetFolder, assetType) { return { assetFolder: `trusthome/listings/${id}/${assetFolder}`, tags: ["trusthome", assetType] }; }

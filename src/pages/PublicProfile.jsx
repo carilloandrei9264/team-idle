@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, getDoc, doc, query, where } from "firebase/firestore";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Mail, Phone } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { db } from "../firebase";
@@ -32,5 +32,43 @@ export default function PublicProfile() {
 
   const average = ratings.length ? ratings.reduce((sum, rating) => sum + Number(rating.score || 0), 0) / ratings.length : null;
   const foundedDisputes = Number(accountability?.foundedDisputes || 0);
-  return <div className="user-page"><PublicNav /><main className="user-page__content"><Link to="/browse" className="user-page__back"><ArrowLeft size={16} aria-hidden="true" /> Browse</Link>{loading ? <p className="user-page__empty">Loading profile...</p> : error ? <div className="user-page__empty" role="alert">{error}</div> : <section className="user-page__empty public-profile"><div className="account-summary__avatar" aria-hidden="true">{(profile?.name || "T").charAt(0).toUpperCase()}</div><p className="user-page__eyebrow">TrustHome member</p><h1>{profile?.name || "TrustHome member"}</h1><p className="listing-detail__verified"><ShieldCheck size={16} aria-hidden="true" /> Verified account</p>{foundedDisputes > 0 && <p className="public-profile__flag" role="status">{foundedDisputes} founded {foundedDisputes === 1 ? "dispute" : "disputes"} on record</p>}<div className="listing-detail__facts"><span>Verified listings <strong>{listingCount}</strong></span><span>Ratings <strong>{ratings.length}</strong></span><span>Average rating <strong>{average ? `${average.toFixed(1)} / 5` : "No ratings yet"}</strong></span></div></section>}</main></div>;
+  const displayName = profile?.name && !profile.name.includes("@") ? profile.name : "TrustHome member";
+  const contactEmail = profile?.contactEmail || "";
+  const contactPhone = profile?.contactPhone || "";
+
+  return (
+    <div className="user-page">
+      <PublicNav />
+      <main className="user-page__content">
+        <Link to="/browse" className="user-page__back"><ArrowLeft size={16} aria-hidden="true" /> Browse</Link>
+        {loading ? (
+          <p className="user-page__empty">Loading profile...</p>
+        ) : error ? (
+          <div className="user-page__empty" role="alert">{error}</div>
+        ) : (
+          <section className="user-page__empty public-profile">
+            <div className="account-summary__avatar" aria-hidden="true">{displayName.charAt(0).toUpperCase()}</div>
+            <p className="user-page__eyebrow">Public owner profile</p>
+            <h1>{displayName}</h1>
+            {foundedDisputes > 0 && (
+              <p className="public-profile__flag" role="status">
+                {foundedDisputes} founded {foundedDisputes === 1 ? "dispute" : "disputes"} on record
+              </p>
+            )}
+            <div className="listing-detail__facts">
+              <span>Verified listings <strong>{listingCount}</strong></span>
+              <span>Ratings <strong>{ratings.length}</strong></span>
+              <span>Average rating <strong>{average !== null ? `${average.toFixed(1)} / 5` : "No ratings yet"}</strong></span>
+            </div>
+            {(contactEmail || contactPhone) && (
+              <div className="public-profile__contact" aria-label="Owner contact options">
+                {contactEmail && <a className="btn btn--secondary" href={`mailto:${contactEmail}`}><Mail size={15} aria-hidden="true" /> Email owner</a>}
+                {contactPhone && <a className="btn btn--secondary" href={`tel:${contactPhone}`}><Phone size={15} aria-hidden="true" /> Call owner</a>}
+              </div>
+            )}
+          </section>
+        )}
+      </main>
+    </div>
+  );
 }

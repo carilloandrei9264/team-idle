@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { collection, deleteDoc, doc, onSnapshot, query, runTransaction, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { Check } from "lucide-react";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
-import { datesOverlap, toDate } from "../lib/booking";
+import { formatBookingDateTime, toDate } from "../lib/booking";
+import { confirmBookingRequest } from "../lib/bookingConfirmation";
 import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./UserPages.css";
 
@@ -44,50 +45,7 @@ export default function ManageBookingRequests() {
     setMessage("");
     try {
       if (status === "Confirmed") {
-        await runTransaction(db, async (transaction) => {
-          const bookingRef = doc(db, "bookings", request.id);
-          const bookingSnapshot = await transaction.get(bookingRef);
-          if (!bookingSnapshot.exists()) {
-            throw new Error("This booking request no longer exists.");
-          }
-
-          const booking = bookingSnapshot.data();
-          if (booking.ownerId !== user.uid) {
-            throw new Error("You can only confirm your own bookings.");
-          }
-          if (booking.status !== "Pending") {
-            throw new Error("This booking request is no longer pending.");
-          }
-
-          const listingRef = doc(db, "listings", booking.listingId);
-          const listingSnapshot = await transaction.get(listingRef);
-          if (!listingSnapshot.exists()) {
-            throw new Error("This listing is no longer available for booking.");
-          }
-
-          const listing = listingSnapshot.data();
-          if (listing.verificationStatus !== "verified" || listing.ownerId !== user.uid || listing.listingPurpose === "sale") {
-            throw new Error("This listing can no longer be booked.");
-          }
-
-          const confirmedSnapshot = await transaction.get(
-            query(collection(db, "bookings"), where("listingId", "==", booking.listingId), where("status", "==", "Confirmed"))
-          );
-
-          const conflicts = confirmedSnapshot.docs.some((item) => (
-            item.id !== request.id && datesOverlap(item.data().startDate, item.data().endDate, booking.startDate, booking.endDate)
-          ));
-
-          if (conflicts) {
-            throw new Error("This request overlaps an existing confirmed stay.");
-          }
-
-          transaction.update(bookingRef, {
-            status: "Confirmed",
-            updatedAt: serverTimestamp(),
-            confirmedAt: serverTimestamp(),
-          });
-        });
+        await confirmBookingRequest(db, user.uid, request.id);
 
         try {
           await createNotification(db, {
@@ -172,7 +130,7 @@ function RequestItem({ request, bookings, onUpdate, onDecline }) {
       <div className="booking-item__main">
         <div className="user-page__item-link">
           <h2>{request.listingTitle || "Listing"}</h2>
-          <p>{formatDate(request.startDate)} to {formatDate(request.endDate)}</p>
+          <p>{formatBookingDateTime(request.startDate)} to {formatBookingDateTime(request.endDate)}</p>
           <p>Renter: {request.renterId}</p>
         </div>
         <div className="booking-item__availability">
@@ -227,7 +185,3 @@ function formatDayKey(value) {
   return `${year}-${month}-${day}`;
 }
 
-function formatDate(value) {
-  const date = toDate(value);
-  return date ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date) : "Date unavailable";
-}

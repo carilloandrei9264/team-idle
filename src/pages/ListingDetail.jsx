@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
-import { ArrowLeft, MapPin, Pencil, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Mail, MapPin, Pencil, Phone, ShieldCheck, UserRound } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import PropertyMap from "../components/PropertyMap";
@@ -18,6 +18,7 @@ export default function ListingDetail() {
   const [error, setError] = useState("");
   const [ratings, setRatings] = useState([]);
   const [trustScore, setTrustScore] = useState(null);
+  const [ownerProfileResult, setOwnerProfileResult] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -46,9 +47,33 @@ export default function ListingDetail() {
     return () => { active = false; };
   }, [listingId]);
 
+  useEffect(() => {
+    const ownerId = listing?.ownerId;
+    if (!ownerId) return undefined;
+
+    let active = true;
+    getDoc(doc(db, "publicProfiles", ownerId))
+      .then((snapshot) => {
+        if (active) setOwnerProfileResult({ ownerId, profile: snapshot.exists() ? snapshot.data() : null });
+      })
+      .catch(() => {
+        if (active) setOwnerProfileResult({ ownerId, profile: null });
+      });
+
+    return () => { active = false; };
+  }, [listing?.ownerId]);
+
   const isOwner = listing && user?.uid === listing.ownerId;
   const isSale = listing?.listingPurpose === "sale";
   const priceBasis = isSale ? "asking price" : listing?.rentalTerm === "short_term" || listing?.pricePeriod === "day" ? "per night" : "per month";
+  const ownerProfile = ownerProfileResult?.ownerId && ownerProfileResult.ownerId === listing?.ownerId
+    ? ownerProfileResult.profile
+    : null;
+  const ownerNameFromListing = listing?.ownerName && !listing.ownerName.includes("@") ? listing.ownerName : "";
+  const ownerName = ownerProfile?.name || ownerNameFromListing || "TrustHome member";
+  const ownerContactEmail = ownerProfile?.contactEmail || "";
+  const ownerContactPhone = ownerProfile?.contactPhone || "";
+  const hasOwnerContact = Boolean(ownerContactEmail || ownerContactPhone);
 
   return (
     <div className="user-page">
@@ -75,11 +100,53 @@ export default function ListingDetail() {
                 </div>
                 {isOwner && <Link to={`/listings/${listing.id}/edit`} className="btn btn--secondary"><Pencil size={15} aria-hidden="true" /> Edit</Link>}
               </div>
-              <p className="listing-detail__price">{formatCurrency(listing.price)} <span>{priceBasis}</span></p>
+              <div className="listing-detail__price-row">
+                <p className="listing-detail__price">{formatCurrency(listing.price)} <span>{priceBasis}</span></p>
+                {listing.verificationStatus === "verified" && !isSale && !isOwner && (
+                  <Link to={`/listings/${listing.id}/book`} className="btn btn--primary listing-detail__booking-cta">
+                    {user ? "Request booking" : "Sign in to book"}
+                  </Link>
+                )}
+              </div>
               {!isSale && <div className="listing-detail__facts" aria-label="Trust and fairness summary">
                 <span>Trust score <strong>{trustScore ? `${(Number(trustScore.score) * 5).toFixed(1)} / 5` : "Building history"}</strong></span>
                 <span>Price fairness <strong>{trustScore?.priceFairnessLabel || "Insufficient data"}</strong></span>
               </div>}
+              {listing.ownerId && (
+                <section className="listing-detail__owner" aria-label="Listing owner">
+                  <span className="listing-detail__owner-avatar" aria-hidden="true">
+                    <UserRound size={18} />
+                  </span>
+                  <div className="listing-detail__owner-copy">
+                    <p>Listed by</p>
+                    <strong>{ownerName}</strong>
+                    <span>
+                      {isOwner
+                        ? "This is your listing."
+                        : isSale
+                          ? hasOwnerContact
+                            ? "The owner chose to share contact details. Sale arrangements happen outside TrustHome."
+                            : "Direct seller contact is not available through TrustHome yet."
+                          : user
+                            ? hasOwnerContact
+                              ? "Send a booking request or use the contact options shared by the owner."
+                              : "Your booking request will be sent to the owner."
+                            : hasOwnerContact
+                              ? "Sign in to request a stay, or use the contact options shared by the owner."
+                              : "Sign in to request a stay and contact the owner."}
+                    </span>
+                    {(ownerContactEmail || ownerContactPhone) && (
+                      <div className="listing-detail__owner-contacts">
+                        {ownerContactEmail && <a href={`mailto:${ownerContactEmail}`}><Mail size={14} aria-hidden="true" /> Email owner</a>}
+                        {ownerContactPhone && <a href={`tel:${ownerContactPhone}`}><Phone size={14} aria-hidden="true" /> Call owner</a>}
+                      </div>
+                    )}
+                  </div>
+                  <Link className="btn btn--secondary listing-detail__owner-link" to={`/profiles/${listing.ownerId}`}>
+                    View profile
+                  </Link>
+                </section>
+              )}
               <p className="listing-detail__description">{listing.description || "No description provided."}</p>
               {isValidMapLocation(listing.mapLocation) && (
                 <section className="listing-detail__map" aria-labelledby="listing-map-title">
@@ -98,11 +165,12 @@ export default function ListingDetail() {
                 <span>Type <strong>{listing.type || "Not specified"}</strong></span>
                 <span>Floor area <strong>{listing.floorArea ? `${listing.floorArea} sqm` : "Not specified"}</strong></span>
                 <span>Lot area <strong>{listing.lotArea ? `${listing.lotArea} sqm` : "Not specified"}</strong></span>
+                {listing.propertyCondition && <span>Condition <strong>{formatOptionLabel(listing.propertyCondition)}</strong></span>}
+                {listing.furnishingStatus && <span>Furnishing <strong>{formatOptionLabel(listing.furnishingStatus)}</strong></span>}
               </div>
-              {listing.verificationStatus === "verified" && <>
+              {listing.verificationStatus === "verified" && (
                 <p className="listing-detail__verified"><ShieldCheck size={16} aria-hidden="true" /> Ownership document reviewed by TrustHome</p>
-                {!isSale && !isOwner && user && <Link to={`/listings/${listing.id}/book`} className="btn btn--primary">Request booking</Link>}
-              </>}
+              )}
               <section className="listing-detail__reviews" aria-labelledby="listing-reviews-title">
                 <h2 id="listing-reviews-title">Reviews</h2>
                 {ratings.length === 0 ? <p>No reviews yet.</p> : <>
@@ -120,4 +188,8 @@ export default function ListingDetail() {
 
 function averageRating(ratings) {
   return ratings.reduce((total, rating) => total + Number(rating.score || 0), 0) / ratings.length;
+}
+
+function formatOptionLabel(value) {
+  return String(value).replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

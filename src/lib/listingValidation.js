@@ -6,6 +6,8 @@ export const MAX_DESCRIPTION_WORDS = 400;
 export const SHOWING_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 export const LISTING_PURPOSES = ["rent", "sale"];
 export const RENTAL_TERMS = ["short_term", "long_term"];
+export const PROPERTY_CONDITIONS = ["new", "excellent", "good", "fair", "needs_repair"];
+export const FURNISHING_STATUSES = ["furnished", "partially_furnished", "unfurnished"];
 
 export function countWords(value) {
   return String(value ?? "").trim().split(/\s+/).filter(Boolean).length;
@@ -20,6 +22,8 @@ export function validateListingForm({ form, photos, ownershipDocument, governmen
 
   if (!LISTING_PURPOSES.includes(listingPurpose)) errors.push("Choose whether the property is for rent or for sale.");
   if (listingPurpose === "rent" && !RENTAL_TERMS.includes(rentalTerm)) errors.push("Choose a short-term or long-term rental.");
+  if (form.propertyCondition && !PROPERTY_CONDITIONS.includes(form.propertyCondition)) errors.push("Choose a supported property condition.");
+  if (form.furnishingStatus && !FURNISHING_STATUSES.includes(form.furnishingStatus)) errors.push("Choose a supported furnishing status.");
   if (!String(form.title ?? "").trim()) errors.push("Add a listing title.");
   if (!String(form.city ?? "").trim()) errors.push("Add the property city or area.");
   if (!String(form.address ?? "").trim()) errors.push("Add the property address or area.");

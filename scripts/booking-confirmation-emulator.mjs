@@ -15,7 +15,7 @@ const app = initializeApp({ apiKey: "demo-api-key", projectId, appId: "demo-app"
 const auth = getAuth(app);
 connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
 const db = getFirestore(app);
-connectFirestoreEmulator(db, "127.0.0.1", 8080);
+connectFirestoreEmulator(db, "127.0.0.1", 8082);
 const functions = getFunctions(app, "asia-southeast1");
 connectFunctionsEmulator(functions, "127.0.0.1", 5001);
 

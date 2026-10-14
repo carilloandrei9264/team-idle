@@ -37,13 +37,13 @@
     position: fixed; top: 0; bottom: 0; left: 0; z-index: 60;
     width: min(340px, 88vw);
     border: 0; border-radius: 0 16px 16px 0;
-    background: #fff;
+    background: var(--card-bg);
     box-shadow: 12px 0 40px rgba(11, 20, 55, 0.2);
     transform: translateX(-100%); visibility: hidden;
     transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 0.28s;
     padding-bottom: env(safe-area-inset-bottom);
   }
-  html.dark .browse__filters { background: #0f172a; }
+  html.dark .browse__filters { background: var(--card-bg); }
   .browse__filters--open { transform: none; visibility: visible; transition-delay: 0s; }
   /* Mobile/tablet only — the default (below) is display: none, so it never
      depends on source order relative to the ≥900px rule that hides it. */
@@ -96,6 +96,30 @@ html.dark .browse__filters-body .field + .field { border-top-color: rgba(255,255
 
 .browse__filters-foot { padding: 14px 18px; border-top: 1px solid var(--color-neutral-200); }
 .browse__filters-foot .btn { width: 100%; height: 44px; }
+
+.browse__page-heading {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+.browse__page-heading p {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.browse__page-heading h1 {
+  margin: 0;
+  color: var(--color-neutral-900);
+  font-size: 36px;
+  line-height: 1.1;
+}
+.browse__page-heading span {
+  color: var(--color-neutral-600);
+  font-size: 14px;
+}
 
 .browse__price-row {
   display: grid;
@@ -178,6 +202,8 @@ html.dark .browse__filters-body .field + .field { border-top-color: rgba(255,255
 
 /* ── Mobile ── */
 @media (max-width: 599px) {
+  .browse__page-heading { margin-bottom: 20px; }
+  .browse__page-heading h1 { font-size: 30px; }
   .browse__toolbar { align-items: stretch; flex-direction: column; gap: var(--space-3); }
   .browse__sort { gap: var(--space-1); min-width: 0; width: 100%; margin-left: 0; }
   .browse__sort-label {

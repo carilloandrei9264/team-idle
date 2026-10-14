@@ -6,7 +6,8 @@ import PublicNav from "../components/PublicNav";
 import PropertyMap from "../components/PropertyMap";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
-import { countWords, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
+import { countWords, FURNISHING_STATUSES, PROPERTY_CONDITIONS, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
+import { createAccountActivity } from "../lib/accountActivity";
 import { ADMIN_NOTIFICATION_RECIPIENT, createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import { documentResourceType, uploadToCloudinary } from "../uploadImage";
 import "./UserPages.css";
@@ -21,6 +22,8 @@ export default function CreateListing() {
     title: "",
     description: "",
     type: "Apartment",
+    propertyCondition: "",
+    furnishingStatus: "",
     listingPurpose: "rent",
     rentalTerm: "long_term",
     address: "",
@@ -148,6 +151,8 @@ export default function CreateListing() {
         title: form.title.trim(),
         description: form.description.trim(),
         type: form.type,
+        propertyCondition: form.propertyCondition || null,
+        furnishingStatus: form.type === "Land" ? null : form.furnishingStatus || null,
         listingPurpose: form.listingPurpose,
         rentalTerm: form.listingPurpose === "rent" ? form.rentalTerm : null,
         city: form.city.trim(),
@@ -173,6 +178,20 @@ export default function CreateListing() {
         updatedAt: serverTimestamp(),
       });
       await batch.commit();
+      try {
+        await createAccountActivity(db, {
+          actorId: user.uid,
+          actorRole: profile?.role || "user",
+          targetUserId: user.uid,
+          entityType: "listing",
+          entityId: listingRef.id,
+          action: "listing_created",
+          summary: "Listing submitted",
+          details: { title: form.title.trim(), status: "pending" },
+        });
+      } catch {
+        // Activity logging is non-blocking for the user flow.
+      }
       let adminAlertSent = true;
       try {
         await createNotification(db, {
@@ -243,18 +262,40 @@ export default function CreateListing() {
                 </div>
               </div>
               {form.listingPurpose === "rent" && (
-                <div className="field">
-                  <label className="field__label" htmlFor="rentalTerm">Rental term</label>
-                  <select id="rentalTerm" className="field__input" value={form.rentalTerm} onChange={(event) => updateRentalTerm(event.target.value)}>
-                    <option value="short_term">Short-term stay · per night</option>
-                    <option value="long_term">Long-term home · per month</option>
-                  </select>
+                <div className="field listing-form__wide">
+                  <span className="field__label">Rental term</span>
+                  <div className="listing-form__purpose-options" role="radiogroup" aria-label="Rental term">
+                    <label className={`listing-form__purpose-option${form.rentalTerm === "short_term" ? " listing-form__purpose-option--selected" : ""}`}>
+                      <input type="radio" name="rentalTerm" value="short_term" checked={form.rentalTerm === "short_term"} onChange={() => updateRentalTerm("short_term")} />
+                      <span><strong>Short-term stay</strong><small>Price per night</small></span>
+                    </label>
+                    <label className={`listing-form__purpose-option${form.rentalTerm === "long_term" ? " listing-form__purpose-option--selected" : ""}`}>
+                      <input type="radio" name="rentalTerm" value="long_term" checked={form.rentalTerm === "long_term"} onChange={() => updateRentalTerm("long_term")} />
+                      <span><strong>Long-term lease</strong><small>Price per month</small></span>
+                    </label>
+                  </div>
                 </div>
               )}
               <div className="field">
                 <label className="field__label" htmlFor="type">Property type</label>
                 <select id="type" name="type" className="field__input" value={form.type} onChange={updateField}>{PROPERTY_TYPES.map((type) => <option key={type}>{type}</option>)}</select>
               </div>
+              <div className="field">
+                <label className="field__label" htmlFor="propertyCondition">Property condition (optional)</label>
+                <select id="propertyCondition" name="propertyCondition" className="field__input" value={form.propertyCondition} onChange={updateField}>
+                  <option value="">Not specified</option>
+                  {PROPERTY_CONDITIONS.map((condition) => <option key={condition} value={condition}>{formatOptionLabel(condition)}</option>)}
+                </select>
+              </div>
+              {form.type !== "Land" && (
+                <div className="field">
+                  <label className="field__label" htmlFor="furnishingStatus">Furnishing (optional)</label>
+                  <select id="furnishingStatus" name="furnishingStatus" className="field__input" value={form.furnishingStatus} onChange={updateField}>
+                    <option value="">Not specified</option>
+                    {FURNISHING_STATUSES.map((status) => <option key={status} value={status}>{formatOptionLabel(status)}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="field">
                 <label className="field__label" htmlFor="address">Private address or area</label>
                 <input id="address" name="address" className="field__input" value={form.address} onChange={updateField} placeholder="Exact address or neighborhood" required />
@@ -393,4 +434,8 @@ function listingAssetOptions(listingId, assetFolder, assetType) {
     assetFolder: `trusthome/listings/${listingId}/${assetFolder}`,
     tags: ["trusthome", assetType],
   };
+}
+
+function formatOptionLabel(value) {
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

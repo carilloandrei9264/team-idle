@@ -4,6 +4,7 @@ import { Check, X } from "lucide-react";
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
 import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
+import { isCloudinaryImageUrl } from "../uploadImage";
 import "./AdminData.css";
 
 export default function AdminDisputes() {
@@ -116,6 +117,9 @@ export default function AdminDisputes() {
             <blockquote className="admin-review-card__quote">
               {selected?.reason || selected?.description || "No report details were provided."}
             </blockquote>
+            {Array.isArray(selected?.evidenceUrls) && selected.evidenceUrls.length > 0 && (
+              <DisputeEvidence key={selected.id} dispute={selected} />
+            )}
             <label className="admin-review-card__label" htmlFor="resolutionNotes">Resolution notes</label>
             <textarea
               id="resolutionNotes"
@@ -150,6 +154,25 @@ export default function AdminDisputes() {
         </div>
       )}
     </div>
+  );
+}
+
+function DisputeEvidence({ dispute }) {
+  const photos = dispute.evidenceUrls.filter(isCloudinaryImageUrl).slice(0, 5);
+
+  return (
+    <section className="admin-review-card__evidence">
+      <p className="admin-review-card__label">Photo evidence</p>
+      {photos.length === 0 ? <p>No supported Cloudinary photos are attached.</p> : (
+        <div className="admin-review-card__evidence-grid">
+          {photos.map((url, index) => (
+            <a key={url} href={url} target="_blank" rel="noreferrer" aria-label={`Open evidence photo ${index + 1}`}>
+              <img src={url} alt={`Dispute evidence ${index + 1}`} />
+            </a>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
