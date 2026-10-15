@@ -12,8 +12,10 @@ One function per bank. Each returns a list of dicts shaped like:
         "image_url": "...",
     }
 
-Run this file directly to scrape all three banks once and save to the database:
+Run this file directly to scrape the production-enabled source and save to the database:
     python scraper.py
+
+Unverified parsers can only be inspected with --dry-run; they cannot write to the catalog.
 """
 
 from __future__ import annotations  # lets list[dict]-style hints run on Python 3.8
@@ -28,9 +30,9 @@ import requests
 from bs4 import BeautifulSoup
 
 try:
-    from .database import init_db, upsert_properties
+    from .database import get_db, init_db, upsert_properties
 except ImportError:
-    from database import init_db, upsert_properties
+    from database import get_db, init_db, upsert_properties
 
 HEADERS = {
     # Identify honestly as a browser-like client; some sites block requests
@@ -40,6 +42,12 @@ HEADERS = {
 
 REQUEST_DELAY_SECONDS = 2  # be a polite scraper — don't hammer their server
 DEFAULT_BANKS = ["metrobank"]
+
+# Set by dry_run() for the duration of a --dry-run invocation. Keeps dry runs
+# fast and credential-free (their whole point) by skipping the Firestore
+# cache-check and the slow per-property detail fetch, same as dry runs have
+# always skipped writing data.
+_DRY_RUN = False
 
 LANDBANK_URL = "https://www.landbank.com/property-for-sale"
 METROBANK_URL = "https://www.metrobank.com.ph/assets-for-sale/properties"
@@ -111,18 +119,107 @@ def scrape_landbank() -> list[dict]:
 # second request per property is needed for images.
 # ---------------------------------------------------------------------------
 def scrape_metrobank() -> list[dict]:
+    # A property's gallery/remarks don't change once scraped, so skip
+    # re-fetching detail for reference numbers we already have it for —
+    # the first full run pays for all 737 extra requests, every run after
+    # that only pays for genuinely new listings.
+    if _DRY_RUN:
+        already_detailed = set()  # irrelevant below — dry runs never fetch detail at all
+    else:
+        already_detailed = metrobank_ids_with_detail()
+        print(f"  [metrobank] {len(already_detailed)} properties already have gallery/remarks cached")
+
     listings = []
     page = 1
     while True:
         page_items, row_count = fetch_metrobank_page(page)
         if not page_items:
             break
-        listings.extend(metrobank_item_to_listing(item) for item in page_items)
+        for item in page_items:
+            listing = metrobank_item_to_listing(item)
+            reference_no = listing["reference_no"]
+            if not _DRY_RUN and reference_no not in already_detailed:
+                extras = fetch_metrobank_detail(reference_no)
+                if extras is not None:
+                    listing.update(extras)
+                time.sleep(REQUEST_DELAY_SECONDS)
+            listings.append(listing)
         if len(listings) >= row_count or len(page_items) < METROBANK_PAGE_SIZE:
             break
         page += 1
         time.sleep(REQUEST_DELAY_SECONDS)
     return listings
+
+
+def metrobank_ids_with_detail() -> set[str]:
+    """Reference numbers that already have a gallery cached in Firestore —
+    a Firestore read, not a Metrobank request, so this is cheap regardless
+    of collection size."""
+    try:
+        docs = get_db().collection("bankProperties").where("bank", "==", "metrobank").stream()
+        ids = set()
+        for d in docs:
+            data = d.to_dict()
+            if data.get("images"):
+                ids.add(data.get("referenceNo"))
+        return ids
+    except Exception as error:
+        print(f"  [metrobank] could not check cached detail, will re-fetch all: {error!r}")
+        return set()
+
+
+def fetch_metrobank_detail(reference_no: str, attempts: int = 3) -> dict | None:
+    """The full gallery and physical/legal/document-status remarks for one
+    property. Non-fatal on failure — one property missing its extras
+    shouldn't stop the whole scrape, it just falls back to the single
+    defaultImage photo and no remarks section."""
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        try:
+            response = requests.get(
+                f"{METROBANK_API_URL}/{reference_no}",
+                headers={**HEADERS, "Accept": "application/json", "Referer": METROBANK_URL},
+                timeout=30,
+            )
+            response.raise_for_status()
+            return metrobank_detail_to_extras(response.json())
+        except requests.HTTPError as error:
+            last_error = error
+            status = error.response.status_code if error.response is not None else None
+            if status and status < 500:
+                break  # a 4xx won't fix itself on retry
+        except (requests.Timeout, requests.ConnectionError, ValueError) as error:
+            last_error = error  # ValueError covers a non-JSON response
+        if attempt < attempts:
+            time.sleep(attempt * 3)
+    print(f"  [metrobank] detail for {reference_no} failed, skipping gallery/remarks: {last_error!r}")
+    return None
+
+
+def metrobank_detail_to_extras(detail: dict) -> dict:
+    gallery = [
+        {
+            "url": f"{METROBANK_IMAGE_BASE}/{image['imageNo']}",
+            "caption": image.get("title") or image.get("description"),
+        }
+        for image in detail.get("images") or []
+        if image.get("imageNo")
+    ]
+    problems = [
+        {
+            "category": problem.get("probClass"),
+            "status": problem.get("probType"),
+            "remarks": problem.get("remarks"),
+        }
+        for problem in detail.get("problems") or []
+        if problem.get("probClass") or problem.get("probType")
+    ]
+    extras = {}
+    if gallery:
+        extras["gallery"] = gallery
+    if problems:
+        extras["problems"] = problems
+    return extras
 
 
 def fetch_metrobank_page(page: int, attempts: int = 3) -> tuple[list[dict], int]:
@@ -180,6 +277,9 @@ def metrobank_item_to_listing(item: dict) -> dict:
         "lot_area": format_area(item.get("lotArea"), item.get("lotUnit")),
         "listing_url": f"https://www.metrobank.com.ph/assets-for-sale/properties/details?id={reference_no}",
         "image_url": f"{METROBANK_IMAGE_BASE}/{image_id}" if image_id else None,
+        # Already present on the same listing response — no extra request needed.
+        "tct_number": item.get("tctNumber"),
+        "classification": item.get("propClass"),  # e.g. "With Improvement", "Vacant Lot"
     }
 
 
@@ -244,24 +344,40 @@ def scrape_bdo() -> list[dict]:
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
-SCRAPERS = {
-    "landbank": scrape_landbank,
+ACTIVE_SCRAPERS = {
     "metrobank": scrape_metrobank,
+}
+
+UNVERIFIED_SCRAPERS = {
+    "landbank": scrape_landbank,
     "bdo": scrape_bdo,
 }
 
+SCRAPERS = {**ACTIVE_SCRAPERS, **UNVERIFIED_SCRAPERS}
+
 
 def run_banks(banks=None):
-    init_db()
-    selected_banks = [bank.lower() for bank in (banks or DEFAULT_BANKS)]
+    selected_banks = [str(bank).strip().lower() for bank in (banks or DEFAULT_BANKS) if str(bank).strip()]
+    active_banks = []
     successful_banks = []
     failed_banks = []
 
     for bank_name in selected_banks:
-        scrape_fn = SCRAPERS.get(bank_name)
-        if not scrape_fn:
-            print(f"[{bank_name}] SKIPPED: unsupported bank")
-            continue
+        if bank_name not in SCRAPERS:
+            print(f"[{bank_name}] BLOCKED: unsupported bank")
+            failed_banks.append(bank_name)
+        elif bank_name not in ACTIVE_SCRAPERS:
+            print(f"[{bank_name}] BLOCKED: source is unverified and disabled for catalog writes")
+            failed_banks.append(bank_name)
+        else:
+            active_banks.append(bank_name)
+
+    if not active_banks:
+        return {"successful": successful_banks, "failed": failed_banks}
+
+    init_db()
+    for bank_name in active_banks:
+        scrape_fn = ACTIVE_SCRAPERS[bank_name]
         try:
             print(f"Scraping {bank_name}...")
             listings = validate_listings(scrape_fn())
@@ -278,18 +394,27 @@ def run_banks(banks=None):
 
 def dry_run(banks):
     """Fetch and parse sources without initializing Firebase or writing data."""
+    global _DRY_RUN
+    _DRY_RUN = True
     for bank_name in banks:
-        scrape_fn = SCRAPERS.get(bank_name.lower())
+        normalized_bank = str(bank_name).strip().lower()
+        scrape_fn = SCRAPERS.get(normalized_bank)
         if not scrape_fn:
-            print(f"[{bank_name}] SKIPPED: unsupported bank")
+            print(f"[{normalized_bank}] SKIPPED: unsupported bank")
             continue
+        if normalized_bank not in ACTIVE_SCRAPERS:
+            print(f"[{normalized_bank}] UNVERIFIED: diagnostic dry-run only; no catalog writes")
         try:
             listings = validate_listings(scrape_fn())
-            print(f"[{bank_name}] parsed {len(listings)} properties")
+            print(f"[{normalized_bank}] parsed {len(listings)} properties")
             for listing in listings[:3]:
-                print(f"  - {listing.get('reference_no')}: {listing.get('title')}")
+                print(
+                    f"  - {listing.get('reference_no')}: {listing.get('title')}"
+                    f" | TCT {listing.get('tct_number') or '(none)'}"
+                    f" | {listing.get('classification') or '(none)'}"
+                )
         except Exception as error:
-            print(f"[{bank_name}] FAILED: {error}")
+            print(f"[{normalized_bank}] FAILED: {error}")
 
 
 def run_all():
@@ -411,4 +536,6 @@ if __name__ == "__main__":
     if args.dry_run:
         dry_run(args.banks)
     else:
-        run_banks(args.banks)
+        result = run_banks(args.banks)
+        if result["failed"]:
+            raise SystemExit(1)

@@ -5,6 +5,11 @@ export function documentResourceType(file) {
   return file?.type === "application/pdf" || file?.name?.toLowerCase().endsWith(".pdf") ? "raw" : "auto";
 }
 
+export function isCloudinaryImageUrl(value) {
+  return typeof value === "string"
+    && value.startsWith(`https://res.cloudinary.com/${CLOUD_NAME}/image/upload/`);
+}
+
 export async function uploadToCloudinary(file, resourceType = "auto", { assetFolder, tags = [] } = {}) {
   const formData = new FormData();
   formData.append("file", file);

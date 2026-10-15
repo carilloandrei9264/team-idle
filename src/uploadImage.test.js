@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { documentResourceType, uploadToCloudinary } from "./uploadImage.js";
+import { documentResourceType, isCloudinaryImageUrl, uploadToCloudinary } from "./uploadImage.js";
 
 test("ownership PDFs use raw delivery while image documents use image delivery", () => {
   assert.equal(documentResourceType({ type: "application/pdf", name: "title.pdf" }), "raw");
@@ -36,4 +36,11 @@ test("Cloudinary uploads include their Dynamic Folder and purpose tags", async (
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("Cloudinary image URL validation rejects other hosts and resource types", () => {
+  assert.equal(isCloudinaryImageUrl("https://res.cloudinary.com/v6pkogdi/image/upload/evidence.jpg"), true);
+  assert.equal(isCloudinaryImageUrl("https://res.cloudinary.com/other/image/upload/evidence.jpg"), false);
+  assert.equal(isCloudinaryImageUrl("https://res.cloudinary.com/v6pkogdi/raw/upload/evidence.pdf"), false);
+  assert.equal(isCloudinaryImageUrl("https://example.test/evidence.jpg"), false);
 });

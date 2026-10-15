@@ -1,0 +1,261 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   BANK PROPERTY DETAIL — kept separate from .listing-detail* (UserPages.css),
+   which is shared with the owner-submitted listings page and built around a
+   multi-photo gallery grid. Bank properties only ever have 0 or 1 photo, so
+   they get their own hero/facts treatment instead.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* UserPages.css sets an explicit width (not max-width) on .user-page__content,
+   which a max-width alone can't widen past — override width directly, same
+   fix already used for the Bank Catalog page. */
+.user-page__content.bank-property-detail-page {
+  width: min(100% - 40px, 1240px);
+  padding-top: 32px;
+  padding-bottom: 40px;
+}
+
+.bpd-hero {
+  display: grid;
+  overflow: hidden;
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card);
+}
+@media (min-width: 760px) {
+  .bpd-hero { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); }
+  /* A light panel needs a seam against the photo — the old hard navy
+     background didn't, since the color contrast did that job on its own. */
+  .bpd-hero__panel { border-left: 1px solid var(--color-neutral-200); }
+}
+
+.bpd-hero__media {
+  position: relative;
+  min-height: 280px;
+  background: var(--color-neutral-100);
+}
+html.dark .bpd-hero__media { background: var(--color-neutral-100); }
+@media (min-width: 760px) { .bpd-hero__media { min-height: 420px; } }
+
+.bpd-hero__media img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+}
+
+.bpd-hero__media-fallback {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px;
+  color: var(--color-neutral-500);
+  font-size: 13px;
+}
+.bpd-hero__media-fallback svg { color: var(--color-neutral-400); }
+
+/* Theme-aware panel — the site's dark mode already swaps these tokens
+   (tokens.css), so this follows light/dark automatically instead of being
+   a permanently-dark block sitting in an otherwise light page. */
+.bpd-hero__panel {
+  display: flex; flex-direction: column;
+  padding: 28px 32px;
+  background: var(--card-bg);
+  color: var(--color-neutral-900);
+}
+
+.bpd-hero__bank {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #0B1437;
+  color: #fff;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+.bpd-hero__ref {
+  margin: 14px 0 0;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--color-neutral-500);
+}
+
+.bpd-hero__title {
+  margin: 8px 0 0;
+  font-size: 30px;
+  font-weight: 800; line-height: 1.12; letter-spacing: 0;
+  color: var(--color-neutral-900);
+}
+
+.bpd-hero__location {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin: 10px 0 0;
+  color: var(--color-neutral-600);
+  font-size: 14px; line-height: 1.5;
+}
+.bpd-hero__location svg { flex-shrink: 0; margin-top: 2px; color: var(--color-neutral-400); }
+
+.bpd-hero__price {
+  margin: 16px 0 0;
+  font-size: 26px; font-weight: 800;
+  color: var(--color-neutral-900);
+}
+html.dark .bpd-hero__price { color: var(--color-primary); }
+
+.bpd-hero__cta {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: auto;
+  padding: 10px 18px;
+  border-radius: var(--radius-control);
+  background: var(--color-primary); color: #fff;
+  font-size: 14px; font-weight: 700; text-decoration: none; cursor: pointer;
+}
+.bpd-hero__cta:hover { background: var(--color-primary-dark); }
+.bpd-hero__cta:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+html.dark .bpd-hero__cta { color: #10221F; }
+
+@media (max-width: 759px) {
+  .bpd-hero__panel { padding: 24px; }
+  .bpd-hero__title { font-size: 26px; }
+  .bpd-hero__cta { margin-top: 20px; width: 100%; justify-content: center; }
+}
+
+/* ── Thumbnail strip — only rendered when there's more than one photo ── */
+.bpd-thumbs {
+  list-style: none;
+  display: flex; gap: 10px;
+  overflow-x: auto;
+  margin: 12px 0 0; padding: 4px 2px;
+}
+.bpd-thumbs__btn {
+  flex: 0 0 auto;
+  width: 84px; height: 64px;
+  padding: 0; border: 2px solid transparent; border-radius: 6px;
+  overflow: hidden; cursor: pointer; background: none;
+}
+.bpd-thumbs__btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bpd-thumbs__btn--active { border-color: var(--color-primary-dark); }
+.bpd-thumbs__btn:hover { border-color: var(--color-primary); }
+.bpd-thumbs__btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* ── Body: facts + loan estimate side by side once there's room for it,
+   rather than two full-width cards stretched thin with the page ── */
+.bpd-layout {
+  display: grid;
+  gap: 20px;
+  align-items: start;
+  margin-top: 20px;
+}
+.bpd-layout__main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+@media (min-width: 960px) {
+  .bpd-layout { grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); gap: 24px; }
+  .bpd-layout__main { display: contents; }
+  .bpd-facts { grid-column: 1 / -1; }
+  .bpd-layout .calculator-card { position: sticky; top: 84px; }
+  .bpd-layout:not(:has(.bpd-remarks)) .calculator-card {
+    grid-column: 1 / -1;
+    width: min(100%, 720px);
+    justify-self: center;
+  }
+}
+.bpd-layout .calculator-card__summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.bpd-layout .calculator-card__metric { min-width: 0; padding: 12px; }
+.bpd-layout .calculator-card__metric:last-child { grid-column: 1 / -1; }
+.bpd-layout .calculator-card__metric strong {
+  overflow-wrap: anywhere;
+  font-size: 16px;
+}
+
+/* ── Facts card ── */
+.bpd-facts {
+  margin-top: 0;
+  padding: 24px 28px;
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card);
+}
+
+.bpd-facts__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px 16px;
+}
+.bpd-facts__grid span {
+  display: grid; gap: 4px;
+  color: var(--color-neutral-600);
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.bpd-facts__grid strong {
+  color: var(--color-neutral-900);
+  font-size: 15px; font-weight: 700; text-transform: none; letter-spacing: 0;
+}
+
+@media (max-width: 599px) {
+  .user-page__content.bank-property-detail-page {
+    width: min(100% - 32px, 1240px);
+    padding-top: 24px;
+  }
+  .bpd-facts { padding: 20px; }
+  .bpd-facts__grid { grid-template-columns: 1fr; }
+  .bpd-layout .calculator-card__summary { grid-template-columns: 1fr; }
+  .bpd-layout .calculator-card__metric:last-child { grid-column: auto; }
+}
+
+/* ── Other remarks (physical / legal / document status) ── */
+.bpd-remarks {
+  padding: 24px 28px;
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card);
+}
+.bpd-remarks__title {
+  margin: 0 0 16px;
+  font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--color-neutral-600);
+}
+.bpd-remarks__grid { display: grid; gap: 14px; }
+.bpd-remarks__card {
+  display: flex; gap: 14px;
+  padding: 16px;
+  background: #f8f9ff;
+  border-radius: var(--radius-control);
+}
+html.dark .bpd-remarks__card { background: rgba(255, 255, 255, 0.04); }
+.bpd-remarks__icon {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: var(--radius-control);
+  background: var(--color-primary); color: #fff;
+}
+.bpd-remarks__card h3 {
+  margin: 0 0 4px;
+  font-size: 14px; font-weight: 700;
+  color: var(--color-neutral-900);
+}
+.bpd-remarks__card p {
+  margin: 0;
+  font-size: 14px; line-height: 1.5;
+  color: var(--color-neutral-600);
+}
+.bpd-remarks__note {
+  margin-top: 6px !important;
+  white-space: pre-line;
+  font-size: 13px !important;
+  color: var(--color-neutral-500) !important;
+}
+
+@media (max-width: 599px) {
+  .bpd-remarks { padding: 20px; }
+}
+
+/* ── Print — no in-app trigger anymore, but still clean up the output if
+   someone prints via their browser's own Ctrl+P ── */
+@media print {
+  .public-nav, .user-page__back { display: none !important; }
+  .bpd-hero { box-shadow: none; border: none; }
+  .bpd-layout { display: block; }
+  .bpd-layout .calculator-card { position: static; margin-top: 20px; }
+}

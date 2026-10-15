@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { normalizeUserProfileData } from "../lib/userProfile";
 import { AuthContext } from "./AuthContextValue";
 
 /**
@@ -38,7 +39,18 @@ export function AuthProvider({ children }) {
     const unsubscribeDoc = onSnapshot(
       doc(db, "users", firebaseUser.uid),
       (snap) => {
-        setProfile(snap.exists() ? snap.data() : null);
+        const existingProfile = snap.exists() ? snap.data() : {};
+        const normalizedProfile = normalizeUserProfileData(existingProfile, {
+          name: firebaseUser.displayName || "",
+          email: firebaseUser.email || "",
+          role: "user",
+        });
+
+        if (!snap.exists() || existingProfile.role !== normalizedProfile.role || existingProfile.status !== normalizedProfile.status) {
+          setDoc(doc(db, "users", firebaseUser.uid), normalizedProfile, { merge: true }).catch(() => {});
+        }
+
+        setProfile(snap.exists() ? normalizedProfile : normalizedProfile);
         setProfileError(false);
         setLoading(false);
       },

@@ -9,6 +9,8 @@ export const ThemeContext = createContext({
   theme: "light",
   themePreference: "system",
   setThemePreference: () => {},
+  accentPreference: "blue",
+  setAccentPreference: () => {},
   toggleTheme: () => {},
   accessibility: { largeText: false, highContrast: false, reduceMotion: false },
   setAccessibility: () => {},

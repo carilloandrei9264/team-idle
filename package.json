@@ -8,6 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "test": "node --test",
+    "test:firestore-rules": "firebase emulators:exec --only firestore --project demo-trusthome-private-documents \"node --test scripts/firestore-rules-smoke.mjs\"",
+    "test:storage-rules": "firebase emulators:exec --only firestore,storage --project demo-trusthome-storage-rules \"node --test scripts/storage-rules-smoke.mjs\"",
+    "emulators": "firebase emulators:start --only auth,firestore,storage --project demo-trusthome-local",
     "preview": "vite preview"
   },
   "dependencies": {

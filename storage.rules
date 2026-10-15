@@ -1,0 +1,31 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isActiveUser() {
+      return isSignedIn()
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function isAdmin() {
+      return isActiveUser()
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /verification/{userId}/{listingId}/{fileName} {
+      allow read: if isActiveUser()
+        && (request.auth.uid == userId || isAdmin());
+      allow create, update: if isActiveUser()
+        && request.auth.uid == userId
+        && request.resource.size <= 20 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|image/.*');
+      allow delete: if isActiveUser()
+        && (request.auth.uid == userId || isAdmin());
+    }
+
+  }
+}

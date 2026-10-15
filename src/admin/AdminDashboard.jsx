@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { FileCheck, ShieldAlert, Users as UsersIcon, RefreshCw, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 import "./AdminDashboard.css";
 
 const TODAY = new Date().toLocaleDateString(undefined, {
@@ -28,13 +29,14 @@ export default function AdminDashboard() {
     setDashboardError("");
     setLoadingActivity(true);
     try {
-      const [pendingListings, openDisputes, totalUsers, listingsSnap, disputesSnap, usersSnap] = await Promise.all([
+      const [pendingListings, openDisputes, totalUsers, listingsSnap, disputesSnap, usersSnap, accountActivitySnap] = await Promise.all([
         getCountFromServer(query(collection(db, "listings"), where("verificationStatus", "==", "pending"))),
         getCountFromServer(query(collection(db, "disputes"), where("status", "==", "Open"))),
         getCountFromServer(collection(db, "users")),
         getDocs(query(collection(db, "listings"), orderBy("createdAt", "desc"), limit(5))),
         getDocs(query(collection(db, "disputes"), orderBy("createdAt", "desc"), limit(5))),
         getDocs(query(collection(db, "users"), orderBy("createdAt", "desc"), limit(5))),
+        getDocs(query(collection(db, "accountActivity"), orderBy("createdAt", "desc"), limit(20))),
       ]);
 
       setCounts({
@@ -59,10 +61,15 @@ export default function AdminDashboard() {
           at: d.data().createdAt,
           text: `New user registered: ${d.data().name ?? d.data().email}`,
         })),
+        ...accountActivitySnap.docs.map((d) => ({
+          id: `activity-${d.id}`,
+          at: d.data().createdAt,
+          text: `${d.data().summary ?? "Account activity"} · ${String(d.data().action ?? "activity").replaceAll("_", " ")}`,
+        })),
       ]
         .filter((event) => event.at)
         .sort((a, b) => b.at.toMillis() - a.at.toMillis())
-        .slice(0, 5);
+        .slice(0, 6);
 
       setActivity(events);
     } catch {
@@ -106,7 +113,10 @@ export default function AdminDashboard() {
 
       <div className="dashboard__grid">
         <section className="panel">
-          <h2 className="panel__title">Recent activity</h2>
+          <div className="dashboard__panel-heading">
+            <h2 className="panel__title">Recent activity</h2>
+            <Link className="dashboard__panel-link" to="/admin/activity">View all</Link>
+          </div>
           {loadingActivity ? (
             <p className="panel__empty">Loading…</p>
           ) : activity.length === 0 ? (
