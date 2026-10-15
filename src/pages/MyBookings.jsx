@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { Link } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { canRenterCompleteBooking, canRevealExactAddress, formatBookingDateTime, getBookingReference, getCompletionStateLabel, getPaymentStatusLabel } from "../lib/booking";
-import { createAccountActivity } from "../lib/accountActivity";
+import { ACCOUNT_ACTIVITY_ACTIONS, createAccountActivity } from "../lib/accountActivity";
+import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./UserPages.css";
 
 export default function MyBookings({ embedded = false }) {
@@ -17,6 +19,7 @@ export default function MyBookings({ embedded = false }) {
   const [message, setMessage] = useState("");
   const [savingId, setSavingId] = useState(null);
   const [depositReferences, setDepositReferences] = useState({});
+  const [pendingCancellation, setPendingCancellation] = useState(null);
 
   useEffect(() => onSnapshot(
     query(collection(db, "bookings"), where("renterId", "==", user.uid)),
@@ -37,14 +40,28 @@ export default function MyBookings({ embedded = false }) {
     () => setReviewStatus({ loading: false, bookingIds: new Set(), unavailable: true })
   ), [user.uid]);
 
-  async function saveDepositReference(bookingId) {
-    const depositReference = depositReferences[bookingId]?.trim();
+  async function saveDepositReference(booking) {
+    const depositReference = depositReferences[booking.id]?.trim();
     if (!depositReference) return;
-    setSavingId(bookingId);
+    setSavingId(booking.id);
     setError("");
     setMessage("");
     try {
-      await updateDoc(doc(db, "bookings", bookingId), { depositReference, paymentStatus: "reference_submitted", updatedAt: serverTimestamp() });
+      await updateDoc(doc(db, "bookings", booking.id), { depositReference, paymentStatus: "reference_submitted", updatedAt: serverTimestamp() });
+      try {
+        await createAccountActivity(db, {
+          actorId: user.uid,
+          actorRole: profile?.role || "user",
+          targetUserId: booking.ownerId,
+          entityType: "booking",
+          entityId: booking.id,
+          action: ACCOUNT_ACTIVITY_ACTIONS.PAYMENT_REFERENCE_SUBMITTED,
+          summary: "Payment reference submitted",
+          details: { listingId: booking.listingId, listingTitle: booking.listingTitle || "Untitled listing" },
+        });
+      } catch {
+        // Activity logging is non-blocking for payment reference submission.
+      }
       setMessage("Deposit reference saved to the booking record.");
     } catch {
       setError("The deposit reference could not be saved.");
@@ -93,6 +110,57 @@ export default function MyBookings({ embedded = false }) {
     }
   }
 
+  async function cancelRequest(booking, confirmed = false) {
+    if (!confirmed) {
+      setPendingCancellation(booking);
+      return;
+    }
+    setPendingCancellation(null);
+    setSavingId(booking.id);
+    setError("");
+    setMessage("");
+    try {
+      await updateDoc(doc(db, "bookings", booking.id), {
+        status: "Cancelled",
+        cancelledAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      try {
+        await createNotification(db, {
+          recipientId: booking.ownerId,
+          createdBy: user.uid,
+          type: NOTIFICATION_TYPES.BOOKING_UPDATE,
+          title: "Booking request cancelled",
+          message: `${booking.listingTitle || "A booking request"} was cancelled by the renter.`,
+          link: "/booking-requests",
+          entityId: booking.id,
+          entityType: "booking",
+        });
+      } catch {
+        // Cancellation remains valid if notification delivery is unavailable.
+      }
+      try {
+        await createAccountActivity(db, {
+          actorId: user.uid,
+          actorRole: profile?.role || "user",
+          targetUserId: user.uid,
+          entityType: "booking",
+          entityId: booking.id,
+          action: ACCOUNT_ACTIVITY_ACTIONS.BOOKING_CANCELLED,
+          summary: "Booking request cancelled",
+          details: { listingId: booking.listingId, listingTitle: booking.listingTitle || "Untitled listing" },
+        });
+      } catch {
+        // Activity logging is non-blocking for cancellation.
+      }
+      setMessage("Booking request cancelled.");
+    } catch {
+      setError("The booking request could not be cancelled.");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   const content = (
     <>
       {!embedded && <header className="user-page__header"><div><p className="user-page__eyebrow">Your account</p><h1>My Bookings</h1><p>Track requests and confirmed stays in one place.</p></div></header>}
@@ -118,12 +186,13 @@ export default function MyBookings({ embedded = false }) {
               )}
             </div>
             <div className="booking-item__actions">
+              {booking.status === "Pending" && <button type="button" className="btn btn--secondary" onClick={() => cancelRequest(booking)} disabled={savingId === booking.id}>Cancel request</button>}
               {booking.status === "Confirmed" && <>
                 <div className="booking-item__payment">
                   <label className="field"><span className="field__label">Deposit reference</span>
                     <div className="booking-item__payment-controls">
                       <input className="field__input" value={depositReferences[booking.id] ?? booking.depositReference ?? ""} onChange={(event) => setDepositReferences((current) => ({ ...current, [booking.id]: event.target.value }))} placeholder="GCash or bank transfer" />
-                      <button type="button" className="btn btn--secondary" onClick={() => saveDepositReference(booking.id)} disabled={savingId === booking.id || !depositReferences[booking.id]?.trim()}>{savingId === booking.id ? "Saving..." : "Save"}</button>
+                      <button type="button" className="btn btn--secondary" onClick={() => saveDepositReference(booking)} disabled={savingId === booking.id || !depositReferences[booking.id]?.trim()}>{savingId === booking.id ? "Saving..." : "Save"}</button>
                     </div>
                   </label>
                 </div>
@@ -140,7 +209,16 @@ export default function MyBookings({ embedded = false }) {
     </>
   );
 
-  if (embedded) return content;
+  const cancellationDialog = pendingCancellation && <ConfirmDialog
+    title="Cancel booking request?"
+    message="This pending request will be cancelled, and the owner will be notified."
+    confirmLabel="Cancel request"
+    danger
+    onCancel={() => setPendingCancellation(null)}
+    onConfirm={() => { void cancelRequest(pendingCancellation, true); }}
+  />;
+
+  if (embedded) return <>{content}{cancellationDialog}</>;
 
   return (
     <div className="user-page">
@@ -148,6 +226,7 @@ export default function MyBookings({ embedded = false }) {
       <main className="user-page__content">
         {content}
       </main>
+      {cancellationDialog}
     </div>
   );
 }

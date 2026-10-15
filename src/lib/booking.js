@@ -1,6 +1,6 @@
 import { Timestamp } from "firebase/firestore";
 
-export const BOOKING_STATUSES = ["Pending", "Confirmed", "Completed", "Disputed"];
+export const BOOKING_STATUSES = ["Pending", "Confirmed", "Completed", "Disputed", "Declined", "Cancelled"];
 
 export const PAYMENT_STATUSES = {
   awaiting_payment: "Awaiting payment",

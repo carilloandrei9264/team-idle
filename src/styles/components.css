@@ -119,12 +119,12 @@ html.dark .badge--verified {
 
 .badge--pending {
   background: var(--color-warning-bg);
-  color: var(--color-warning);
+  color: var(--badge-warning-text);
 }
 
 .badge--danger {
   background: var(--color-danger-bg);
-  color: var(--color-danger);
+  color: var(--badge-danger-text);
 }
 
 

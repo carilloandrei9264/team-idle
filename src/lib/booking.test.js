@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { BOOKING_STATUSES, bookingConfirmationErrorMessage, canRevealExactAddress, canRenterCompleteBooking, canTransitionBookingStatus, dateTimeInputToTimestamp, datesOverlap, getBookingReference, getCompletionState, getCompletionStateLabel, getPaymentStatus, getPaymentStatusLabel, hasConfirmedConflict, hasRenterBookingConflict, isValidDateRange } from "./booking.js";
 
-test("booking status machine contains only the required MVP statuses", () => {
-  assert.deepEqual(BOOKING_STATUSES, ["Pending", "Confirmed", "Completed", "Disputed"]);
+test("booking status machine contains the supported booking states", () => {
+  assert.deepEqual(BOOKING_STATUSES, ["Pending", "Confirmed", "Completed", "Disputed", "Declined", "Cancelled"]);
   assert.equal(canTransitionBookingStatus("Pending", "Confirmed"), true);
   assert.equal(canTransitionBookingStatus("Pending", "Completed"), false);
   assert.equal(canTransitionBookingStatus("Confirmed", "Completed"), true);

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, documentId, getDocs, limit, orderBy, query, startAfter, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { formatCurrency, numericValue } from "../lib/number";
 import PublicNav from "../components/PublicNav";
@@ -31,6 +31,7 @@ const SORT_OPTIONS = [
   { value: "price_desc", label: "Price: High to Low" },
   { value: "newest", label: "Newest" },
 ];
+const LISTINGS_PER_PAGE = 24;
 
 // Stagger container + card variants for scroll-reveal
 const gridVariants = {
@@ -61,6 +62,9 @@ export default function Browse() {
   const [allListings, setAllListings] = useState([]);
   const [trustScores, setTrustScores] = useState({});
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const lastListingSnapshot = useRef(null);
+  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState("");
 
   const [city, setCity]       = useState(searchParams.get("city") || "");
@@ -91,28 +95,44 @@ export default function Browse() {
     };
   }, [filtersOpen]);
 
-  async function loadListings() {
+  const loadListings = useCallback(async ({ reset = false } = {}) => {
+    if (reset) setLoading(true);
+    else setLoadingMore(true);
     setError("");
     try {
-      const [listingsSnap, scoresSnap] = await Promise.all([
-        getDocs(query(collection(db, "listings"), where("verificationStatus", "==", "verified"))),
-        getDocs(collection(db, "trustScores")),
-      ]);
-      setAllListings(listingsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const baseQuery = query(
+        collection(db, "listings"),
+        where("verificationStatus", "==", "verified"),
+        orderBy("createdAt", "desc"),
+        limit(LISTINGS_PER_PAGE)
+      );
+      const cursor = reset ? null : lastListingSnapshot.current;
+      const listingsSnap = await getDocs(cursor ? query(baseQuery, startAfter(cursor)) : baseQuery);
+      const nextListings = listingsSnap.docs.map((listingDocument) => ({ id: listingDocument.id, ...listingDocument.data() }));
+      const listingIds = nextListings.map((listing) => listing.id);
+      const scoresSnap = listingIds.length
+        ? await getDocs(query(collection(db, "trustScores"), where(documentId(), "in", listingIds)))
+        : { docs: [] };
+      setAllListings((current) => reset
+        ? nextListings
+        : [...current, ...nextListings.filter((listing) => !current.some((item) => item.id === listing.id))]);
+      lastListingSnapshot.current = listingsSnap.docs.at(-1) || null;
+      setHasMore(listingsSnap.docs.length === LISTINGS_PER_PAGE);
       const scoreMap = {};
       scoresSnap.docs.forEach((d) => { scoreMap[d.id] = d.data(); });
-      setTrustScores(scoreMap);
+      setTrustScores((current) => reset ? scoreMap : { ...current, ...scoreMap });
     } catch {
       setError("Listings could not be loaded. Check your connection and try again.");
     } finally {
-      setLoading(false);
+      if (reset) setLoading(false);
+      else setLoadingMore(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    const task = setTimeout(() => loadListings(), 0);
+    const task = setTimeout(() => loadListings({ reset: true }), 0);
     return () => clearTimeout(task);
-  }, []);
+  }, [loadListings]);
 
   // Client-side filtering — same rationale as before
   const results = useMemo(() => {
@@ -334,7 +354,7 @@ export default function Browse() {
               <button
                 type="button"
                 className="btn btn--secondary"
-                onClick={() => { setLoading(true); loadListings(); }}
+                onClick={() => loadListings({ reset: true })}
               >
                 Try again
               </button>
@@ -366,6 +386,11 @@ export default function Browse() {
                 ))}
               </motion.div>
             </AnimatePresence>
+          )}
+          {!loading && !error && hasMore && (
+            <button type="button" className="btn btn--secondary browse__load-more" onClick={() => loadListings()} disabled={loadingMore}>
+              {loadingMore ? "Loading listings..." : "Load more listings"}
+            </button>
           )}
         </main>
       </div>

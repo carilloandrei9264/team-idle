@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { deleteField, doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
-import { ArrowLeft, Upload } from "lucide-react";
+import { ArrowLeft, Upload, X } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
+import ConfirmDialog from "../components/ConfirmDialog";
 import PropertyMap from "../components/PropertyMap";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
-import { countWords, FURNISHING_STATUSES, PROPERTY_CONDITIONS, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
+import { ACCOUNT_ACTIVITY_ACTIONS, createAccountActivity } from "../lib/accountActivity";
+import { countWords, FURNISHING_STATUSES, MAX_LISTING_PHOTOS, PROPERTY_CONDITIONS, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
 import { documentResourceType, uploadToCloudinary } from "../uploadImage";
 import "./UserPages.css";
 
@@ -15,7 +17,7 @@ const AMENITIES = ["Parking", "WiFi", "Furnished", "Pets allowed", "Air conditio
 
 export default function EditListing() {
   const { listingId } = useParams();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState(null);
   const [existingPhotos, setExistingPhotos] = useState([]);
@@ -25,6 +27,8 @@ export default function EditListing() {
   const [governmentId, setGovernmentId] = useState(null);
   const [mapLocation, setMapLocation] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [wasVerified, setWasVerified] = useState(false);
+  const [showReviewConfirm, setShowReviewConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,6 +41,7 @@ export default function EditListing() {
       else if (snapshot.data().ownerId !== user.uid) setError("You can only edit your own listings.");
       else {
         const data = snapshot.data();
+        setWasVerified(data.verificationStatus === "verified");
         const privateData = privateSnapshot.exists() ? privateSnapshot.data() : {};
         const listingPurpose = data.listingPurpose || "rent";
         const rentalTerm = data.rentalTerm || (data.pricePeriod === "day" ? "short_term" : "long_term");
@@ -60,6 +65,7 @@ export default function EditListing() {
   }, [listingId, user.uid]);
 
   function updateField(event) { setForm((current) => ({ ...current, [event.target.name]: event.target.value })); }
+  function removeExistingPhoto(index) { setExistingPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index)); }
   function updateListingPurpose(listingPurpose) { setForm((current) => { const rentalTerm = current.rentalTerm || "long_term"; return { ...current, listingPurpose, rentalTerm, pricePeriod: listingPurpose === "sale" ? "total" : rentalTerm === "short_term" ? "day" : "month" }; }); }
   function updateRentalTerm(rentalTerm) { setForm((current) => ({ ...current, rentalTerm, pricePeriod: rentalTerm === "short_term" ? "day" : "month" })); }
   function toggleAmenity(amenity) { setForm((current) => ({ ...current, amenities: current.amenities.includes(amenity) ? current.amenities.filter((item) => item !== amenity) : [...current.amenities, amenity] })); }
@@ -69,6 +75,14 @@ export default function EditListing() {
     event.preventDefault();
     const validationErrors = validateListingForm({ form, photos: [...existingPhotos, ...newPhotos], ownershipDocument: ownershipDocument || existingDocuments.ownership, governmentId: governmentId || existingDocuments.governmentId, mapLocation });
     if (validationErrors.length) { setError(validationErrors.join(" ")); return; }
+    if (wasVerified) {
+      setShowReviewConfirm(true);
+      return;
+    }
+    await saveListing();
+  }
+
+  async function saveListing() {
     setSaving(true);
     setError("");
     try {
@@ -97,6 +111,20 @@ export default function EditListing() {
         updatedAt: serverTimestamp(),
       }, { merge: true });
       await batch.commit();
+      try {
+        await createAccountActivity(db, {
+          actorId: user.uid,
+          actorRole: profile?.role || "user",
+          targetUserId: user.uid,
+          entityType: "listing",
+          entityId: listingId,
+          action: ACCOUNT_ACTIVITY_ACTIONS.LISTING_UPDATED,
+          summary: "Listing updated and sent for review",
+          details: { title: form.title.trim() },
+        });
+      } catch {
+        // Activity logging is non-blocking for listing updates.
+      }
       navigate(`/listings/${listingId}`, { replace: true });
     } catch (saveError) { setError(saveError.message || "Your changes could not be saved. Please try again."); } finally { setSaving(false); }
   }
@@ -107,7 +135,7 @@ export default function EditListing() {
       <main className="user-page__content user-page__content--form">
         <Link to={`/listings/${listingId}`} className="user-page__back"><ArrowLeft size={16} aria-hidden="true" /> Listing details</Link>
         <header className="user-page__header">
-          <div><p className="user-page__eyebrow">Owner tools</p><h1>Edit listing</h1><p>Saving changes sends this listing back for review.</p></div>
+          <div><p className="user-page__eyebrow">Owner tools</p><h1>Edit listing</h1><p>Saving sends the listing back for review. Verified listings will be hidden and pending booking approvals paused until an admin re-approves them.</p></div>
         </header>
         {loading ? <p className="user-page__empty">Loading listing...</p> : error && !form ? (
           <div className="user-page__empty" role="alert"><h2>Unable to edit listing</h2><p>{error}</p></div>
@@ -192,11 +220,21 @@ export default function EditListing() {
             </section>
             <section className="user-page__empty listing-form__section">
               <h2>Photos and verification</h2>
-              <p className="listing-form__hint">Keep at least 4 property photos. Existing documents remain valid unless replaced.</p>
+              <p className="listing-form__hint">Keep 4 to {MAX_LISTING_PHOTOS} property photos. Each photo must be JPEG, PNG, or WebP and 5 MB or smaller. Existing documents remain valid unless replaced.</p>
+              <div className="edit-listing__photos">
+                {existingPhotos.map((photo, index) => (
+                  <div className="edit-listing__photo" key={`${photo}-${index}`}>
+                    <img src={photo} alt={`Saved property photo ${index + 1}`} />
+                    <button type="button" className="edit-listing__photo-remove" aria-label={`Remove saved photo ${index + 1}`} onClick={() => removeExistingPhoto(index)}>
+                      <X size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+              </div>
               <div className="listing-form__uploads">
-                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Additional property photos</span><small>{newPhotos.length ? `${newPhotos.length} selected` : `${existingPhotos.length} already saved`}</small><input type="file" accept="image/*" multiple onChange={(event) => setNewPhotos(Array.from(event.target.files || []).slice(0, 8))} /></label>
-                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Ownership document</span><small>{ownershipDocument?.name || (existingDocuments.ownership ? "Existing document saved" : "Required")}</small><input type="file" accept="image/*,.pdf" onChange={(event) => setOwnershipDocument(event.target.files?.[0] || null)} /></label>
-                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Government photo ID</span><small>{governmentId?.name || (existingDocuments.governmentId ? "Existing ID saved" : "Required")}</small><input type="file" accept="image/*" onChange={(event) => setGovernmentId(event.target.files?.[0] || null)} /></label>
+                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Additional property photos</span><small>{newPhotos.length ? `${newPhotos.length} selected` : `${existingPhotos.length} already saved`}</small><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => setNewPhotos(Array.from(event.target.files || []))} /></label>
+                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Ownership document</span><small>{ownershipDocument?.name || (existingDocuments.ownership ? "Existing document saved" : "Required")}</small><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setOwnershipDocument(event.target.files?.[0] || null)} /></label>
+                <label className="listing-form__upload"><Upload size={18} aria-hidden="true" /><span>Government photo ID</span><small>{governmentId?.name || (existingDocuments.governmentId ? "Existing ID saved" : "Required")}</small><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setGovernmentId(event.target.files?.[0] || null)} /></label>
               </div>
             </section>
             {error && <p className="user-page__form-error" role="alert">{error}</p>}
@@ -204,11 +242,18 @@ export default function EditListing() {
           </form>
         )}
       </main>
+      {showReviewConfirm && <ConfirmDialog
+        title="Send listing for review?"
+        message="Saving will hide this verified listing until an admin re-approves it. Pending booking requests cannot be approved during review."
+        confirmLabel="Save and send for review"
+        onCancel={() => setShowReviewConfirm(false)}
+        onConfirm={() => { setShowReviewConfirm(false); void saveListing(); }}
+      />}
     </div>
   );
 }
 
-function Field({ id, name, label, value, onChange, type = "text", step, wide = false, required = true }) { return <div className={`field${wide ? " listing-form__wide" : ""}`}><label className="field__label" htmlFor={id}>{label}</label><input id={id} name={name} className="field__input" type={type} min={type === "number" ? "0" : undefined} step={step} value={value} onChange={onChange} required={required} /></div>; }
+function Field({ id, name, label, value, onChange, type = "text", step, wide = false, required = true }) { return <div className={`field${wide ? " listing-form__wide" : ""}`}><label className="field__label" htmlFor={id}>{label}</label><input id={id} name={name} className="field__input" type={type} min={type === "number" ? (name === "price" ? "1" : "0") : undefined} step={step} value={value} onChange={onChange} required={required} /></div>; }
 function SelectField({ id, name, label, value, onChange, options }) { return <div className="field"><label className="field__label" htmlFor={id}>{label}</label><select id={id} name={name} className="field__input" value={value} onChange={onChange} required>{options.map((option) => <option key={option}>{option}</option>)}</select></div>; }
 function formatOptionLabel(value) { return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function normalizeShowingWindows(windows = {}) { return Object.fromEntries(SHOWING_DAYS.map((day) => [day, { enabled: Boolean(windows[day]?.enabled), start: windows[day]?.start || "09:00", end: windows[day]?.end || "17:00" }])); }

@@ -5,12 +5,15 @@ import {
   doc,
   deleteField,
   getDoc,
+  query,
   serverTimestamp,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
 import { NOTIFICATION_TYPES } from "../lib/notifications";
+import { ACCOUNT_ACTIVITY_ACTIONS, createAccountActivity } from "../lib/accountActivity";
 import { Check, X, Image as ImageIcon, Download } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import "./AdminListings.css";
@@ -30,10 +33,12 @@ export default function AdminListings() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "listings"), (snap) => {
+    const unsubscribe = onSnapshot(query(
+      collection(db, "listings"),
+      where("verificationStatus", "==", "pending")
+    ), (snap) => {
       const docs = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((listing) => listing.verificationStatus === "pending")
         .sort((a, b) => timestampValue(a.createdAt) - timestampValue(b.createdAt));
       setPending(docs);
       setLoading(false);
@@ -107,6 +112,20 @@ export default function AdminListings() {
         createdAt: serverTimestamp(),
       });
       await batch.commit();
+      try {
+        await createAccountActivity(db, {
+          actorId: user.uid,
+          actorRole: "admin",
+          targetUserId: selected.ownerId,
+          entityType: "listing",
+          entityId: selected.id,
+          action: ACCOUNT_ACTIVITY_ACTIONS.LISTING_APPROVED,
+          summary: "Listing approved",
+          details: { title: selected.title || "Untitled listing" },
+        });
+      } catch {
+        // Activity logging is non-blocking for listing decisions.
+      }
       setPending((current) => current.filter((listing) => listing.id !== selected.id));
       setMessage("Listing approved and removed from the pending review queue.");
     } catch {
@@ -146,7 +165,7 @@ export default function AdminListings() {
         createdBy: user?.uid ?? null,
         type: NOTIFICATION_TYPES.LISTING_REVIEW,
         title: decision === "changes_requested" ? "Changes requested for your listing" : "Listing review update",
-        message: `${selected.title || "Your listing"}: ${feedback}`,
+        message: `${selected.title || "Your listing"}: ${feedback}`.slice(0, 300),
         link: "/my-listings",
         entityId: selected.id,
         entityType: "listing",
@@ -154,6 +173,22 @@ export default function AdminListings() {
         createdAt: serverTimestamp(),
       });
       await batch.commit();
+      try {
+        await createAccountActivity(db, {
+          actorId: user.uid,
+          actorRole: "admin",
+          targetUserId: selected.ownerId,
+          entityType: "listing",
+          entityId: selected.id,
+          action: decision === "changes_requested"
+            ? ACCOUNT_ACTIVITY_ACTIONS.LISTING_CHANGES_REQUESTED
+            : ACCOUNT_ACTIVITY_ACTIONS.LISTING_REJECTED,
+          summary: decision === "changes_requested" ? "Listing changes requested" : "Listing rejected",
+          details: { decision, title: selected.title || "Untitled listing" },
+        });
+      } catch {
+        // Activity logging is non-blocking for listing decisions.
+      }
       setPending((current) => current.filter((listing) => listing.id !== selected.id));
       setRejectReason("");
       setShowDecisionForm(false);

@@ -81,11 +81,15 @@ export default function Login() {
       nextProfile,
       { merge: true }
     );
-    await setDoc(doc(db, "publicProfiles", user.uid), {
-      userId: user.uid,
-      name: nextProfile.name,
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
+    try {
+      await setDoc(doc(db, "publicProfiles", user.uid), {
+        userId: user.uid,
+        name: nextProfile.name,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    } catch {
+      // Public profile sync must not block sign-in for suspended users.
+    }
   }
 
   async function handleSubmit(e) {

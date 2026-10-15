@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { ArrowLeft, CalendarDays } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { createAccountActivity } from "../lib/accountActivity";
-import { dateInputValue, dateRangeIsValid, dateTimeInputToTimestamp, getBookingReference, hasRenterBookingConflict } from "../lib/booking";
+import { dateInputValue, dateRangeIsValid, dateTimeInputToTimestamp, datesOverlap, formatBookingDateTime, getBookingReference, hasRenterBookingConflict } from "../lib/booking";
 import { formatCurrency } from "../lib/number";
 import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./UserPages.css";
@@ -16,6 +16,8 @@ export default function BookingRequest() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [listing, setListing] = useState(null);
+  const [blockedRanges, setBlockedRanges] = useState([]);
+  const [availabilityUnavailable, setAvailabilityUnavailable] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -24,6 +26,9 @@ export default function BookingRequest() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const today = dateInputValue();
+  const startDateMin = listing?.availabilityDate && listing.availabilityDate > today
+    ? listing.availabilityDate
+    : today;
 
   useEffect(() => {
     getDoc(doc(db, "listings", listingId)).then((snapshot) => {
@@ -34,14 +39,30 @@ export default function BookingRequest() {
     }).catch(() => { setError("This listing could not be loaded."); setLoading(false); });
   }, [listingId]);
 
+  useEffect(() => {
+    getDoc(doc(db, "listingAvailability", listingId)).then((snapshot) => {
+      const ranges = snapshot.exists() && Array.isArray(snapshot.data().blocked) ? snapshot.data().blocked : [];
+      setBlockedRanges(ranges.filter((range) => range?.start?.toDate?.() && range?.end?.toDate?.() && range.end.toDate() > new Date()));
+      setAvailabilityUnavailable(false);
+    }).catch(() => setAvailabilityUnavailable(true));
+  }, [listingId]);
+
   async function handleSubmit(event) {
     event.preventDefault();
+    if (listing?.availabilityDate && startDate < listing.availabilityDate) {
+      setError(`This property is available from ${listing.availabilityDate}.`);
+      return;
+    }
     const requestedStart = dateTimeInputToTimestamp(startDate, startTime);
     const requestedEnd = dateTimeInputToTimestamp(endDate, endTime);
     if (!requestedStart || !requestedEnd
       || !dateRangeIsValid(requestedStart.toDate(), requestedEnd.toDate())
       || requestedStart.toDate() <= new Date()) {
       setError("Choose a future check-in date and time, and a check-out after it. Times use Philippine time.");
+      return;
+    }
+    if (blockedRanges.some((range) => datesOverlap(range.start, range.end, requestedStart, requestedEnd))) {
+      setError("Those dates overlap a confirmed stay. Choose different dates.");
       return;
     }
     if (!listing || listing.ownerId === user.uid) {
@@ -65,14 +86,15 @@ export default function BookingRequest() {
         throw new Error("You already have a pending or active booking that overlaps this listing's dates.");
       }
 
-      const bookingRef = await addDoc(collection(db, "bookings"), {
+      const bookingRef = doc(collection(db, "bookings"));
+      await setDoc(bookingRef, {
         listingId,
         listingTitle: listing.title || "Untitled listing",
         listingPhotoUrl: listing.photoUrls?.[0] || null,
         ownerId: listing.ownerId,
         ownerName: listing.ownerName || "Property owner",
         renterId: user.uid,
-        renterName: profile?.name || user.displayName || user.email,
+        renterName: profile?.name || user.displayName || "TrustHome member",
         listingPurpose: listing.listingPurpose || "rent",
         rentalTerm: listing.rentalTerm || (listing.pricePeriod === "day" ? "short_term" : "long_term"),
         startDate: requestedStart,
@@ -81,11 +103,8 @@ export default function BookingRequest() {
         price: listing.price ?? null,
         pricePeriod: listing.pricePeriod || "month",
         status: "Pending",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      await updateDoc(doc(db, "bookings", bookingRef.id), {
         bookingReference: getBookingReference({ id: bookingRef.id }),
+        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
       try {
@@ -108,7 +127,7 @@ export default function BookingRequest() {
           createdBy: user.uid,
           type: NOTIFICATION_TYPES.BOOKING_REQUEST,
           title: "New booking request",
-          message: `${profile?.name || user.displayName || user.email} requested ${listing.title || "your listing"}.`,
+          message: `${profile?.name || user.displayName || "A TrustHome member"} requested ${listing.title || "your listing"}.`,
           link: "/booking-requests",
           entityId: bookingRef.id,
           entityType: "booking",
@@ -145,7 +164,7 @@ export default function BookingRequest() {
                 <div className="listing-form__grid">
                   <div className="field">
                     <label className="field__label" htmlFor="booking-start">Check-in date</label>
-                    <input id="booking-start" className="field__input" type="date" min={today} value={startDate} onChange={(event) => setStartDate(event.target.value)} required />
+                    <input id="booking-start" className="field__input" type="date" min={startDateMin} value={startDate} onChange={(event) => setStartDate(event.target.value)} required />
                   </div>
                   <div className="field">
                     <label className="field__label" htmlFor="booking-start-time">Check-in time (PHT)</label>
@@ -160,6 +179,15 @@ export default function BookingRequest() {
                     <input id="booking-end-time" className="field__input" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} required />
                   </div>
                 </div>
+                {blockedRanges.length > 0 && <div className="booking-request__availability">
+                  <p className="field__label">Unavailable dates</p>
+                  <ul>{blockedRanges.map((range, index) => (
+                    <li key={`${range.start.toMillis()}-${range.end.toMillis()}-${index}`}>
+                      {formatBookingDateTime(range.start)} to {formatBookingDateTime(range.end)}
+                    </li>
+                  ))}</ul>
+                </div>}
+                {availabilityUnavailable && <p className="listing-form__hint">Availability could not be loaded. The owner will recheck for conflicts before confirming.</p>}
               </section>
               {error && <p className="user-page__form-error" role="alert">{error}</p>}
               <button type="submit" className="btn btn--primary listing-form__submit" disabled={submitting}>

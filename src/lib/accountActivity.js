@@ -11,6 +11,14 @@ export const ACCOUNT_ACTIVITY_ACTIONS = {
   COMPLETION_REVIEWED: "completion_reviewed",
   DISPUTE_RAISED: "dispute_raised",
   DISPUTE_RESOLVED: "dispute_resolved",
+  LISTING_APPROVED: "listing_approved",
+  LISTING_CHANGES_REQUESTED: "listing_changes_requested",
+  LISTING_REJECTED: "listing_rejected",
+  LISTING_UPDATED: "listing_updated",
+  BOOKING_DECLINED: "booking_declined",
+  BOOKING_CANCELLED: "booking_cancelled",
+  USER_SUSPENDED: "user_suspended",
+  USER_REACTIVATED: "user_reactivated",
 };
 
 export function formatAccountActivityAction(action = "") {
@@ -28,6 +36,14 @@ export function formatAccountActivityAction(action = "") {
     completion_reviewed: "Completion reviewed",
     dispute_raised: "Dispute raised",
     dispute_resolved: "Dispute resolved",
+    listing_approved: "Listing approved",
+    listing_changes_requested: "Listing changes requested",
+    listing_rejected: "Listing rejected",
+    listing_updated: "Listing updated",
+    booking_declined: "Booking declined",
+    booking_cancelled: "Booking cancelled",
+    user_suspended: "User suspended",
+    user_reactivated: "User reactivated",
   };
 
   return labels[normalized] || normalized

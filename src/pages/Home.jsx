@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
+import { collection, documentId, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import PublicNav from "../components/PublicNav";
 import ListingCard from "../components/ListingCard";
@@ -112,7 +112,10 @@ export default function Home() {
       const listings = listingsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setFeatured(listings);
       if (listings.length > 0) {
-        const scoresSnap = await getDocs(collection(db, "trustScores"));
+        const scoresSnap = await getDocs(query(
+          collection(db, "trustScores"),
+          where(documentId(), "in", listings.map((listing) => listing.id))
+        ));
         const scoreMap = {};
         scoresSnap.docs.forEach((d) => { scoreMap[d.id] = d.data(); });
         setTrustScores(scoreMap);

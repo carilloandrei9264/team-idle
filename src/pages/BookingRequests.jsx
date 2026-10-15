@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { formatBookingDateTime, getBookingReference, getCompletionStateLabel, getPaymentStatusLabel, toDate } from "../lib/booking";
-import { createAccountActivity } from "../lib/accountActivity";
+import { ACCOUNT_ACTIVITY_ACTIONS, createAccountActivity } from "../lib/accountActivity";
 import { confirmBookingRequest } from "../lib/bookingConfirmation";
 import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import "./UserPages.css";
@@ -112,7 +112,7 @@ export default function BookingRequests({ embedded = false }) {
     try {
       await updateDoc(doc(db, "bookings", request.id), {
         paymentStatus: "payment_received",
-        updatedAt: new Date(),
+        updatedAt: serverTimestamp(),
       });
       try {
         await createAccountActivity(db, {
@@ -121,7 +121,7 @@ export default function BookingRequests({ embedded = false }) {
           targetUserId: request.renterId,
           entityType: "booking",
           entityId: request.id,
-          action: "booking_confirmed",
+          action: ACCOUNT_ACTIVITY_ACTIONS.PAYMENT_RECEIVED,
           summary: "Payment received",
           details: { listingId: request.listingId, paymentStatus: "payment_received" },
         });
@@ -143,8 +143,8 @@ export default function BookingRequests({ embedded = false }) {
     try {
       await updateDoc(doc(db, "bookings", request.id), {
         ownerConfirmedCompletion: true,
-        completionConfirmedAt: new Date(),
-        updatedAt: new Date(),
+        completionConfirmedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
       try {
         await createAccountActivity(db, {
@@ -153,7 +153,7 @@ export default function BookingRequests({ embedded = false }) {
           targetUserId: request.renterId,
           entityType: "booking",
           entityId: request.id,
-          action: "booking_completed",
+          action: ACCOUNT_ACTIVITY_ACTIONS.COMPLETION_REVIEWED,
           summary: "Owner confirmed stay completion",
           details: { listingId: request.listingId, listingTitle: request.listingTitle || "Untitled listing" },
         });
@@ -173,7 +173,39 @@ export default function BookingRequests({ embedded = false }) {
     setError("");
     setMessage("");
     try {
-      await deleteDoc(doc(db, "bookings", request.id));
+      await updateDoc(doc(db, "bookings", request.id), {
+        status: "Declined",
+        declinedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      try {
+        await createNotification(db, {
+          recipientId: request.renterId,
+          createdBy: user.uid,
+          type: NOTIFICATION_TYPES.BOOKING_UPDATE,
+          title: "Booking request declined",
+          message: `${request.listingTitle || "Your booking request"} was declined by the owner.`,
+          link: "/my-bookings",
+          entityId: request.id,
+          entityType: "booking",
+        });
+      } catch {
+        // The decline remains valid if notification delivery is unavailable.
+      }
+      try {
+        await createAccountActivity(db, {
+          actorId: user.uid,
+          actorRole: profile?.role || "user",
+          targetUserId: request.renterId,
+          entityType: "booking",
+          entityId: request.id,
+          action: ACCOUNT_ACTIVITY_ACTIONS.BOOKING_DECLINED,
+          summary: "Booking request declined",
+          details: { listingId: request.listingId, listingTitle: request.listingTitle || "Untitled listing" },
+        });
+      } catch {
+        // Activity logging is non-blocking for the decline flow.
+      }
       setMessage("Booking request declined.");
     } catch (decisionError) {
       setError(`${decisionError.message || "The booking request could not be declined."}`);

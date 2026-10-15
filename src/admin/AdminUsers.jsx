@@ -2,18 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import { collection, deleteField, doc, getDocs, onSnapshot, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { ChevronLeft, ChevronRight, Search, Sparkles } from "lucide-react";
 import { db } from "../firebase";
+import { useAuth } from "../context/useAuth";
+import { ACCOUNT_ACTIVITY_ACTIONS, createAccountActivity } from "../lib/accountActivity";
 import MembershipPreviewDialog from "../components/MembershipPreviewDialog";
+import ConfirmDialog from "../components/ConfirmDialog";
 import "./AdminData.css";
 
 const PAGE_SIZE = 20;
 
 export default function AdminUsers() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [previewUser, setPreviewUser] = useState(null);
+  const [suspendTarget, setSuspendTarget] = useState(null);
 
   useEffect(() => {
     return onSnapshot(
@@ -43,9 +48,12 @@ export default function AdminUsers() {
   const currentPage = Math.min(page, pageCount - 1);
   const pageUsers = filteredUsers.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
-  async function toggleStatus(user) {
+  async function toggleStatus(user, confirmed = false) {
     const nextStatus = String(user.status || "active").toLowerCase() === "suspended" ? "active" : "suspended";
-    if (nextStatus === "suspended" && !window.confirm(`Suspend ${user.name || "this user"}? Their access to TrustHome will be blocked.`)) return;
+    if (nextStatus === "suspended" && !confirmed) {
+      setSuspendTarget(user);
+      return;
+    }
     try {
       const listings = await getDocs(query(collection(db, "listings"), where("ownerId", "==", user.id)));
       const batch = writeBatch(db);
@@ -69,6 +77,22 @@ export default function AdminUsers() {
         }
       });
       await batch.commit();
+      try {
+        await createAccountActivity(db, {
+          actorId: currentUser.uid,
+          actorRole: "admin",
+          targetUserId: user.id,
+          entityType: "user",
+          entityId: user.id,
+          action: nextStatus === "suspended"
+            ? ACCOUNT_ACTIVITY_ACTIONS.USER_SUSPENDED
+            : ACCOUNT_ACTIVITY_ACTIONS.USER_REACTIVATED,
+          summary: nextStatus === "suspended" ? "User suspended" : "User reactivated",
+          details: { status: nextStatus },
+        });
+      } catch {
+        // Activity logging is non-blocking for user status changes.
+      }
     } catch {
       setError("The user status could not be updated. Please try again.");
     }
@@ -83,6 +107,20 @@ export default function AdminUsers() {
         </div>
       </header>
       {error && <p className="admin-page__error" role="alert">{error}</p>}
+      {suspendTarget && <ConfirmDialog
+        title={suspendTarget.role === "admin" ? "Suspend administrator?" : "Suspend user?"}
+        message={suspendTarget.role === "admin"
+          ? `${suspendTarget.name || "This administrator"} will lose admin access immediately.`
+          : `${suspendTarget.name || "This user"} will lose access to TrustHome.`}
+        confirmLabel="Suspend user"
+        danger
+        onCancel={() => setSuspendTarget(null)}
+        onConfirm={() => {
+          const target = suspendTarget;
+          setSuspendTarget(null);
+          void toggleStatus(target, true);
+        }}
+      />}
       <section className="admin-data-card">
         <div className="admin-data-card__toolbar">
           <label className="admin-search-wrap" htmlFor="user-search">
@@ -115,7 +153,9 @@ export default function AdminUsers() {
                         <button type="button" className="admin-table__action" onClick={() => setPreviewUser(user)}>
                           <Sparkles size={14} aria-hidden="true" /> Preview plan
                         </button>
-                        <button type="button" className="admin-table__action admin-table__action--status" onClick={() => toggleStatus(user)}>{suspended ? "Reactivate" : "Suspend"}</button>
+                        {user.id === currentUser?.uid
+                          ? <span className="admin-table__muted">Current account</span>
+                          : <button type="button" className="admin-table__action admin-table__action--status" onClick={() => toggleStatus(user)}>{suspended ? "Reactivate" : "Suspend"}</button>}
                       </td>
                     </tr>
                   );

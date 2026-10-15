@@ -199,6 +199,10 @@ html.dark .browse__filters-body .field + .field { border-top-color: rgba(255,255
   align-items: stretch;
 }
 .browse__grid > div { height: 100%; }
+.browse__load-more {
+  display: flex;
+  margin: 24px auto 0;
+}
 
 /* ── Mobile ── */
 @media (max-width: 599px) {

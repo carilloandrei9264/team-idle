@@ -14,8 +14,10 @@
   --color-success-bg: #DCFCE7;
   --color-warning:    #D97706;
   --color-warning-bg: #FEF3C7;
+  --badge-warning-text: #92400E;
   --color-danger:     #DC2626;
   --color-danger-bg:  #FEE2E2;
+  --badge-danger-text: #B91C1C;
   --color-neutral-900: #0F172A;
   --color-neutral-700: #334155;
   --color-neutral-600: #475569;
@@ -72,8 +74,10 @@ html.dark {
   --color-success-bg: #052E16;
   --color-warning: #FCD34D;
   --color-warning-bg: #292524;
+  --badge-warning-text: #FCD34D;
   --color-danger: #F87171;
   --color-danger-bg: #2D0A0A;
+  --badge-danger-text: #FCA5A5;
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.32), 0 1px 2px rgba(0, 0, 0, 0.24);
   --shadow-raised: 0 6px 18px rgba(0, 0, 0, 0.42), 0 2px 5px rgba(0, 0, 0, 0.3);
   --shadow-xl: 0 12px 28px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.32);

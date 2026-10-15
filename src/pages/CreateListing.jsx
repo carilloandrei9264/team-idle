@@ -6,7 +6,7 @@ import PublicNav from "../components/PublicNav";
 import PropertyMap from "../components/PropertyMap";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
-import { countWords, FURNISHING_STATUSES, PROPERTY_CONDITIONS, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
+import { countWords, FURNISHING_STATUSES, MAX_LISTING_PHOTOS, PROPERTY_CONDITIONS, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
 import { createAccountActivity } from "../lib/accountActivity";
 import { ADMIN_NOTIFICATION_RECIPIENT, createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
 import { documentResourceType, uploadToCloudinary } from "../uploadImage";
@@ -79,7 +79,7 @@ export default function CreateListing() {
   }
 
   function handlePhotos(event) {
-    const nextPhotos = Array.from(event.target.files || []).slice(0, 8);
+    const nextPhotos = Array.from(event.target.files || []).slice(0, MAX_LISTING_PHOTOS);
     releasePreviewUrls(photoPreviews);
     const nextPreviews = nextPhotos.map((file) => createFilePreview(file));
     setPhotos(nextPhotos);
@@ -147,7 +147,7 @@ export default function CreateListing() {
       const batch = writeBatch(db);
       batch.set(listingRef, {
         ownerId: user.uid,
-        ownerName: profile?.name || user.displayName || user.email,
+        ownerName: profile?.name || user.displayName || "TrustHome member",
         title: form.title.trim(),
         description: form.description.trim(),
         type: form.type,
@@ -362,19 +362,19 @@ export default function CreateListing() {
                 <Upload size={18} aria-hidden="true" />
                 <span>Property photos</span>
                 <small>{photos.length ? `${photos.length} selected` : "At least 4 images"}</small>
-                <input type="file" accept="image/*" multiple onChange={handlePhotos} />
+                <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handlePhotos} />
               </label>
               <label className="listing-form__upload">
                 <Upload size={18} aria-hidden="true" />
                 <span>Ownership document</span>
                 <small>{ownershipDocument?.name || "Title, deed, or tax bill"}</small>
-                <input type="file" accept="image/*,.pdf" onChange={(event) => handleDocument(event, ownershipPreview, setOwnershipDocument, setOwnershipPreview)} required />
+                <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => handleDocument(event, ownershipPreview, setOwnershipDocument, setOwnershipPreview)} required />
               </label>
               <label className="listing-form__upload">
                 <Upload size={18} aria-hidden="true" />
                 <span>Government photo ID</span>
                 <small>{governmentId?.name || "Required for review"}</small>
-                <input type="file" accept="image/*" onChange={(event) => handleDocument(event, governmentIdPreview, setGovernmentId, setGovernmentIdPreview)} required />
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleDocument(event, governmentIdPreview, setGovernmentId, setGovernmentIdPreview)} required />
               </label>
             </div>
             {photos.length > 0 && (

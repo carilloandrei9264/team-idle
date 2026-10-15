@@ -31,6 +31,8 @@ export async function confirmBookingRequest(database, ownerId, bookingId) {
 
   const listingId = initialBooking.listingId;
   const listingRef = doc(database, "listings", listingId);
+  const privateListingRef = doc(database, "listingPrivate", listingId);
+  const availabilityRef = doc(database, "listingAvailability", listingId);
   const lockRef = doc(database, "bookingConfirmationLocks", listingId);
   const token = globalThis.crypto.randomUUID();
   let acquiredVersion;
@@ -99,23 +101,35 @@ export async function confirmBookingRequest(database, ownerId, bookingId) {
     }
 
     await withPermissionStage("saving the booking confirmation", () => runTransaction(database, async (transaction) => {
-      const [currentBookingSnapshot, currentListingSnapshot, lockSnapshot] = await Promise.all([
+      const [currentBookingSnapshot, currentListingSnapshot, privateListingSnapshot, availabilitySnapshot, lockSnapshot] = await Promise.all([
         transaction.get(bookingRef),
         transaction.get(listingRef),
+        transaction.get(privateListingRef),
+        transaction.get(availabilityRef),
         transaction.get(lockRef),
       ]);
-      if (!currentBookingSnapshot.exists() || !currentListingSnapshot.exists() || !lockSnapshot.exists()) {
+      if (!currentBookingSnapshot.exists() || !currentListingSnapshot.exists()
+        || !privateListingSnapshot.exists() || !lockSnapshot.exists()) {
         throw new Error("This booking request or listing is no longer available.");
       }
 
       const currentBooking = currentBookingSnapshot.data();
       const currentListing = currentListingSnapshot.data();
+      const privateListing = privateListingSnapshot.data();
+      const availability = availabilitySnapshot.data() || {};
       const lock = lockSnapshot.data();
       if (currentBooking.ownerId !== ownerId || currentBooking.status !== "Pending" || currentBooking.listingId !== listingId) {
         throw new Error("This booking request changed and can no longer be confirmed.");
       }
       if (currentListing.ownerId !== ownerId || currentListing.verificationStatus !== "verified" || currentListing.listingPurpose === "sale") {
         throw new Error("This listing can no longer be booked.");
+      }
+      if (privateListing.ownerId !== ownerId || typeof privateListing.address !== "string" || !privateListing.address.trim()) {
+        throw new Error("The listing address is unavailable. Please contact support.");
+      }
+      if (availabilitySnapshot.exists()
+        && (availability.ownerId !== ownerId || !Array.isArray(availability.blocked))) {
+        throw new Error("The listing availability record is invalid. Please contact support.");
       }
       if (lock.locked !== true || lock.token !== token || lock.version !== acquiredVersion
         || (lock.leaseExpiresAt?.toMillis?.() ?? 0) <= Date.now()) {
@@ -126,6 +140,19 @@ export async function confirmBookingRequest(database, ownerId, bookingId) {
         status: "Confirmed",
         updatedAt: serverTimestamp(),
         confirmedAt: serverTimestamp(),
+        address: privateListing.address,
+      });
+      const activeRanges = (availability.blocked || []).filter((range) => (
+        range?.start?.toMillis?.() && range?.end?.toMillis?.() && range.end.toMillis() > Date.now()
+      ));
+      if (activeRanges.length >= 100) {
+        throw new Error("This listing has too many active availability ranges. Please contact support.");
+      }
+      transaction.set(availabilityRef, {
+        ownerId,
+        blocked: [...activeRanges, { start: currentBooking.startDate, end: currentBooking.endDate }],
+        lastBookingId: bookingId,
+        updatedAt: serverTimestamp(),
       });
       transaction.update(lockRef, { locked: false, updatedAt: serverTimestamp() });
     }));

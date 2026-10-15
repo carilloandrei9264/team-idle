@@ -34,6 +34,11 @@ service cloud.firestore {
       return !data.keys().hasAny(['verificationDocUrl', 'ownershipDocumentUrl', 'governmentIdUrl']);
     }
 
+    function hasSafePublicOwnerName(data) {
+      return !data.keys().hasAny(['ownerName'])
+        || (data.ownerName is string && !data.ownerName.matches('.*@.*'));
+    }
+
     function hasValidListingPurpose(data) {
       return !data.keys().hasAny(['listingPurpose'])
         || (data.listingPurpose in ['rent', 'sale']
@@ -53,6 +58,26 @@ service cloud.firestore {
         && (!data.keys().hasAny(['furnishingStatus'])
           || data.furnishingStatus == null
           || data.furnishingStatus in ['furnished', 'partially_furnished', 'unfurnished']);
+    }
+
+    function hasValidListingCore(data) {
+      return data.title is string
+        && data.title.size() > 0
+        && data.title.size() <= 120
+        && data.description is string
+        && data.description.size() > 0
+        && data.description.size() <= 4000
+        && data.price is number
+        && data.price > 0
+        && data.bedrooms is number
+        && data.bedrooms >= 0
+        && data.bathrooms is number
+        && data.bathrooms >= 0
+        && data.photoUrls is list
+        && data.photoUrls.size() >= 4
+        && data.photoUrls.size() <= 12
+        && data.city is string
+        && data.city.size() > 0;
     }
 
     function isBookableListingOwner(listingId) {
@@ -89,13 +114,35 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    function hasValidListingAvailability(listingId) {
+      let bookingId = request.resource.data.lastBookingId;
+      let bookingPath = /databases/$(database)/documents/bookings/$(bookingId);
+      let lastRange = request.resource.data.blocked[request.resource.data.blocked.size() - 1];
+      return request.resource.data.keys().hasOnly(['ownerId', 'blocked', 'lastBookingId', 'updatedAt'])
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.blocked is list
+        && request.resource.data.blocked.size() > 0
+        && request.resource.data.blocked.size() <= 100
+        && request.resource.data.updatedAt == request.time
+        && bookingId is string
+        && existsAfter(bookingPath)
+        && getAfter(bookingPath).data.ownerId == request.auth.uid
+        && getAfter(bookingPath).data.listingId == listingId
+        && getAfter(bookingPath).data.status == 'Confirmed'
+        && lastRange is map
+        && lastRange.keys().hasOnly(['start', 'end'])
+        && lastRange.start == getAfter(bookingPath).data.startDate
+        && lastRange.end == getAfter(bookingPath).data.endDate;
+    }
+
     // User profiles are private to the account owner and admins.
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId)
         && request.resource.data.role == 'user'
         && request.resource.data.status == 'active';
-      allow update: if isAdmin()
+      allow update: if (isAdmin()
+          && !(userId == request.auth.uid && request.resource.data.status != resource.data.status))
         || (isOwner(userId)
           && (
             (
@@ -126,6 +173,8 @@ service cloud.firestore {
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.verificationStatus == 'pending'
         && !request.resource.data.keys().hasAny(['address'])
+        && hasValidListingCore(request.resource.data)
+        && hasSafePublicOwnerName(request.resource.data)
         && hasExplicitListingPurpose(request.resource.data)
         && hasValidListingDetails(request.resource.data)
         && hasNoPublicVerificationUrls(request.resource.data)
@@ -137,6 +186,8 @@ service cloud.firestore {
         || (isActiveUser()
           && isOwner(resource.data.ownerId)
           && request.resource.data.ownerId == resource.data.ownerId
+          && hasValidListingCore(request.resource.data)
+          && hasSafePublicOwnerName(request.resource.data)
           && hasValidListingPurpose(request.resource.data)
           && hasValidListingDetails(request.resource.data)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -151,8 +202,7 @@ service cloud.firestore {
           && hasNoPublicVerificationUrls(request.resource.data)
           && hasValidPublicMapLocation(request.resource.data));
 
-      allow delete: if isAdmin()
-        || (isActiveUser() && isOwner(resource.data.ownerId));
+      allow delete: if isAdmin();
     }
 
     // Exact listing addresses are private. Public listing documents contain
@@ -217,22 +267,43 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /listingAvailability/{listingId} {
+      allow read: if true;
+      allow create, update: if isActiveUser()
+        && get(/databases/$(database)/documents/listings/$(listingId)).data.ownerId == request.auth.uid
+        && hasValidListingAvailability(listingId);
+      allow delete: if false;
+    }
+
     match /bookings/{bookingId} {
       allow read: if isActiveUser()
         && (resource.data.renterId == request.auth.uid
           || resource.data.ownerId == request.auth.uid
           || isAdmin());
       allow create: if isActiveUser()
+        && request.resource.data.keys().hasOnly([
+          'listingId', 'listingTitle', 'listingPhotoUrl', 'ownerId', 'ownerName',
+          'renterId', 'renterName', 'listingPurpose', 'rentalTerm', 'startDate',
+          'endDate', 'bookingTimeZone', 'price', 'pricePeriod', 'status',
+          'createdAt', 'updatedAt', 'bookingReference'
+        ])
         && request.resource.data.renterId == request.auth.uid
         && request.resource.data.ownerId != request.auth.uid
         && request.resource.data.status == 'Pending'
+        && request.resource.data.startDate is timestamp
+        && request.resource.data.endDate is timestamp
+        && request.resource.data.startDate > request.time
         && request.resource.data.startDate < request.resource.data.endDate
-        && (!request.resource.data.keys().hasAny(['bookingTimeZone'])
-          || request.resource.data.bookingTimeZone == 'Asia/Manila')
+        && request.resource.data.bookingTimeZone == 'Asia/Manila'
+        && request.resource.data.price is number
+        && request.resource.data.price > 0
+        && request.resource.data.bookingReference is string
         && request.resource.data.listingId is string
         && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.verificationStatus == 'verified'
         && (!get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.keys().hasAny(['listingPurpose'])
           || get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.listingPurpose == 'rent')
+        && request.resource.data.price == get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.price
+        && request.resource.data.pricePeriod == get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.pricePeriod
         && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.ownerId == request.resource.data.ownerId;
       allow update: if isAdmin()
         || (isActiveUser()
@@ -241,18 +312,11 @@ service cloud.firestore {
           && request.resource.data.ownerId == resource.data.ownerId
           && request.resource.data.status == 'Confirmed'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'status', 'updatedAt', 'confirmedAt'
+            'status', 'updatedAt', 'confirmedAt', 'address'
           ])
+          && request.resource.data.address is string
+          && request.resource.data.address == get(/databases/$(database)/documents/listingPrivate/$(resource.data.listingId)).data.address
           && hasReleasedConfirmationLock(resource.data.listingId))
-        || (isActiveUser() && resource.data.renterId == request.auth.uid
-          && resource.data.status == 'Pending'
-          && request.resource.data.status == 'Pending'
-          && request.resource.data.ownerId == resource.data.ownerId
-          && request.resource.data.renterId == resource.data.renterId
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'bookingReference', 'updatedAt'
-          ])
-          && (!request.resource.data.keys().hasAny(['bookingReference']) || request.resource.data.bookingReference is string))
         || (isActiveUser() && resource.data.renterId == request.auth.uid
           && resource.data.status == 'Confirmed'
           && resource.data.endDate is timestamp
@@ -263,8 +327,41 @@ service cloud.firestore {
               && resource.data.endDate + duration.value(24, 'h') <= request.time))
           && request.resource.data.status == 'Completed'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'status', 'completedAt', 'updatedAt'
-          ]))
+            'status', 'completedAt', 'updatedAt', 'completionRequestedAt',
+            'completionRequestedBy', 'ownerConfirmedCompletion'
+          ])
+          && request.resource.data.completedAt is timestamp
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.completionRequestedAt is timestamp
+          && request.resource.data.completionRequestedBy == 'renter'
+          && request.resource.data.ownerConfirmedCompletion == false)
+        || (isActiveUser() && resource.data.ownerId == request.auth.uid
+          && resource.data.status == 'Completed'
+          && request.resource.data.status == 'Completed'
+          && (!resource.data.keys().hasAny(['ownerConfirmedCompletion'])
+            || resource.data.ownerConfirmedCompletion == false)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'ownerConfirmedCompletion', 'completionConfirmedAt', 'updatedAt'
+          ])
+          && request.resource.data.ownerConfirmedCompletion == true
+          && request.resource.data.completionConfirmedAt is timestamp
+          && request.resource.data.updatedAt is timestamp)
+        || (isActiveUser() && resource.data.ownerId == request.auth.uid
+          && resource.data.status == 'Pending'
+          && request.resource.data.status == 'Declined'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'declinedAt', 'updatedAt'
+          ])
+          && request.resource.data.declinedAt is timestamp
+          && request.resource.data.updatedAt is timestamp)
+        || (isActiveUser() && resource.data.renterId == request.auth.uid
+          && resource.data.status == 'Pending'
+          && request.resource.data.status == 'Cancelled'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'cancelledAt', 'updatedAt'
+          ])
+          && request.resource.data.cancelledAt is timestamp
+          && request.resource.data.updatedAt is timestamp)
         || (isActiveUser() && resource.data.renterId == request.auth.uid
           && resource.data.status in ['Confirmed', 'Completed']
           && request.resource.data.status == 'Disputed'
@@ -302,16 +399,27 @@ service cloud.firestore {
     match /ratings/{ratingId} {
       allow read: if true;
       allow create: if isActiveUser()
+        && request.resource.data.keys().hasOnly([
+          'bookingId', 'listingId', 'ownerId', 'renterId', 'reviewerId',
+          'reviewerName', 'score', 'comment', 'createdAt'
+        ])
         && request.resource.data.reviewerId == request.auth.uid
         && request.resource.data.bookingId is string
         && ratingId == request.resource.data.bookingId + '_' + request.auth.uid
         && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.renterId == request.auth.uid
         && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status == 'Completed'
+        && request.resource.data.listingId == get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.listingId
+        && request.resource.data.renterId == request.auth.uid
         && request.resource.data.ownerId == get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.ownerId
+        && request.resource.data.score is int
         && request.resource.data.score >= 1
         && request.resource.data.score <= 5
+        && request.resource.data.reviewerName is string
+        && request.resource.data.reviewerName.size() > 0
+        && !request.resource.data.reviewerName.matches('.*@.*')
         && request.resource.data.comment is string
-        && request.resource.data.comment.size() >= 0;
+        && request.resource.data.comment.size() >= 1
+        && request.resource.data.comment.size() <= 1000;
       allow update, delete: if isAdmin();
     }
 
@@ -335,6 +443,8 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.disputeId == disputeId;
       allow update: if isAdmin()
         && request.resource.data.status in ['Founded', 'Dismissed']
+        && request.resource.data.resolutionNotes is string
+        && request.resource.data.resolutionNotes.size() >= 10
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status', 'resolutionNotes', 'resolvedAt', 'resolvedBy'
         ]);
@@ -343,7 +453,18 @@ service cloud.firestore {
 
     match /publicProfiles/{profileId} {
       allow read: if true;
-      allow create, update: if isOwner(profileId) || isAdmin();
+      allow create, update: if isAdmin()
+        || (isActiveUser() && isOwner(profileId)
+          && request.resource.data.keys().hasOnly([
+            'userId', 'name', 'contactEmail', 'contactPhone', 'updatedAt'
+          ])
+          && request.resource.data.userId == profileId
+          && request.resource.data.name is string
+          && (!request.resource.data.keys().hasAny(['contactEmail'])
+            || request.resource.data.contactEmail == request.auth.token.email)
+          && (!request.resource.data.keys().hasAny(['contactPhone'])
+            || (request.resource.data.contactPhone is string
+              && request.resource.data.contactPhone.matches('^\\+[1-9][0-9]{7,14}$'))));
       allow delete: if false;
     }
 
@@ -352,14 +473,6 @@ service cloud.firestore {
     match /publicAccountability/{userId} {
       allow read: if true;
       allow write: if isAdmin();
-    }
-
-    match /savedSearches/{searchId} {
-      allow read, delete: if isActiveUser() && resource.data.userId == request.auth.uid;
-      allow create: if isActiveUser() && request.resource.data.userId == request.auth.uid;
-      allow update: if isActiveUser()
-        && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == resource.data.userId;
     }
 
     function canAccessNotification(recipientId, type) {
@@ -383,10 +496,22 @@ service cloud.firestore {
         && data.entityId.size() > 0
         && data.action is string
         && data.action.size() > 0
+        && data.action.size() <= 50
         && data.summary is string
         && data.summary.size() > 0
+        && data.summary.size() <= 200
         && data.details is map
-        && data.createdAt == request.time;
+        && data.createdAt == request.time
+        && (!data.keys().hasAny(['targetUserId'])
+          || data.targetUserId == request.auth.uid
+          || isAdmin()
+          || (data.entityType == 'booking'
+            && data.entityId is string
+            && data.targetUserId is string
+            && ((get(/databases/$(database)/documents/bookings/$(data.entityId)).data.renterId == request.auth.uid
+                && get(/databases/$(database)/documents/bookings/$(data.entityId)).data.ownerId == data.targetUserId)
+              || (get(/databases/$(database)/documents/bookings/$(data.entityId)).data.ownerId == request.auth.uid
+                && get(/databases/$(database)/documents/bookings/$(data.entityId)).data.renterId == data.targetUserId))));
     }
 
     match /notifications/{notificationId} {
@@ -397,8 +522,16 @@ service cloud.firestore {
       allow create: if isActiveUser()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.recipientId is string
+        && request.resource.data.type in [
+          'listing_review', 'listing_submitted', 'booking_update',
+          'dispute_update', 'booking_request'
+        ]
         && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 100
         && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 300
         && request.resource.data.read == false
         && ((isAdmin() && request.resource.data.recipientId != '__admins__')
           || (!isAdmin() && request.resource.data.recipientId == request.auth.uid)
@@ -449,7 +582,7 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Admin dashboard reads.
+    // Deny all unmatched document reads and writes.
     match /{document=**} {
       allow read, write: if false;
     }

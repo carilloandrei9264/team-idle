@@ -7,6 +7,7 @@ import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
 import { hasOpenDisputeForBooking, isDisputableBookingStatus, isValidDisputeReason, normalizeDisputeReason } from "../lib/dispute";
 import { ADMIN_NOTIFICATION_RECIPIENT, createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
+import { ACCOUNT_ACTIVITY_ACTIONS, createAccountActivity } from "../lib/accountActivity";
 import { uploadToCloudinary } from "../uploadImage";
 import "./UserPages.css";
 
@@ -106,7 +107,7 @@ export default function RaiseDispute() {
         bookingTitle: booking.listingTitle,
         ownerId: booking.ownerId,
         raisedBy: user.uid,
-        raisedByName: user.displayName || user.email,
+        raisedByName: user.displayName || "TrustHome member",
         reason: normalizeDisputeReason(reason),
         status: "Open",
         priorStatus,
@@ -121,15 +122,43 @@ export default function RaiseDispute() {
       });
       await batch.commit();
       try {
+        await createAccountActivity(db, {
+          actorId: user.uid,
+          actorRole: "user",
+          targetUserId: booking.ownerId,
+          entityType: "booking",
+          entityId: bookingId,
+          action: ACCOUNT_ACTIVITY_ACTIONS.DISPUTE_RAISED,
+          summary: "Dispute raised on booking",
+          details: { disputeId: disputeRef.id, listingTitle: booking.listingTitle || "Untitled listing" },
+        });
+      } catch {
+        // Activity logging is non-blocking for dispute submission.
+      }
+      try {
         await createNotification(db, {
           recipientId: ADMIN_NOTIFICATION_RECIPIENT,
           createdBy: user.uid,
           type: NOTIFICATION_TYPES.DISPUTE_UPDATE,
           title: "New dispute submitted",
-          message: `${user.displayName || user.email} submitted a dispute for ${booking.listingTitle || "a booking"}.`,
+          message: `${user.displayName || "A TrustHome member"} submitted a dispute for ${booking.listingTitle || "a booking"}.`,
           link: "/admin/disputes",
           entityId: disputeRef.id,
           entityType: "dispute",
+        });
+      } catch {
+        // The dispute remains submitted if notification delivery is unavailable.
+      }
+      try {
+        await createNotification(db, {
+          recipientId: booking.ownerId,
+          createdBy: user.uid,
+          type: NOTIFICATION_TYPES.DISPUTE_UPDATE,
+          title: "Dispute raised on your listing",
+          message: `A dispute was raised for ${booking.listingTitle || "a booking"}. TrustHome will review it.`,
+          link: "/booking-requests",
+          entityId: bookingId,
+          entityType: "booking",
         });
       } catch {
         // The dispute remains submitted if notification delivery is unavailable.
