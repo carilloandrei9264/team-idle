@@ -10,11 +10,11 @@ A rental marketplace prototype for the Philippines, with owner-submitted listing
 
 | Member | Role |
 |---|---|
-| Andresa, Rev Andrei | Scrum Master · Auth & User Roles · Admin Dashboard |
+| Andresa, Rev Andrei | Scrum Master · Project Documentation |
 | Carillo, Christopher Andrei | Lead Developer · Marketplace & Booking · Firestore Security · Trust & Dispute Workflows |
-| Laurente, Vien Melvic | Search & Browse · Booking Calendar · Dispute & Accountability Trail |
-| Prades, Justine James | Ratings & Reviews · Trust & Fairness Score |
-| Solpico, Robert | Bank-Acquired Catalog + Scraper · Loan Calculator · Public Profile |
+| Laurente, Vien Melvic | Project Manager · Bank-Acquired Catalog & Scraper · Frontend Development |
+| Prades, Justine James | Frontend Design & Animation · Settings & Themes · Ratings & Reviews · Trust & Fairness Score |
+| Solpico, Robert | QA & Testing · Loan Calculator · Dispute & Accountability Trail |
 
 ### Carillo's Contributions
 
