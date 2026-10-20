@@ -11,10 +11,18 @@ A rental marketplace prototype for the Philippines, with owner-submitted listing
 | Member | Role |
 |---|---|
 | Andresa, Rev Andrei | Scrum Master · Auth & User Roles · Admin Dashboard |
-| Carillo, Christopher Andrei | Listing Management · Verified Listing Intake · Owner Dashboard |
+| Carillo, Christopher Andrei | Lead Developer · Marketplace & Booking · Firestore Security · Trust & Dispute Workflows |
 | Laurente, Vien Melvic | Search & Browse · Booking Calendar · Dispute & Accountability Trail |
 | Prades, Justine James | Ratings & Reviews · Trust & Fairness Score |
 | Solpico, Robert | Bank-Acquired Catalog + Scraper · Loan Calculator · Public Profile |
+
+### Carillo's Contributions
+
+- Led development of the rental marketplace, including verified listing intake and the owner dashboard; authored the majority of the project's 110+ commits.
+- Built booking approvals around per-listing leases and atomic Firestore transactions to prevent overlapping confirmed bookings.
+- Implemented trust and fairness scoring, dispute and accountability workflows, notifications, and public owner-profile features.
+- Wrote Firestore and Storage security rules for renter, owner, and admin roles, and verified them with emulator-based tests.
+- Set up GitHub Actions checks for unit tests, security-rule tests, linting, and production builds.
 
 ---
 
