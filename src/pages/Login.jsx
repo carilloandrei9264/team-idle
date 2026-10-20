@@ -10,6 +10,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "../context/useAuth";
 import { useLocation, useNavigate } from "react-router-dom";
 import { auth, db } from "../firebase";
+import { normalizeUserProfileData } from "../lib/userProfile";
 import "./Login.css";
 
 /**
@@ -65,27 +66,30 @@ export default function Login() {
   async function createUserDoc(user, displayName) {
     const userRef = doc(db, "users", user.uid);
     const existingUser = await getDoc(userRef);
-    const data = {
+    const nextProfile = normalizeUserProfileData(existingUser.exists() ? existingUser.data() : {}, {
       name: displayName || user.displayName || "",
       email: user.email,
-      status: "active",
-    };
+      role: "user",
+    });
 
     if (!existingUser.exists()) {
-      data.role = "user";
-      data.createdAt = serverTimestamp();
+      nextProfile.createdAt = serverTimestamp();
     }
 
     await setDoc(
       userRef,
-      data,
+      nextProfile,
       { merge: true }
     );
-    await setDoc(doc(db, "publicProfiles", user.uid), {
-      userId: user.uid,
-      name: data.name,
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
+    try {
+      await setDoc(doc(db, "publicProfiles", user.uid), {
+        userId: user.uid,
+        name: nextProfile.name,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    } catch {
+      // Public profile sync must not block sign-in for suspended users.
+    }
   }
 
   async function handleSubmit(e) {
@@ -99,7 +103,8 @@ export default function Login() {
         await updateProfile(cred.user, { displayName: name.trim() });
         await createUserDoc(cred.user, name.trim());
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        await createUserDoc(cred.user, cred.user.displayName || name.trim());
       }
     } catch (err) {
       setErrors((prev) => ({ ...prev, form: friendlyAuthError(err.code) }));

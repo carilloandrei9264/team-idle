@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
+import { collection, documentId, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import PublicNav from "../components/PublicNav";
 import ListingCard from "../components/ListingCard";
@@ -30,8 +30,6 @@ const HOW_IT_WORKS = [
 
 const HERO_CHECKS = ["Owners verified by ID", "Ranked by real bookings", "Disputes stay public"];
 
-// Hero mosaic — 3x3 tiles. `img` tiles are photos (temporary, replace freely);
-// the rest are colour shapes. `r` picks which corner is rounded.
 const MOSAIC = [
   { tone: "navy", r: "tl" },
   { tone: "sky", r: "tr" },
@@ -45,6 +43,7 @@ const MOSAIC = [
 ];
 
 function Hero({ searchCity, setSearchCity, onSearch }) {
+
   return (
     <section className="hero" aria-label="TrustHome hero">
       <div className="hero__inner">
@@ -77,14 +76,12 @@ function Hero({ searchCity, setSearchCity, onSearch }) {
 
         <div className="hero__visual">
           <div className="mosaic" aria-hidden="true">
-            {MOSAIC.map((t, i) => (
+            {MOSAIC.map((tile, index) => (
               <div
-                key={i}
-                className={`tile${t.tone ? ` tile--${t.tone}` : " tile--photo"}${t.r ? ` r-${t.r}` : ""}`}
-                style={{ "--i": i }}
-              >
-                {t.img && <img src={t.img} alt="" loading="eager" />}
-              </div>
+                key={index}
+                className={`tile tile--${tile.tone}${tile.r ? ` r-${tile.r}` : ""}`}
+                style={{ "--i": index }}
+              />
             ))}
           </div>
         </div>
@@ -115,7 +112,10 @@ export default function Home() {
       const listings = listingsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setFeatured(listings);
       if (listings.length > 0) {
-        const scoresSnap = await getDocs(collection(db, "trustScores"));
+        const scoresSnap = await getDocs(query(
+          collection(db, "trustScores"),
+          where(documentId(), "in", listings.map((listing) => listing.id))
+        ));
         const scoreMap = {};
         scoresSnap.docs.forEach((d) => { scoreMap[d.id] = d.data(); });
         setTrustScores(scoreMap);

@@ -20,7 +20,6 @@ const EditListing = lazy(() => import("./pages/EditListing"));
 const BookingRequest = lazy(() => import("./pages/BookingRequest"));
 const MyBookings = lazy(() => import("./pages/MyBookings"));
 const BookingRequests = lazy(() => import("./pages/BookingRequests"));
-const ManageBookingRequests = lazy(() => import("./pages/ManageBookingRequests"));
 const RatingForm = lazy(() => import("./pages/RatingForm"));
 const RaiseDispute = lazy(() => import("./pages/RaiseDispute"));
 const BankPropertyDetail = lazy(() => import("./pages/BankPropertyDetail"));
@@ -30,6 +29,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
 const AdminLayout = lazy(() => import("./admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
+const AdminActivityLog = lazy(() => import("./admin/AdminActivityLog"));
 const AdminNotifications = lazy(() => import("./admin/AdminNotifications"));
 const AdminListings = lazy(() => import("./admin/AdminListings"));
 const AdminDisputes = lazy(() => import("./admin/AdminDisputes"));
@@ -63,7 +63,7 @@ function AppRoutes() {
         <Route path="/listings/:listingId/book" element={<RequireAuth><BookingRequest /></RequireAuth>} />
         <Route path="/my-bookings" element={<RequireAuth><MyBookings /></RequireAuth>} />
         <Route path="/booking-requests" element={<RequireAuth><BookingRequests /></RequireAuth>} />
-        <Route path="/manage-bookings" element={<RequireAuth><ManageBookingRequests /></RequireAuth>} />
+        <Route path="/manage-bookings" element={<Navigate to="/my-activity?tab=requests" replace />} />
         <Route path="/bookings/:bookingId/review" element={<RequireAuth><RatingForm /></RequireAuth>} />
         <Route path="/bookings/:bookingId/dispute" element={<RequireAuth><RaiseDispute /></RequireAuth>} />
           <Route path="/bank-catalog/:propertyId" element={<BankPropertyDetail />} />
@@ -82,6 +82,7 @@ function AppRoutes() {
           }
         >
           <Route index element={<AdminDashboard />} />
+          <Route path="activity" element={<AdminActivityLog />} />
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="settings" element={<Settings adminMode />} />
           <Route path="listings" element={<AdminListings />} />

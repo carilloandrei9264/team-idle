@@ -9,6 +9,11 @@ const THEME_OPTIONS = [
   { value: "dark", label: "Dark", icon: Moon },
 ];
 
+const ACCENT_OPTIONS = [
+  { value: "blue", label: "Blue" },
+  { value: "green", label: "Green" },
+];
+
 const ACCESSIBILITY_OPTIONS = [
   { key: "largeText", label: "Larger text", description: "Increase the size of interface text." },
   { key: "highContrast", label: "High contrast", description: "Strengthen text and surface contrast." },
@@ -16,7 +21,7 @@ const ACCESSIBILITY_OPTIONS = [
 ];
 
 export default function Settings({ adminMode = false }) {
-  const { themePreference, setThemePreference, accessibility, setAccessibility } = useTheme();
+  const { themePreference, setThemePreference, accentPreference, setAccentPreference, accessibility, setAccessibility } = useTheme();
   const content = <>
     <header className={adminMode ? "admin-page__header" : "user-page__header"}>
       <div>
@@ -45,6 +50,23 @@ export default function Settings({ adminMode = false }) {
           </button>
         ))}
       </div>
+      <fieldset className="settings-page__accent-group">
+        <legend>Accent color</legend>
+        <div className="settings-page__accent-options">
+          {ACCENT_OPTIONS.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              className={`settings-page__accent-option${accentPreference === value ? " settings-page__accent-option--active" : ""}`}
+              aria-pressed={accentPreference === value}
+              onClick={() => setAccentPreference(value)}
+            >
+              <span className={`settings-page__accent-swatch settings-page__accent-swatch--${value}`} aria-hidden="true" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </fieldset>
     </section>
     <section className="settings-page__section" aria-labelledby="settings-accessibility-title">
       <div className="settings-page__section-heading">

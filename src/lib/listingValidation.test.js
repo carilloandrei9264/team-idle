@@ -10,6 +10,7 @@ import {
 const validForm = {
   title: "Bright apartment",
   city: "Cabuyao",
+  price: "12000",
   address: "Banay-Banay, Cabuyao",
   bedrooms: "2",
   bathrooms: "1",
@@ -65,6 +66,33 @@ test("rental listings require a supported rental term", () => {
   assert.match(errors.join(" "), /short-term or long-term/);
 });
 
+test("condition and furnishing details remain optional but validate when supplied", () => {
+  const requiredOnlyErrors = validateListingForm({
+    form: validForm,
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+  assert.deepEqual(requiredOnlyErrors, []);
+
+  const supportedDetailsErrors = validateListingForm({
+    form: { ...validForm, propertyCondition: "good", furnishingStatus: "partially_furnished" },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+  assert.deepEqual(supportedDetailsErrors, []);
+
+  const unsupportedDetailsErrors = validateListingForm({
+    form: { ...validForm, propertyCondition: "unknown", furnishingStatus: "unknown" },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+  assert.match(unsupportedDetailsErrors.join(" "), /condition/i);
+  assert.match(unsupportedDetailsErrors.join(" "), /furnishing/i);
+});
+
 test("invalid or malformed map pins are rejected before submission", () => {
   const errors = validateListingForm({
     form: { ...validForm, mapLocation: { geohash: "bad", precision: "approximate" } },
@@ -85,4 +113,34 @@ test("listing validation reports missing documents, photos, and required fields"
   });
 
   assert.match(errors.join(" "), /address|amenity|Description|photos|ownership|government-issued/i);
+});
+
+test("listing price must be greater than zero", () => {
+  const errors = validateListingForm({
+    form: { ...validForm, price: "0" },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+
+  assert.match(errors.join(" "), /price greater than 0/i);
+});
+
+test("listing files enforce accepted types and size limits", () => {
+  const errors = validateListingForm({
+    form: validForm,
+    photos: [
+      { type: "image/gif", size: 1024 },
+      { type: "image/jpeg", size: 6 * 1024 * 1024 },
+      { type: "image/png", size: 1024 },
+      { type: "image/webp", size: 1024 },
+    ],
+    ownershipDocument: { type: "application/pdf", size: 11 * 1024 * 1024 },
+    governmentId: { type: "image/gif", size: 1024 },
+  });
+
+  assert.match(errors.join(" "), /JPEG, PNG, or WebP/i);
+  assert.match(errors.join(" "), /5 MB or smaller/i);
+  assert.match(errors.join(" "), /10 MB or smaller/i);
+  assert.match(errors.join(" "), /Government ID files/i);
 });

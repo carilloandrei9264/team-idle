@@ -1,8 +1,8 @@
-# Bank Property Scraper — Starter Project
+# Bank Property Scraper
 
-Supports the curated scraping architecture for publicly listed acquired/foreclosed properties from BDO, Landbank, and Metrobank. Metrobank is the only active production source at present because it already provides sufficient catalog supply.
-directly into your team's **Firestore** database, using each listing's own reference
-number as part of the document ID so re-running the scraper updates instead of duplicating.
+This package contains parsers for publicly listed acquired/foreclosed properties from BDO, Landbank, and Metrobank. **Only Metrobank is verified and enabled for production Firestore writes.** On 2026-10-12, the Landbank dry-run found no listings; the site returned an Imperva interruption challenge. BDO's rendered public page showed property fields and detail links, but direct Python access timed out and its current parser still uses a placeholder endpoint. Neither source has a validated parser/data-quality test. The production runner and admin worker block both unverified sources before Firebase initializes. Re-running an enabled source updates catalog documents using each listing's bank and reference number rather than duplicating them.
+
+Unverified parsers can be inspected only with `--dry-run`; this can make network requests to the bank site but never initializes Firebase or writes catalog data.
 
 ## Firestore setup (do this once, per machine that runs the scraper)
 
@@ -38,8 +38,10 @@ python -m venv venv
 venv\Scripts\activate        # Windows
 source venv/bin/activate     # Mac/Linux
 pip install -r requirements.txt
-python scraper.py            # runs once, immediately
-python scraper.py --dry-run landbank metrobank  # parse sources without Firestore writes
+python scraper.py            # writes only the active Metrobank source
+python scraper.py --dry-run metrobank          # inspect the active parser without writes
+python scraper.py --dry-run landbank           # diagnostic only; not validated, no writes
+python scraper.py bdo                           # blocked; exits nonzero without Firebase access
 python seed_demo_data.py --dry-run              # preview synthetic demo data
 python seed_demo_data.py                        # write synthetic demo data to Firestore
 ```
@@ -50,7 +52,7 @@ python seed_demo_data.py                        # write synthetic demo data to F
    keyed by document ID (`{bank}_{reference_no}`).
 - `scraper.py` — one function per bank (`scrape_landbank()`, `scrape_metrobank()`,
    `scrape_bdo()`). Each returns a list of normalized property dicts.
-- `worker.py` — consumes `scraperJobs` created by the admin panel and runs requested banks.
+- `worker.py` — consumes `scraperJobs` created by the admin panel. It writes only active sources; a request containing only unverified sources fails without initializing the scraper's Firebase database connection.
 - `trust_scores.py` — recomputes the public trust-score cache with the same Admin SDK credential, without Cloud Functions.
 - `complete_expired_bookings.py` — marks ended confirmed bookings as `Completed` without any paid Firebase Functions runtime.
 - `seed_demo_data.py` — writes repeatable synthetic listings, bookings, ratings, disputes, users, and Metrobank properties for testing.
@@ -59,6 +61,49 @@ python seed_demo_data.py                        # write synthetic demo data to F
 - `.github/workflows/scrape.yml` — GitHub Actions config that runs the scraper and
    trust-score refresh on a schedule in the cloud. Add the service-account JSON as a
    GitHub Actions secret named `FIREBASE_SERVICE_ACCOUNT`; the workflow passes it through the environment.
+
+## Verification-document privacy migration
+
+Before any live migration, create and verify a private JSONL backup:
+
+```bash
+python backup_firestore.py
+python restore_firestore.py "$HOME/TrustHomeBackups/backup-YYYYMMDD-HHMMSS.jsonl"
+```
+
+The restore command is a dry run unless `--apply` is supplied. Keep backup files
+outside the repository in an access-controlled location; they contain personal
+data. The backup command defaults to a timestamped file under the current user's
+home directory. Replace `YYYYMMDD-HHMMSS` with the timestamp printed by the backup
+command. Never test a restore against the live project.
+
+The migration at `migrate_verification_documents.py` is dry-run by default. Before
+applying it, take and verify a Firestore JSON backup. Review the dry-run counts and
+confirm the Cloudinary cloud name matches the project. The dry run does not print
+document URLs.
+
+Applying the migration also requires `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`,
+and `CLOUDINARY_API_SECRET` in the trusted machine's environment, plus the Firestore
+Admin credential described above. Keep the API secret in a password manager or host
+secret store; never put it in Git, the workbook, logs, or chat. Then run:
+
+```bash
+python migrate_verification_documents.py --apply
+```
+
+The script converts eligible Cloudinary assets to authenticated delivery, writes
+`publicId`/`format`/`resourceType` metadata under `listingPrivate.documents`, and removes
+legacy URL fields only for successfully converted assets. Unrecognized URLs and
+conversion failures remain untouched and are counted for manual review. After applying,
+wait about 10 minutes and verify old delivery URLs no longer work before marking F-16
+closed. Never run this against the live project without the backup and review steps.
+
+**Application compatibility gate:** the current web app still uploads and previews
+direct URL fields (`ownershipDocumentUrl` and `governmentIdUrl`). It does not yet resolve
+`listingPrivate.documents` metadata into authenticated short-lived delivery URLs. Do not
+run this migration with `--apply` on the live project until that secure delivery path is
+implemented, deployed, and tested with the admin preview/download flow. A Firestore
+backup alone does not make the migrated documents usable by the current UI.
 
 ## ⚠️ Before this actually works, you must do this one manual step per bank
 
@@ -92,12 +137,12 @@ inspected each bank's page structure and adapted our parser to it."*
 
 The React admin button creates a `scraperJobs` document with status `queued`. It does not
 run Python in the browser. Start `python worker.py` in a trusted Python environment to
-poll that collection, run the requested banks, write `bankProperties`, and mark the job
-`completed` or `failed`.
-For the first live parser test, run only the two verified source strategies:
+poll that collection. The worker writes only production-enabled banks; blocked/unverified
+banks are recorded in the job result and cannot reach Firestore through the scraper runner.
+For the first live catalog write, only Metrobank is enabled:
 
 ```bash
-python scraper.py --dry-run landbank metrobank
+python scraper.py
 ```
 
-BDO and Landbank remain future integrations. They must not be enabled in production until their selectors/API behavior and data quality are verified. Metrobank remains the default production source.
+Use `--dry-run landbank` or `--dry-run bdo` only for parser diagnostics. BDO and Landbank remain future integrations; promote either into the production allowlist only after its source structure, fields, and data quality are verified.

@@ -93,7 +93,7 @@ export default function MyDashboard() {
             </section>
 
             <section className="dashboard-page__section" aria-labelledby="dashboard-bookings-title">
-              <div className="dashboard-page__section-heading"><div><p className="user-page__eyebrow">Recent activity</p><h2 id="dashboard-bookings-title">Booking requests</h2></div><Link to="/manage-bookings" className="btn btn--secondary">Manage</Link></div>
+              <div className="dashboard-page__section-heading"><div><p className="user-page__eyebrow">Recent activity</p><h2 id="dashboard-bookings-title">Booking requests</h2></div><Link to="/my-activity?tab=requests" className="btn btn--secondary">Manage</Link></div>
               {recentBookings.length === 0 ? <div className="user-page__empty"><h3>No booking activity</h3><p>Requests for your listings will appear here.</p></div> : <div className="dashboard-page__list">{recentBookings.map((booking) => <article className="dashboard-page__booking" key={booking.id}><div><h3>{booking.listingTitle || "Listing"}</h3><p>{booking.renterName || "TrustHome user"}</p><p>{formatBookingDate(booking.startDate)} to {formatBookingDate(booking.endDate)}</p></div><span className={`badge badge--${booking.status === "Confirmed" || booking.status === "Completed" ? "verified" : booking.status === "Disputed" ? "danger" : "pending"}`}>{booking.status}</span></article>)}</div>}
             </section>
           </div>

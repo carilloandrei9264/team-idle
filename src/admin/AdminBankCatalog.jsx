@@ -3,6 +3,7 @@ import { addDoc, collection, deleteDoc, getDocs, onSnapshot, serverTimestamp } f
 import { CheckCircle2, RefreshCw, Trash2 } from "lucide-react";
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { BANK_LABELS, CURRENT_BANKS } from "../lib/bankCatalog";
 import "./AdminData.css";
 
@@ -13,6 +14,7 @@ export default function AdminBankCatalog() {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -56,7 +58,7 @@ export default function AdminBankCatalog() {
         status: "queued",
         createdAt: serverTimestamp(),
       });
-      setMessage("Metrobank scrape queued. The scheduled GitHub Action or trusted worker will process it.");
+      setMessage("Metrobank scrape queued. It will run when the trusted worker (worker.py) is running.");
     } catch {
       setError("The scraper run could not be queued. Check your connection and permissions.");
     } finally {
@@ -64,8 +66,13 @@ export default function AdminBankCatalog() {
     }
   }
 
-  async function clearCatalog() {
-    if (!properties.length || !window.confirm("Remove all bank properties from the catalog? Scraper logs will be kept.")) return;
+  async function clearCatalog(confirmed = false) {
+    if (!properties.length) return;
+    if (!confirmed) {
+      setConfirmClear(true);
+      return;
+    }
+    setConfirmClear(false);
 
     setClearing(true);
     setMessage("");
@@ -107,6 +114,14 @@ export default function AdminBankCatalog() {
       </header>
       {error && <p className="admin-page__error" role="alert">{error}</p>}
       {message && <p className="admin-page__success" role="status">{message}</p>}
+      {confirmClear && <ConfirmDialog
+        title="Clear bank catalog?"
+        message="All bank property records will be removed. Scraper logs will be kept."
+        confirmLabel="Clear catalog"
+        danger
+        onCancel={() => setConfirmClear(false)}
+        onConfirm={() => { void clearCatalog(true); }}
+      />}
       {loading ? (
         <div className="admin-data-card admin-empty">Loading bank catalog...</div>
       ) : (

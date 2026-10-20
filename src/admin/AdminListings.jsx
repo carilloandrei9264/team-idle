@@ -5,13 +5,16 @@ import {
   doc,
   deleteField,
   getDoc,
+  query,
   serverTimestamp,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
 import { NOTIFICATION_TYPES } from "../lib/notifications";
-import { Check, X, Image as ImageIcon } from "lucide-react";
+import { ACCOUNT_ACTIVITY_ACTIONS, createAccountActivity } from "../lib/accountActivity";
+import { Check, X, Image as ImageIcon, Download } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import "./AdminListings.css";
 
@@ -30,10 +33,12 @@ export default function AdminListings() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "listings"), (snap) => {
+    const unsubscribe = onSnapshot(query(
+      collection(db, "listings"),
+      where("verificationStatus", "==", "pending")
+    ), (snap) => {
       const docs = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((listing) => listing.verificationStatus === "pending")
         .sort((a, b) => timestampValue(a.createdAt) - timestampValue(b.createdAt));
       setPending(docs);
       setLoading(false);
@@ -62,7 +67,7 @@ export default function AdminListings() {
 
     let active = true;
     getDoc(doc(db, "listingPrivate", selectedId))
-      .then((snapshot) => {
+      .then(async (snapshot) => {
         if (!active) return;
         const data = snapshot.exists() ? snapshot.data() : {};
         setPrivateDocuments({
@@ -107,6 +112,20 @@ export default function AdminListings() {
         createdAt: serverTimestamp(),
       });
       await batch.commit();
+      try {
+        await createAccountActivity(db, {
+          actorId: user.uid,
+          actorRole: "admin",
+          targetUserId: selected.ownerId,
+          entityType: "listing",
+          entityId: selected.id,
+          action: ACCOUNT_ACTIVITY_ACTIONS.LISTING_APPROVED,
+          summary: "Listing approved",
+          details: { title: selected.title || "Untitled listing" },
+        });
+      } catch {
+        // Activity logging is non-blocking for listing decisions.
+      }
       setPending((current) => current.filter((listing) => listing.id !== selected.id));
       setMessage("Listing approved and removed from the pending review queue.");
     } catch {
@@ -118,6 +137,12 @@ export default function AdminListings() {
 
   async function handleDecision(decision) {
     if (!selected || !privateDocumentsReady) return;
+    const feedback = rejectReason.trim();
+    if (!feedback) {
+      setError("Add feedback for the owner before submitting this decision.");
+      return;
+    }
+
     setSaving(true);
     setError("");
     setMessage("");
@@ -125,7 +150,7 @@ export default function AdminListings() {
       const batch = writeBatch(db);
       batch.update(doc(db, "listings", selected.id), {
         verificationStatus: "rejected",
-        rejectionReason: rejectReason.trim() || "No reason given",
+        rejectionReason: feedback,
         reviewDecision: decision,
         resubmissionRequested: decision === "changes_requested",
         verifiedAt: serverTimestamp(),
@@ -140,7 +165,7 @@ export default function AdminListings() {
         createdBy: user?.uid ?? null,
         type: NOTIFICATION_TYPES.LISTING_REVIEW,
         title: decision === "changes_requested" ? "Changes requested for your listing" : "Listing review update",
-        message: `${selected.title || "Your listing"}: ${rejectReason.trim() || "No reason given"}`,
+        message: `${selected.title || "Your listing"}: ${feedback}`.slice(0, 300),
         link: "/my-listings",
         entityId: selected.id,
         entityType: "listing",
@@ -148,6 +173,22 @@ export default function AdminListings() {
         createdAt: serverTimestamp(),
       });
       await batch.commit();
+      try {
+        await createAccountActivity(db, {
+          actorId: user.uid,
+          actorRole: "admin",
+          targetUserId: selected.ownerId,
+          entityType: "listing",
+          entityId: selected.id,
+          action: decision === "changes_requested"
+            ? ACCOUNT_ACTIVITY_ACTIONS.LISTING_CHANGES_REQUESTED
+            : ACCOUNT_ACTIVITY_ACTIONS.LISTING_REJECTED,
+          summary: decision === "changes_requested" ? "Listing changes requested" : "Listing rejected",
+          details: { decision, title: selected.title || "Untitled listing" },
+        });
+      } catch {
+        // Activity logging is non-blocking for listing decisions.
+      }
       setPending((current) => current.filter((listing) => listing.id !== selected.id));
       setRejectReason("");
       setShowDecisionForm(false);
@@ -173,7 +214,7 @@ export default function AdminListings() {
           <p className="panel__empty">No listings waiting for review right now.</p>
         </div>
       ) : (
-        <div className="listings-queue__layout">
+        <div className={`listings-queue__layout${pending.length === 1 ? " listings-queue__layout--single" : ""}`}>
           <section className="panel review-card">
             {selected && (
               <>
@@ -235,24 +276,26 @@ export default function AdminListings() {
                     </button>
                   </div>
                 ) : (
-                  <div className="review-card__reject-form">
-                    <label className="field__label" htmlFor="rejectReason">
-                      Reason for rejection
-                    </label>
+                    <div className="review-card__reject-form">
+                      <label className="field__label" htmlFor="rejectReason">
+                        Feedback for the owner (required)
+                      </label>
                     <textarea
                       id="rejectReason"
                       className="review-card__textarea"
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
-                      placeholder="e.g. Name on document doesn't match account"
+                        placeholder="Explain what needs to be corrected or clarified"
                       rows={3}
+                        required
                     />
+                      <p className="review-card__feedback-hint">This feedback will be sent to the owner and shown with the listing status.</p>
                     <div className="review-card__actions">
                       <button
                         type="button"
                         className="btn btn--danger"
                         onClick={() => handleDecision("changes_requested")}
-                        disabled={saving || !privateDocumentsReady}
+                        disabled={saving || !privateDocumentsReady || !rejectReason.trim()}
                       >
                         Request changes
                       </button>
@@ -260,7 +303,7 @@ export default function AdminListings() {
                         type="button"
                         className="btn btn--danger"
                         onClick={() => handleDecision("rejected")}
-                        disabled={saving || !privateDocumentsReady}
+                        disabled={saving || !privateDocumentsReady || !rejectReason.trim()}
                       >
                         Reject permanently
                       </button>
@@ -279,27 +322,29 @@ export default function AdminListings() {
             )}
           </section>
 
-          <aside className="panel up-next">
-            <h2 className="panel__title">Up next ({pending.length - 1 >= 0 ? pending.length - 1 : 0})</h2>
-            <ul className="up-next__list">
-              {pending
-                .filter((l) => l.id !== selectedId)
-                .map((l) => (
-                  <li key={l.id}>
-                    <button
-                      type="button"
-                      className="up-next__item"
-                      onClick={() => {
-                        setSelectedId(l.id);
-                        setShowDecisionForm(false);
-                      }}
-                    >
-                      {l.title || "Untitled listing"} <span className="badge badge--pending">pending</span>
-                    </button>
-                  </li>
-                ))}
-            </ul>
-          </aside>
+          {pending.length > 1 && (
+            <aside className="panel up-next">
+              <h2 className="panel__title">Up next ({pending.length - 1})</h2>
+              <ul className="up-next__list">
+                {pending
+                  .filter((l) => l.id !== selectedId)
+                  .map((l) => (
+                    <li key={l.id}>
+                      <button
+                        type="button"
+                        className="up-next__item"
+                        onClick={() => {
+                          setSelectedId(l.id);
+                          setShowDecisionForm(false);
+                        }}
+                      >
+                        {l.title || "Untitled listing"} <span className="badge badge--pending">pending</span>
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </aside>
+          )}
         </div>
       )}
     </div>
@@ -307,6 +352,8 @@ export default function AdminListings() {
 }
 
 function DocumentPreview({ url, title, label = "Uploaded document" }) {
+  const [previewFailed, setPreviewFailed] = useState(false);
+
   if (!url) {
     return <div className="review-card__doc review-card__doc--placeholder"><ImageIcon size={28} aria-hidden="true" /><span>No document uploaded</span></div>;
   }
@@ -316,13 +363,44 @@ function DocumentPreview({ url, title, label = "Uploaded document" }) {
     <div className="review-card__document">
       <p className="review-card__label">{label}</p>
       {isPdf ? (
-        <iframe className="review-card__pdf" src={url} title={`${label} for ${title || "listing"}`} />
+        previewFailed ? (
+          <div className="review-card__pdf review-card__pdf--fallback">
+            <p>Preview blocked by the browser.</p>
+            <a href={url} target="_blank" rel="noreferrer">Open PDF</a>
+          </div>
+        ) : (
+          <iframe className="review-card__pdf" src={url} title={`${label} for ${title || "listing"}`} type="application/pdf" onError={() => setPreviewFailed(true)} />
+        )
       ) : (
         <img className="review-card__doc" src={url} alt={`${label} uploaded for ${title || "this listing"}`} />
       )}
-      <a className="review-card__document-link" href={url} target="_blank" rel="noreferrer">Open uploaded document</a>
+      <div className="review-card__document-actions">
+        <a className="review-card__document-link" href={url} target="_blank" rel="noreferrer">Open uploaded document</a>
+        <a className="review-card__document-download" href={cloudinaryAttachmentUrl(url)} download>
+          <Download size={15} aria-hidden="true" />
+          Download
+        </a>
+      </div>
     </div>
   );
+}
+
+function cloudinaryAttachmentUrl(value) {
+  try {
+    const url = new URL(value);
+    if (url.hostname !== "res.cloudinary.com") return value;
+
+    const uploadPath = "/upload/";
+    const uploadIndex = url.pathname.indexOf(uploadPath);
+    if (uploadIndex === -1) return value;
+
+    const assetPathIndex = uploadIndex + uploadPath.length;
+    if (url.pathname.slice(assetPathIndex).startsWith("fl_attachment/")) return value;
+    url.pathname = `${url.pathname.slice(0, assetPathIndex)}fl_attachment/${url.pathname.slice(assetPathIndex)}`;
+    return url.toString();
+  } catch {
+    return value;
+  }
 }
 
 function timestampValue(value) {

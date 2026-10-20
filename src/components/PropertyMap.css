@@ -29,6 +29,19 @@
   border-radius: var(--radius-input);
   z-index: 0;
 }
+.property-map__marker-icon { background: transparent; border: 0; }
+.property-map__marker {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #ffffff;
+  border-radius: 50% 50% 50% 0;
+  background: #146c94;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 35%);
+  cursor: grab;
+  transform: rotate(-45deg);
+}
+.leaflet-marker-draggable:active .property-map__marker { cursor: grabbing; }
 .property-map__caption { color: var(--color-neutral-600); font-size: 13px; }
 .property-map .leaflet-control-attribution { font-size: 10px; }
 html.dark .property-map .leaflet-tile-pane { filter: brightness(0.78) contrast(1.08); }

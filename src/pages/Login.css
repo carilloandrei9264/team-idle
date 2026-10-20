@@ -3,7 +3,7 @@
   display: grid;
   grid-template-columns: 1fr;
   font-family: var(--font-sans);
-  background: #eef3f8;
+  background: var(--page-bg);
 }
 
 /* Decorative brand panel — desktop only, per the Design Guide's
@@ -24,8 +24,8 @@
     position: relative;
     overflow: hidden;
     padding: clamp(48px, 8vw, 112px);
-    background: #101a2d;
-    color: var(--color-white);
+    background: #0B1437;
+    color: #F1F6F4;
   }
   .auth-panel::after {
     content: "";
@@ -41,7 +41,7 @@
   .auth-panel__mark {
     font-weight: 700;
     font-size: 20px;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
   }
   .auth-panel__line {
     font-size: 24px;
@@ -79,7 +79,7 @@
   justify-content: center;
   min-height: 100svh;
   padding: clamp(32px, 7vw, 96px) clamp(24px, 8vw, 120px);
-  background: #f8fafc;
+  background: var(--page-bg);
 }
 
 .auth-card {
@@ -97,7 +97,7 @@
 }
 
 .auth-card__title {
-  font-size: clamp(30px, 3vw, 38px);
+  font-size: 34px;
   font-weight: 700;
   line-height: 1.2;
   color: var(--color-neutral-900);
