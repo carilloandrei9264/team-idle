@@ -1,4 +1,4 @@
-# Bank Property Scraper — Starter Project
+# Bank Property Catalog and Scraper
 
 The scraper contains parsers for publicly listed acquired/foreclosed properties from BDO, Landbank, and Metrobank. **Metrobank is the only source currently intended for production writes.** The Landbank parser is unverified, and the BDO parser still contains a placeholder endpoint.
 
@@ -53,6 +53,12 @@ currently accept explicitly selected BDO or Landbank parsers too; they do not en
 production-source allowlist. Do not pass or queue those sources for normal writes until
 their parser and data quality have been verified.
 
+Run the scraper tests from this directory with:
+
+```bash
+python -m unittest discover -s . -p "test_*.py"
+```
+
 ## Files
 
 - `database.py` — connects to Firestore and handles insert/update/delisting logic,
@@ -105,33 +111,19 @@ conversion failures remain untouched and are counted for manual review. After ap
 wait about 10 minutes and verify old delivery URLs no longer work before marking F-16
 closed. Never run this against the live project without the backup and review steps.
 
-## ⚠️ Before this actually works, you must do this one manual step per bank
+## Source readiness
 
-I could not inspect the *live rendered* HTML of these pages myself, so the CSS selectors
-in `scraper.py` are marked `# TODO: verify selector` — realistic placeholders based on
-common listing-page patterns, not guaranteed to match exactly. To fix each one:
+- **Metrobank** is the default and only source intended for production writes. It reads
+  the bank's JSON endpoint and paginates results.
+- **Landbank** has an unverified HTML parser. A dry run may help diagnose source changes,
+  but its output must be reviewed before enabling writes.
+- **BDO** is not implemented: its configured API URL is a placeholder. Its dry run is
+  expected to fail until a real source endpoint and parser are verified.
 
-1. Open the bank's listing page in Chrome.
-2. Right-click a property card → **Inspect**.
-3. Note the actual tag/class names wrapping the title, price, location, and reference number.
-4. Update the matching selector in `scraper.py`.
-
-**For BDO specifically:** its results page loads listings via a background request, not
-in the initial HTML. Before writing a scraper for it:
-1. Open BDO's real estate results page in Chrome.
-2. Open DevTools → **Network** tab → filter by **Fetch/XHR**.
-3. Reload the page or run a search.
-4. Look for a request that returns JSON (not HTML) containing property data.
-5. If you find one, just call that URL directly with `requests.get()` — this is *easier*
-   and more reliable than scraping HTML, since JSON has a fixed structure that won't shift
-   with a redesign.
-6. If no such request appears (all rendering happens client-side with no clean API), you'll
-   need `playwright` instead of `requests` to load the page in a real headless browser
-   before parsing it — a fallback function using Playwright is included and commented out.
-
-This inspection step is normal, expected scraper-development work — every real scraper
-project starts this way, and it's a fine thing to say plainly in your defense: *"we
-inspected each bank's page structure and adapted our parser to it."*
+The CLI and worker currently allow explicitly requested bank names; this is not a
+production safety allowlist. Only run the default Metrobank job against the live
+catalog. Treat other sources as unavailable until their URLs, parsed fields, and data
+quality have been reviewed.
 
 ## Admin button flow
 
@@ -139,8 +131,8 @@ The React admin button creates a `scraperJobs` document with status `queued`. It
 run Python in the browser. Start `python worker.py` in a trusted Python environment to
 poll that collection, run the requested banks, write `bankProperties`, and mark the job
 `completed` or `failed`.
-For the first live parser test, use Metrobank only. Dry runs for BDO and Landbank are
-diagnostic and do not write to Firestore:
+For the first live parser test, use Metrobank only. A dry run fetches and parses data
+without initializing Firebase or writing to Firestore:
 
 ```bash
 python scraper.py --dry-run metrobank

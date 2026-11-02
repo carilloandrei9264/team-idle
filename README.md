@@ -1,6 +1,6 @@
 # TrustHome PH
 
-A verified rental marketplace for the Philippines, with a fairness-scored, publicly-curated bank-acquired property catalog — replacing informal rental channels with reviewed listings, a real booking system, and a public accountability trail.
+A verified rental marketplace prototype for the Philippines, with reviewed user listings, a booking system, trust and dispute features, and a public bank-acquired property catalog. Metrobank is currently the only bank catalog source intended for production.
 
 **Capstone project — 2026**
 
@@ -20,12 +20,14 @@ A verified rental marketplace for the Philippines, with a fairness-scored, publi
 
 ## What This App Does
 
-- **Renters and buyers** browse document-reviewed rental listings and a regularly refreshed catalog of bank-acquired properties from major Philippine banks.
+- **Renters and buyers** browse document-reviewed rental listings and a catalog of bank-acquired properties. Metrobank is currently the only intended production source.
 - **Homeowners** list a room, unit, or house for rent; listings only go public after a verification step.
 - **Bookings** run through a calendar-based workflow with status tracking and conflict prevention.
 - **Availability calendar** shows confirmed stays before a renter submits a request; the owner-side confirmation flow remains the final conflict check.
 - **Trust & Fairness Score** ranks listings using completed booking history, ratings, and price fairness, not just recency or price.
 - **Browse** can prioritize nearby listings when the user grants location access; otherwise it falls back to trust score.
+- **Promotions** give property owners a labeled place to promote rental listings within Browse.
+- **TrustHome Verified** is a planned optional profile badge priced at ₱99/month; it is not available yet and no payments are processed.
 - **User feedback** includes loading, empty, error, offline, slow-network, permission, and session states.
 - **Dispute trail** preserves a public record of reported issues and bad actor behavior.
 - **Loan calculator** helps users estimate financing for bank-acquired listings with preset loan terms.
@@ -41,8 +43,8 @@ A verified rental marketplace for the Philippines, with a fairness-scored, publi
 | Auth | Firebase Authentication |
 | File uploads | Cloudinary |
 | Hosting | Firebase Hosting |
-| API | Node.js API routes in `api-server/` |
 | Serverless functions | Firebase Functions |
+| API | Authenticated Node.js routes in `api-server/` |
 | Bank scraper | Python (`requests` + `BeautifulSoup`) |
 | Scraper scheduling | GitHub Actions / local worker |
 
@@ -63,7 +65,7 @@ team-idle/
 │   └── routes/
 ├── public/                  # Static assets
 ├── functions/               # Firebase Functions
-├── api-server/              # Authenticated API routes and API tests
+├── api-server/              # Authenticated API routes and tests
 ├── bank_scraper/            # Python scraper and demo data scripts
 │   ├── scraper.py
 │   ├── database.py
@@ -72,13 +74,15 @@ team-idle/
 │   ├── requirements.txt
 │   └── seed_demo_data.py
 ├── docs/                    # Project documentation and planning files
-│   ├── TrustHome_PH_System_Build_Plan.pdf
-│   ├── TrustHome_PH_Design_Guide.pdf
-│   ├── TrustHome_PH_Firebase_Setup_Plan.pdf
-│   ├── TrustHome_PH_Build_Instructions.pdf
-│   ├── TrustHome_PH_Versioning_Plan.pdf
+│   ├── 01_TrustHome_PH_Product_Requirements_and_Scope.pdf
+│   ├── 02_TrustHome_PH_System_Architecture_and_Data_Design.pdf
+│   ├── 03_TrustHome_PH_Infrastructure_Setup_and_Deployment.pdf
+│   ├── 04_TrustHome_PH_Security_and_Privacy.pdf
+│   ├── 05_TrustHome_PH_UIUX_Design_System.pdf
+│   ├── 06_TrustHome_PH_Roadmap_and_Release_Plan.pdf
+│   ├── 07_TrustHome_PH_QA_and_Testing_Strategy.pdf
 │   ├── TrustHome_Current_Progress_Report.md
-│   └── TrustHomePH_SWOT_Analysis.pdf
+│   └── Rev2_Requirement_Traceability_Inventory.md
 ├── package.json
 ├── vite.config.js
 ├── eslint.config.js
@@ -96,7 +100,7 @@ team-idle/
 
 ### Prerequisites
 
-- Node.js 18+ or later
+- Node.js 22.x (the API package targets Node.js 22)
 - npm
 - Python 3.10+
 - Firebase project access and local configuration if you are using a team environment
@@ -124,6 +128,13 @@ check.
 
 If you need to point the app at a different Firebase project, update the config in `src/firebase.js` before running the app.
 
+The API has its own dependencies and tests:
+
+```bash
+npm install --prefix api-server
+npm test --prefix api-server
+```
+
 ### Bank scraper
 
 ```bash
@@ -139,10 +150,15 @@ pip install -r requirements.txt
 You can then run the scraper locally or use the demo seed script:
 
 ```bash
+python scraper.py --dry-run metrobank
 python scraper.py
 python seed_demo_data.py --dry-run
 python seed_demo_data.py
 ```
+
+The normal scraper run writes the default Metrobank source to Firestore. BDO and
+Landbank are not verified for production; see [the scraper README](./bank_scraper/README.md)
+before running other sources or the worker.
 
 ---
 
@@ -161,19 +177,25 @@ This creates a production bundle in the `dist/` folder for deployment or preview
 npm run dev
 ```
 
+Run the frontend lint and test suites from the repository root with `npm run lint` and
+`npm test`. Python scraper tests can be run from `bank_scraper/` with
+`python -m unittest discover -s . -p "test_*.py"`.
+
 ---
 
 ## Documentation Index
 
 | Document | What's in it |
 |---|---|
-| `TrustHome_PH_System_Build_Plan.pdf` | Full data model and implementation details for the platform logic. |
-| `TrustHome_PH_Design_Guide.pdf` | Design system, page inventory, and visual standards. |
-| `TrustHome_PH_Firebase_Setup_Plan.pdf` | Firebase and Cloudinary setup guide for the team. |
-| `TrustHome_PH_Build_Instructions.pdf` | Project setup and build instructions. |
-| `TrustHome_PH_Versioning_Plan.pdf` | Release roadmap and feature assignment plan. |
-| `TrustHome_Current_Progress_Report.md` | Current status and progress updates. |
-| `TrustHomePH_SWOT_Analysis.pdf` | SWOT and project reflection summary. |
+| `01_TrustHome_PH_Product_Requirements_and_Scope.pdf` | Product scope and requirements. |
+| `02_TrustHome_PH_System_Architecture_and_Data_Design.pdf` | System architecture and data design. |
+| `03_TrustHome_PH_Infrastructure_Setup_and_Deployment.pdf` | Infrastructure and deployment setup. |
+| `04_TrustHome_PH_Security_and_Privacy.pdf` | Security and privacy decisions. |
+| `05_TrustHome_PH_UIUX_Design_System.pdf` | UI/UX design system. |
+| `06_TrustHome_PH_Roadmap_and_Release_Plan.pdf` | Release roadmap. |
+| `07_TrustHome_PH_QA_and_Testing_Strategy.pdf` | QA and test strategy. |
+| `TrustHome_Current_Progress_Report.md` | Current progress report. |
+| `Rev2_Requirement_Traceability_Inventory.md` | Requirement traceability for the Rev 2 reconstruction. |
 
 ---
 
@@ -181,10 +203,8 @@ npm run dev
 
 | Version | Focus |
 |---|---|
-| v0.1 | Foundations — auth, listings, verification, search |
-| v0.2 | Trust Engine — booking calendar, ratings, trust score |
-| v0.3 | Accountability & Integration — disputes, bank catalog, loan calculator |
-| v1.0 | Final release — dashboards, polish, QA, defense prep |
+| Current | Authenticated listings, booking workflows, trust and dispute features, bank catalog, and loan estimates |
+| Next | Continue integration testing, improve data-source coverage, and prepare a stable release |
 
 ---
 
@@ -192,8 +212,9 @@ npm run dev
 
 - Document review filters casual fraud, but it is not a legal title search.
 - TrustHome does not custody deposit funds; protection comes from a public dispute trail instead.
-- The bank-acquired catalog depends on manually mapped scraper selectors and scheduled refreshes.
-- Current live catalog coverage depends on the scraper sources and data availability at the time of use.
-- Uploaded documents are intentionally handled outside Firebase Storage for this project setup.
+- Metrobank is the only currently intended production source for the bank-acquired catalog; other scraper sources are unverified.
+- Scraped property information can become stale. Confirm availability and details with the bank.
+- Booking calendar availability is advisory; the owner confirmation API is the authoritative conflict check.
+- Verification documents use authenticated Cloudinary delivery through the API; review of those documents is not a legal title search.
 
 These are disclosed scope decisions for the current build and are documented in the project planning files.
