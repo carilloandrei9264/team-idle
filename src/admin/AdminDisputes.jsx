@@ -4,6 +4,8 @@ import { Check, X } from "lucide-react";
 import { db } from "../firebase";
 import { useAuth } from "../context/useAuth";
 import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
+import { ACCOUNT_ACTIVITY_ACTIONS, createAccountActivity } from "../lib/accountActivity";
+import { isCloudinaryImageUrl } from "../uploadImage";
 import "./AdminData.css";
 
 export default function AdminDisputes() {
@@ -39,6 +41,10 @@ export default function AdminDisputes() {
 
   async function resolve(status) {
     if (!selected) return;
+    if (resolutionNotes.trim().length < 10) {
+      setError("Add at least 10 characters of resolution notes.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -47,7 +53,7 @@ export default function AdminDisputes() {
 
       batch.update(doc(db, "disputes", selected.id), {
         status,
-        resolutionNotes: resolutionNotes.trim() || null,
+        resolutionNotes: resolutionNotes.trim(),
         resolvedAt: serverTimestamp(),
         resolvedBy: user?.uid ?? null,
       });
@@ -64,6 +70,20 @@ export default function AdminDisputes() {
       }
       await batch.commit();
       try {
+        await createAccountActivity(db, {
+          actorId: user.uid,
+          actorRole: "admin",
+          targetUserId: selected.raisedBy,
+          entityType: "dispute",
+          entityId: selected.id,
+          action: ACCOUNT_ACTIVITY_ACTIONS.DISPUTE_RESOLVED,
+          summary: `Dispute ${status.toLowerCase()}`,
+          details: { bookingId: selected.bookingId, ownerId: selected.ownerId },
+        });
+      } catch {
+        // Activity logging is non-blocking for dispute resolution.
+      }
+      try {
         await createNotification(db, {
           recipientId: selected.raisedBy,
           createdBy: user?.uid,
@@ -73,6 +93,22 @@ export default function AdminDisputes() {
             ? "Your report was founded. The responsible account has been flagged."
             : "Your report was reviewed and dismissed by the TrustHome team.",
           link: "/my-bookings",
+          entityId: selected.bookingId,
+          entityType: "booking",
+        });
+      } catch {
+        // The dispute resolution remains valid if notification delivery is unavailable.
+      }
+      try {
+        await createNotification(db, {
+          recipientId: selected.ownerId,
+          createdBy: user.uid,
+          type: NOTIFICATION_TYPES.DISPUTE_UPDATE,
+          title: "Dispute reviewed",
+          message: status === "Founded"
+            ? "A dispute involving your listing was reviewed and founded by TrustHome."
+            : "A dispute involving your listing was reviewed and dismissed by TrustHome.",
+          link: "/booking-requests",
           entityId: selected.bookingId,
           entityType: "booking",
         });
@@ -116,6 +152,9 @@ export default function AdminDisputes() {
             <blockquote className="admin-review-card__quote">
               {selected?.reason || selected?.description || "No report details were provided."}
             </blockquote>
+            {Array.isArray(selected?.evidenceUrls) && selected.evidenceUrls.length > 0 && (
+              <DisputeEvidence key={selected.id} dispute={selected} />
+            )}
             <label className="admin-review-card__label" htmlFor="resolutionNotes">Resolution notes</label>
             <textarea
               id="resolutionNotes"
@@ -126,10 +165,10 @@ export default function AdminDisputes() {
               placeholder="Add context for the resolution..."
             />
             <div className="admin-review-card__actions">
-              <button type="button" className="btn btn--danger" onClick={() => resolve("Founded")} disabled={saving}>
+              <button type="button" className="btn btn--danger" onClick={() => resolve("Founded")} disabled={saving || resolutionNotes.trim().length < 10}>
                 <Check size={16} aria-hidden="true" /> Mark Founded
               </button>
-              <button type="button" className="btn btn--secondary" onClick={() => resolve("Dismissed")} disabled={saving}>
+              <button type="button" className="btn btn--secondary" onClick={() => resolve("Dismissed")} disabled={saving || resolutionNotes.trim().length < 10}>
                 <X size={16} aria-hidden="true" /> Dismiss
               </button>
             </div>
@@ -150,6 +189,25 @@ export default function AdminDisputes() {
         </div>
       )}
     </div>
+  );
+}
+
+function DisputeEvidence({ dispute }) {
+  const photos = dispute.evidenceUrls.filter(isCloudinaryImageUrl).slice(0, 5);
+
+  return (
+    <section className="admin-review-card__evidence">
+      <p className="admin-review-card__label">Photo evidence</p>
+      {photos.length === 0 ? <p>No supported Cloudinary photos are attached.</p> : (
+        <div className="admin-review-card__evidence-grid">
+          {photos.map((url, index) => (
+            <a key={url} href={url} target="_blank" rel="noreferrer" aria-label={`Open evidence photo ${index + 1}`}>
+              <img src={url} alt={`Dispute evidence ${index + 1}`} />
+            </a>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

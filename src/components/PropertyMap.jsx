@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
-import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { divIcon } from "leaflet";
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { approximateMapCenter, approximateMapLocation, geocodeAddress, isValidMapLocation } from "../lib/propertyLocation";
 import "leaflet/dist/leaflet.css";
 import "./PropertyMap.css";
 
 const PHILIPPINES_CENTER = [12.8797, 121.774];
+const PROPERTY_PIN_ICON = divIcon({
+  className: "property-map__marker-icon",
+  html: '<span class="property-map__marker" aria-hidden="true"></span>',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+});
 
 export default function PropertyMap({ location, onLocationChange, label = "Approximate property location", addressHint = "" }) {
   const editable = typeof onLocationChange === "function";
@@ -88,24 +95,40 @@ export default function PropertyMap({ location, onLocationChange, label = "Appro
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {hasLocation && (
-          <CircleMarker
-            center={center}
-            radius={9}
-            pathOptions={{ color: "#1d4ed8", fillColor: "#60a5fa", fillOpacity: 0.9, weight: 2 }}
-          />
-        )}
+        {hasLocation && <PropertyPin location={location} editable={editable} onLocationChange={onLocationChange} />}
         <MapCenter location={location} />
         {editable && <MapClickHandler onLocationChange={onLocationChange} />}
       </MapContainer>
       <p className="property-map__caption">
         {hasLocation
-          ? "Approximate area shown. The exact address is kept private."
+          ? editable
+            ? "Approximate area shown. Drag the pin or click the map to adjust it; the exact address stays private."
+            : "Approximate area shown. The exact address is kept private."
           : editable
             ? "Search an address to place the pin or click the map to choose an approximate area."
             : "No approximate map location has been added."}
       </p>
     </div>
+  );
+}
+
+function PropertyPin({ location, editable, onLocationChange }) {
+  const position = approximateMapCenter(location);
+  const eventHandlers = editable ? {
+    dragend(event) {
+      const point = event.target.getLatLng();
+      onLocationChange(approximateMapLocation(point.lat, point.lng));
+    },
+  } : undefined;
+
+  return (
+    <Marker
+      position={position}
+      icon={PROPERTY_PIN_ICON}
+      draggable={editable}
+      eventHandlers={eventHandlers}
+      title={editable ? "Drag to adjust approximate location" : "Approximate property location"}
+    />
   );
 }
 

@@ -2,8 +2,13 @@ import { useEffect, useState } from "react";
 import { ThemeContext } from "./ThemeContext";
 
 const STORAGE_KEY = "trusthome-theme";
+const ACCENT_STORAGE_KEY = "trusthome-accent";
 const ACCESSIBILITY_STORAGE_KEY = "trusthome-accessibility";
 const DEFAULT_ACCESSIBILITY = { largeText: false, highContrast: false, reduceMotion: false };
+
+function readAccentPreference() {
+  return localStorage.getItem(ACCENT_STORAGE_KEY) === "green" ? "green" : "blue";
+}
 
 function readAccessibility() {
   try {
@@ -24,6 +29,7 @@ export function ThemeProvider({ children }) {
     const saved = localStorage.getItem(STORAGE_KEY);
     return ["dark", "light", "system"].includes(saved) ? saved : "system";
   });
+  const [accentPreference, setAccentPreference] = useState(readAccentPreference);
   const [systemTheme, setSystemTheme] = useState(() => (
     window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
   ));
@@ -44,6 +50,11 @@ export function ThemeProvider({ children }) {
   }, [theme, themePreference]);
 
   useEffect(() => {
+    document.documentElement.dataset.accent = accentPreference;
+    localStorage.setItem(ACCENT_STORAGE_KEY, accentPreference);
+  }, [accentPreference]);
+
+  useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle("large-text", accessibility.largeText);
     root.classList.toggle("high-contrast", accessibility.highContrast);
@@ -60,6 +71,8 @@ export function ThemeProvider({ children }) {
       theme,
       themePreference,
       setThemePreference,
+      accentPreference,
+      setAccentPreference,
       toggleTheme,
       accessibility,
       setAccessibility,

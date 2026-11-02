@@ -1,12 +1,15 @@
-export function firebaseAccessErrorMessage(error, resource = "this information") {
+export function firebaseAccessErrorMessage(error, resource) {
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return `No internet connection. ${resource} will be available when you're back online.`;
+  }
   if (error?.code === "permission-denied") {
-    return `You don't have permission to access ${resource}.`;
+    return `Permission denied while accessing ${resource}. Check that you're signed in with an active account.`;
   }
-  if (["unauthenticated", "auth/invalid-user-token", "NO_TOKEN", "BAD_TOKEN"].includes(error?.code)) {
-    return "Your session has expired. Sign in again to continue.";
+  if (["unauthenticated", "auth/user-token-expired"].includes(error?.code)) {
+    return `Your session expired while accessing ${resource}. Sign in again and retry.`;
   }
-  if (["unavailable", "network-request-failed", "UNAVAILABLE"].includes(error?.code)) {
-    return `We couldn't connect to load ${resource}. Check your connection and try again.`;
+  if (["unavailable", "network-request-failed"].includes(error?.code)) {
+    return `The connection to ${resource} was interrupted. Check your internet and try again.`;
   }
-  return `We couldn't load ${resource}. Please try again.`;
+  return `${resource} could not be loaded. Please try again.`;
 }

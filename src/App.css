@@ -22,15 +22,15 @@
 
 .app-loading__building path,
 .app-loading__building > rect:not(.app-loading__window):not(.app-loading__door) {
-  fill: #0b1437; /* matches the site's navy elsewhere */
+  fill: var(--color-primary-dark);
 }
 html.dark .app-loading__building path,
 html.dark .app-loading__building > rect:not(.app-loading__window):not(.app-loading__door) {
-  fill: #dbe3ff;
+  fill: var(--color-neutral-900);
 }
-.app-loading__window { fill: #60a5fa; }
+.app-loading__window { fill: var(--color-primary); }
 .app-loading__door { fill: var(--color-neutral-50); }
-html.dark .app-loading__door { fill: #0b1437; }
+html.dark .app-loading__door { fill: var(--color-neutral-50); }
 
 /* Each building scales up from the ground (transform-box/origin makes
    "bottom" mean the building's own baseline, not the SVG viewport's). */
@@ -66,10 +66,10 @@ html.dark .app-loading__door { fill: #0b1437; }
 
 .app-loading__brand {
   margin: 6px 0 0;
-  font-size: 18px; font-weight: 800; letter-spacing: -0.02em;
+  font-size: 18px; font-weight: 800; letter-spacing: 0;
   color: var(--color-neutral-900);
 }
-.app-loading__brand-accent { color: #1d4ed8; }
+.app-loading__brand-accent { color: var(--color-primary); }
 
 .app-loading__caption {
   margin: 0;

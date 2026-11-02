@@ -6,10 +6,10 @@ import PublicNav from "../components/PublicNav";
 import PropertyMap from "../components/PropertyMap";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
-import { countWords, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
+import { countWords, FURNISHING_STATUSES, MAX_LISTING_PHOTOS, PROPERTY_CONDITIONS, SHOWING_DAYS, validateListingForm } from "../lib/listingValidation";
+import { createAccountActivity } from "../lib/accountActivity";
 import { ADMIN_NOTIFICATION_RECIPIENT, createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
-import { documentResourceType, uploadPrivateDocument, uploadToCloudinary } from "../uploadImage";
-import { signPrivateDocumentUpload } from "../services/api";
+import { documentResourceType, uploadToCloudinary } from "../uploadImage";
 import "./UserPages.css";
 
 const PROPERTY_TYPES = ["Room", "Studio", "Apartment", "House", "Condo", "Land"];
@@ -22,6 +22,8 @@ export default function CreateListing() {
     title: "",
     description: "",
     type: "Apartment",
+    propertyCondition: "",
+    furnishingStatus: "",
     listingPurpose: "rent",
     rentalTerm: "long_term",
     address: "",
@@ -77,7 +79,7 @@ export default function CreateListing() {
   }
 
   function handlePhotos(event) {
-    const nextPhotos = Array.from(event.target.files || []).slice(0, 8);
+    const nextPhotos = Array.from(event.target.files || []).slice(0, MAX_LISTING_PHOTOS);
     releasePreviewUrls(photoPreviews);
     const nextPreviews = nextPhotos.map((file) => createFilePreview(file));
     setPhotos(nextPhotos);
@@ -136,25 +138,21 @@ export default function CreateListing() {
     try {
       const listingRef = doc(collection(db, "listings"));
       const privateListingRef = doc(db, "listingPrivate", listingRef.id);
-      const ownershipResourceType = documentResourceType(ownershipDocument) === "raw" ? "raw" : "image";
-      const governmentIdResourceType = documentResourceType(governmentId) === "raw" ? "raw" : "image";
-      const [ownershipSignature, governmentIdSignature, photoUrls] = await Promise.all([
-        signPrivateDocumentUpload(listingRef.id, "ownership", ownershipResourceType),
-        signPrivateDocumentUpload(listingRef.id, "govId", governmentIdResourceType),
+      const [ownershipDocumentUrl, governmentIdUrl, photoUrls] = await Promise.all([
+        uploadToCloudinary(ownershipDocument, documentResourceType(ownershipDocument), listingAssetOptions(listingRef.id, "verification/ownership-document", "ownership-document")),
+        uploadToCloudinary(governmentId, "auto", listingAssetOptions(listingRef.id, "verification/government-id", "government-id")),
         Promise.all(photos.map((photo) => uploadToCloudinary(photo, "auto", listingAssetOptions(listingRef.id, "photos", "property-photo")))),
-      ]);
-      const [ownershipDocumentAsset, governmentIdAsset] = await Promise.all([
-        uploadPrivateDocument(ownershipDocument, ownershipSignature, ownershipResourceType),
-        uploadPrivateDocument(governmentId, governmentIdSignature, governmentIdResourceType),
       ]);
 
       const batch = writeBatch(db);
       batch.set(listingRef, {
         ownerId: user.uid,
-        ownerName: profile?.name || user.displayName || user.email,
+        ownerName: profile?.name || user.displayName || "TrustHome member",
         title: form.title.trim(),
         description: form.description.trim(),
         type: form.type,
+        propertyCondition: form.propertyCondition || null,
+        furnishingStatus: form.type === "Land" ? null : form.furnishingStatus || null,
         listingPurpose: form.listingPurpose,
         rentalTerm: form.listingPurpose === "rent" ? form.rentalTerm : null,
         city: form.city.trim(),
@@ -175,13 +173,25 @@ export default function CreateListing() {
       batch.set(privateListingRef, {
         ownerId: user.uid,
         address: form.address.trim(),
-        documents: {
-          ownership: ownershipDocumentAsset,
-          govId: governmentIdAsset,
-        },
+        ownershipDocumentUrl,
+        governmentIdUrl,
         updatedAt: serverTimestamp(),
       });
       await batch.commit();
+      try {
+        await createAccountActivity(db, {
+          actorId: user.uid,
+          actorRole: profile?.role || "user",
+          targetUserId: user.uid,
+          entityType: "listing",
+          entityId: listingRef.id,
+          action: "listing_created",
+          summary: "Listing submitted",
+          details: { title: form.title.trim(), status: "pending" },
+        });
+      } catch {
+        // Activity logging is non-blocking for the user flow.
+      }
       let adminAlertSent = true;
       try {
         await createNotification(db, {
@@ -252,18 +262,40 @@ export default function CreateListing() {
                 </div>
               </div>
               {form.listingPurpose === "rent" && (
-                <div className="field">
-                  <label className="field__label" htmlFor="rentalTerm">Rental term</label>
-                  <select id="rentalTerm" className="field__input" value={form.rentalTerm} onChange={(event) => updateRentalTerm(event.target.value)}>
-                    <option value="short_term">Short-term stay · per night</option>
-                    <option value="long_term">Long-term home · per month</option>
-                  </select>
+                <div className="field listing-form__wide">
+                  <span className="field__label">Rental term</span>
+                  <div className="listing-form__purpose-options" role="radiogroup" aria-label="Rental term">
+                    <label className={`listing-form__purpose-option${form.rentalTerm === "short_term" ? " listing-form__purpose-option--selected" : ""}`}>
+                      <input type="radio" name="rentalTerm" value="short_term" checked={form.rentalTerm === "short_term"} onChange={() => updateRentalTerm("short_term")} />
+                      <span><strong>Short-term stay</strong><small>Price per night</small></span>
+                    </label>
+                    <label className={`listing-form__purpose-option${form.rentalTerm === "long_term" ? " listing-form__purpose-option--selected" : ""}`}>
+                      <input type="radio" name="rentalTerm" value="long_term" checked={form.rentalTerm === "long_term"} onChange={() => updateRentalTerm("long_term")} />
+                      <span><strong>Long-term lease</strong><small>Price per month</small></span>
+                    </label>
+                  </div>
                 </div>
               )}
               <div className="field">
                 <label className="field__label" htmlFor="type">Property type</label>
                 <select id="type" name="type" className="field__input" value={form.type} onChange={updateField}>{PROPERTY_TYPES.map((type) => <option key={type}>{type}</option>)}</select>
               </div>
+              <div className="field">
+                <label className="field__label" htmlFor="propertyCondition">Property condition (optional)</label>
+                <select id="propertyCondition" name="propertyCondition" className="field__input" value={form.propertyCondition} onChange={updateField}>
+                  <option value="">Not specified</option>
+                  {PROPERTY_CONDITIONS.map((condition) => <option key={condition} value={condition}>{formatOptionLabel(condition)}</option>)}
+                </select>
+              </div>
+              {form.type !== "Land" && (
+                <div className="field">
+                  <label className="field__label" htmlFor="furnishingStatus">Furnishing (optional)</label>
+                  <select id="furnishingStatus" name="furnishingStatus" className="field__input" value={form.furnishingStatus} onChange={updateField}>
+                    <option value="">Not specified</option>
+                    {FURNISHING_STATUSES.map((status) => <option key={status} value={status}>{formatOptionLabel(status)}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="field">
                 <label className="field__label" htmlFor="address">Private address or area</label>
                 <input id="address" name="address" className="field__input" value={form.address} onChange={updateField} placeholder="Exact address or neighborhood" required />
@@ -330,19 +362,19 @@ export default function CreateListing() {
                 <Upload size={18} aria-hidden="true" />
                 <span>Property photos</span>
                 <small>{photos.length ? `${photos.length} selected` : "At least 4 images"}</small>
-                <input type="file" accept="image/*" multiple onChange={handlePhotos} />
+                <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handlePhotos} />
               </label>
               <label className="listing-form__upload">
                 <Upload size={18} aria-hidden="true" />
                 <span>Ownership document</span>
                 <small>{ownershipDocument?.name || "Title, deed, or tax bill"}</small>
-                <input type="file" accept="image/*,.pdf" onChange={(event) => handleDocument(event, ownershipPreview, setOwnershipDocument, setOwnershipPreview)} required />
+                <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => handleDocument(event, ownershipPreview, setOwnershipDocument, setOwnershipPreview)} required />
               </label>
               <label className="listing-form__upload">
                 <Upload size={18} aria-hidden="true" />
                 <span>Government photo ID</span>
                 <small>{governmentId?.name || "Required for review"}</small>
-                <input type="file" accept="image/*,.pdf" onChange={(event) => handleDocument(event, governmentIdPreview, setGovernmentId, setGovernmentIdPreview)} required />
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleDocument(event, governmentIdPreview, setGovernmentId, setGovernmentIdPreview)} required />
               </label>
             </div>
             {photos.length > 0 && (
@@ -373,11 +405,19 @@ export default function CreateListing() {
 
 function FilePreview({ preview, label }) {
   const { file, url } = preview;
+  const [previewFailed, setPreviewFailed] = useState(false);
   const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
   return (
     <figure className="listing-form__file-preview">
       {isPdf ? (
-        <iframe className="listing-form__file-preview-pdf" src={url} title={`${label} preview`} />
+        previewFailed ? (
+          <div className="listing-form__file-preview-pdf listing-form__file-preview-pdf--fallback">
+            <p>Preview blocked by the browser.</p>
+            <a href={url} target="_blank" rel="noreferrer">Open PDF</a>
+          </div>
+        ) : (
+          <iframe className="listing-form__file-preview-pdf" src={url} title={`${label} preview`} type="application/pdf" onError={() => setPreviewFailed(true)} />
+        )
       ) : (
         <img className="listing-form__file-preview-image" src={url} alt={`${label}: ${file.name}`} />
       )}
@@ -394,4 +434,8 @@ function listingAssetOptions(listingId, assetFolder, assetType) {
     assetFolder: `trusthome/listings/${listingId}/${assetFolder}`,
     tags: ["trusthome", assetType],
   };
+}
+
+function formatOptionLabel(value) {
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
