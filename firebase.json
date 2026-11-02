@@ -1,0 +1,16 @@
+{
+  "firestore": { "rules": "firestore.rules" },
+  "storage": { "rules": "storage.rules" },
+  "functions": { "source": "functions" },
+  "emulators": {
+    "auth": { "port": 9099 },
+    "firestore": { "port": 8082 },
+    "functions": { "port": 5001 },
+    "storage": { "port": 9200 }
+  },
+  "hosting": {
+    "public": "dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }]
+  }
+}

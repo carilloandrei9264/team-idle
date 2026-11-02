@@ -1,0 +1,127 @@
+/* ── AnimatedSelect wrapper ─────────────────────────────────────────────────
+   Positioned so the dropdown list can be absolute relative to it.            */
+.asel {
+  position: relative;
+  width: 100%;
+}
+
+/* ── Trigger button ─────────────────────────────────────────────────────────
+   Extends .field__input for height/border/radius/font.
+   Overrides the default button appearance and adds custom chevron layout.    */
+.asel__trigger {
+  /* Override button resets */
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+
+  /* Layout: value text left, chevron right */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* Chevron sits 8px from right edge — matches the requested pr-* fix */
+  padding-right: 8px;
+}
+
+.asel__trigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 0;
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+.asel__trigger--open {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+.asel__value {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  color: var(--color-neutral-900);
+}
+
+/* ── Chevron ────────────────────────────────────────────────────────────────
+   The motion.span handles rotation — we just size and colour it here.        */
+.asel__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-neutral-600);
+  margin-left: var(--space-2);
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Options list ───────────────────────────────────────────────────────────
+   Positioned below the trigger with a slight overlap shadow so it looks
+   connected. z-index: 30 to sit above sticky nav content.                   */
+.asel__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0;
+  padding: var(--space-1) 0;
+  list-style: none;
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-control);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.10);
+  max-height: 280px;
+  overflow-y: auto;
+  /* Smooth scroll for keyboard navigation */
+  scroll-behavior: smooth;
+}
+
+/* ── Option items ── */
+.asel__option {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 var(--space-3);
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--color-neutral-900);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  outline: none;
+}
+
+.asel__option:hover,
+.asel__option:focus {
+  background: var(--color-neutral-50);
+}
+
+.asel__option--selected {
+  color: var(--color-primary);
+  font-weight: 600;
+  background: var(--color-primary-light);
+}
+
+.asel__option--selected:hover,
+.asel__option--selected:focus {
+  background: var(--color-primary-light);
+}
+
+/* ── Dark mode ── */
+html.dark .asel__list {
+  background: var(--color-white);
+  border-color: var(--color-neutral-200);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+html.dark .asel__option:hover,
+html.dark .asel__option:focus {
+  background: var(--color-neutral-200);
+}
+
+html.dark .asel__option--selected {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
