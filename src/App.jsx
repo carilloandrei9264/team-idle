@@ -1,9 +1,10 @@
-import { Fragment, lazy, Suspense } from "react";
+import { Fragment, lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import RequireAdmin from "./routes/RequireAdmin";
 import RequireAuth from "./routes/RequireAuth";
 import Footer from "./components/Footer";
+import { DEFAULT_DESCRIPTION, DEFAULT_TITLE, updatePageMetadata } from "./lib/seo";
 import "./App.css";
 
 const Login = lazy(() => import("./pages/Login"));
@@ -20,7 +21,6 @@ const EditListing = lazy(() => import("./pages/EditListing"));
 const BookingRequest = lazy(() => import("./pages/BookingRequest"));
 const MyBookings = lazy(() => import("./pages/MyBookings"));
 const BookingRequests = lazy(() => import("./pages/BookingRequests"));
-const ManageBookingRequests = lazy(() => import("./pages/ManageBookingRequests"));
 const RatingForm = lazy(() => import("./pages/RatingForm"));
 const RaiseDispute = lazy(() => import("./pages/RaiseDispute"));
 const BankPropertyDetail = lazy(() => import("./pages/BankPropertyDetail"));
@@ -30,6 +30,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
 const AdminLayout = lazy(() => import("./admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
+const AdminActivityLog = lazy(() => import("./admin/AdminActivityLog"));
 const AdminNotifications = lazy(() => import("./admin/AdminNotifications"));
 const AdminListings = lazy(() => import("./admin/AdminListings"));
 const AdminDisputes = lazy(() => import("./admin/AdminDisputes"));
@@ -46,6 +47,11 @@ function App() {
 
 function AppRoutes() {
   const location = useLocation();
+
+  useEffect(() => {
+    updatePageMetadata(routeMetadata(location.pathname));
+  }, [location.pathname]);
+
   return <>
     <Suspense fallback={<LoadingState />}>
       <AnimatePresence mode="wait">
@@ -63,7 +69,7 @@ function AppRoutes() {
         <Route path="/listings/:listingId/book" element={<RequireAuth><BookingRequest /></RequireAuth>} />
         <Route path="/my-bookings" element={<RequireAuth><MyBookings /></RequireAuth>} />
         <Route path="/booking-requests" element={<RequireAuth><BookingRequests /></RequireAuth>} />
-        <Route path="/manage-bookings" element={<RequireAuth><ManageBookingRequests /></RequireAuth>} />
+        <Route path="/manage-bookings" element={<Navigate to="/my-activity?tab=requests" replace />} />
         <Route path="/bookings/:bookingId/review" element={<RequireAuth><RatingForm /></RequireAuth>} />
         <Route path="/bookings/:bookingId/dispute" element={<RequireAuth><RaiseDispute /></RequireAuth>} />
           <Route path="/bank-catalog/:propertyId" element={<BankPropertyDetail />} />
@@ -82,6 +88,7 @@ function AppRoutes() {
           }
         >
           <Route index element={<AdminDashboard />} />
+          <Route path="activity" element={<AdminActivityLog />} />
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="settings" element={<Settings adminMode />} />
           <Route path="listings" element={<AdminListings />} />
@@ -95,6 +102,75 @@ function AppRoutes() {
     </Suspense>
     {!location.pathname.startsWith("/admin") && <Footer />}
   </>;
+}
+
+function routeMetadata(pathname) {
+  if (pathname === "/") {
+    return {
+      title: DEFAULT_TITLE,
+      description: DEFAULT_DESCRIPTION,
+      path: "/",
+      structuredData: {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: "TrustHome",
+        url: "https://trusthome-ph.web.app/",
+        inLanguage: "en-PH",
+      },
+    };
+  }
+  if (pathname === "/browse") {
+    return {
+      title: "Browse Verified Rentals & Homes in the Philippines | TrustHome",
+      description: "Search verified rental homes and properties for sale across the Philippines. Compare locations, prices, and TrustHome trust scores.",
+      path: pathname,
+    };
+  }
+  if (pathname === "/bank-catalog") {
+    return {
+      title: "Bank-Acquired Properties in the Philippines | TrustHome",
+      description: "Browse bank-acquired properties in the Philippines, compare asking prices, and visit the original bank listing for current details.",
+      path: pathname,
+    };
+  }
+
+  const legalDocument = pathname.match(/^\/legal\/(privacy|terms|data-compliance|ip-infringement)$/)?.[1];
+  if (legalDocument) {
+    const titles = {
+      privacy: "Privacy Policy",
+      terms: "Terms of Use",
+      "data-compliance": "Data & Compliance",
+      "ip-infringement": "Intellectual Property",
+    };
+    return {
+      title: `${titles[legalDocument]} | TrustHome`,
+      description: `${titles[legalDocument]} for TrustHome, a property search and rental marketplace project in the Philippines.`,
+      path: pathname,
+    };
+  }
+
+  if (/^\/listings\/[^/]+$/.test(pathname)) {
+    return {
+      title: "Property listing | TrustHome",
+      description: "View property details on TrustHome.",
+      path: pathname,
+      robots: "noindex, nofollow",
+    };
+  }
+  if (/^\/bank-catalog\/[^/]+$/.test(pathname)) {
+    return {
+      title: "Bank-Acquired Property | TrustHome",
+      description: "Review bank-acquired property details and confirm current information with the original bank listing.",
+      path: pathname,
+    };
+  }
+
+  return {
+    title: "TrustHome Account",
+    description: DEFAULT_DESCRIPTION,
+    path: pathname,
+    robots: "noindex, nofollow",
+  };
 }
 
 function LoadingState() {

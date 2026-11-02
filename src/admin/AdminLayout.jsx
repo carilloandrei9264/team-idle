@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Bell,
   LayoutDashboard,
+  ListChecks,
   Home,
   LogOut,
   ShieldAlert,
@@ -16,6 +17,7 @@ import "./AdminLayout.css";
 
 const NAV_ITEMS = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/admin/activity", label: "Activity Log", icon: ListChecks },
   { to: "/admin/notifications", label: "Notifications", icon: Bell },
   { to: "/admin/listings", label: "Listings", icon: Home },
   { to: "/admin/disputes", label: "Disputes", icon: ShieldAlert },
@@ -82,6 +84,7 @@ export default function AdminLayout({ adminName = "Admin" }) {
                 className={({ isActive }) =>
                   "admin-sidebar__link" + (isActive ? " admin-sidebar__link--active" : "")
                 }
+                title={label}
               >
                 <Icon size={18} strokeWidth={2} aria-hidden="true" />
                 {label}

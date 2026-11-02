@@ -1,4 +1,6 @@
 serviceAccountKey.json
+backup-*.jsonl
+backup-*.jsonl.tmp
 venv/
 __pycache__/
 *.pyc

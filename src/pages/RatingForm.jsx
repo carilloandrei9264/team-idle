@@ -9,7 +9,7 @@ import "./UserPages.css";
 
 export default function RatingForm() {
   const { bookingId } = useParams();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [booking, setBooking] = useState(null);
   const [score, setScore] = useState(5);
@@ -35,7 +35,7 @@ export default function RatingForm() {
       const ratingRef = doc(db, "ratings", `${bookingId}_${user.uid}`);
       const existing = await getDoc(ratingRef);
       if (existing.exists()) throw new Error("You have already reviewed this booking.");
-      await setDoc(ratingRef, { bookingId, listingId: booking.listingId, ownerId: booking.ownerId, renterId: booking.renterId, reviewerId: user.uid, reviewerName: user.displayName || user.email, score: Number(score), comment: comment.trim(), createdAt: serverTimestamp() });
+      await setDoc(ratingRef, { bookingId, listingId: booking.listingId, ownerId: booking.ownerId, renterId: booking.renterId, reviewerId: user.uid, reviewerName: profile?.name || user.displayName || "TrustHome member", score: Number(score), comment: comment.trim(), createdAt: serverTimestamp() });
       navigate("/my-bookings", { replace: true });
     } catch (submitError) { setError(submitError.message || "Your review could not be submitted."); } finally { setSaving(false); }
   }

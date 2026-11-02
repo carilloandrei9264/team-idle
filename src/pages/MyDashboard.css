@@ -7,9 +7,9 @@
 
 .dashboard-page__stat,
 .dashboard-page__section {
-  border: 1px solid var(--color-neutral-200);
-  background: var(--color-white);
-  border-radius: var(--radius-control);
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
 }
 
@@ -49,7 +49,7 @@
 .dashboard-page__section-heading h2 { margin: 0; }
 .dashboard-page__list { display: grid; gap: var(--space-3); }
 .dashboard-page__listing,
-.dashboard-page__booking { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); padding: var(--space-4); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-input); }
+.dashboard-page__booking { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); padding: var(--space-4); border: 1px solid var(--card-border); border-radius: var(--radius-input); background: var(--color-neutral-50); }
 .dashboard-page__listing h3,
 .dashboard-page__booking h3 { margin: 0 0 var(--space-1); font-size: 15px; }
 .dashboard-page__listing p,

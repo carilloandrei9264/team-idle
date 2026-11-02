@@ -126,7 +126,7 @@ const DOCUMENTS = {
         title: "Known limitations before production",
         bullets: [
           "Verification-document URLs are currently present on publicly readable verified listing records; move them to a restricted store, migrate existing records, and test unauthenticated direct access.",
-          "Overlapping booking confirmation still needs an authoritative concurrency-safe design; the current client check can be bypassed by direct writes.",
+          "Owner approvals serialize overlap checks through a per-listing Firestore lease. This reduces concurrent conflicts in the app, but a backend-authoritative confirmation callable is not deployed and the rules cannot independently inspect all overlapping bookings.",
           "The project's legal operating entity, Personal Information Controller and privacy-officer details, and provider processing locations have not been formally documented here.",
           "No fixed retention schedule or in-app account deletion flow is implemented. Data-subject request handling and response targets need an approved process.",
           "No independent penetration test, privacy impact assessment, formal compliance audit, provider-contract review, or incident-response exercise is claimed by this project.",

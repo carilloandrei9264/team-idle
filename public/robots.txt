@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /account
+Disallow: /dashboard
+Disallow: /my-activity
+Disallow: /my-bookings
+Disallow: /my-listings
+Disallow: /booking-requests
+Disallow: /listings/new
+Disallow: /listings/*/edit
+Disallow: /listings/*/book
+Disallow: /bookings/
+Disallow: /notifications
+Disallow: /settings
+
+Sitemap: https://trusthome-ph.web.app/sitemap.xml
