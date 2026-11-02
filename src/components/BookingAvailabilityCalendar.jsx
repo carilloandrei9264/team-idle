@@ -3,12 +3,11 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { dateInputValue, toDate } from "../lib/booking";
 
 export default function BookingAvailabilityCalendar({
-  blockedRanges = [],
+  blockedRanges,
   availabilityDate,
   startDate,
   endDate,
   onSelectDate,
-  onInvalidRange,
 }) {
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const selectedDate = startDate ? new Date(`${startDate}T00:00:00`) : new Date();
@@ -24,10 +23,10 @@ export default function BookingAvailabilityCalendar({
     blockedRanges.forEach((range) => {
       const start = toDate(range.start);
       const end = toDate(range.end);
-      if (!start || !end || start >= end) return;
+      if (!start || !end) return;
       const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
       const lastDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-      while (cursor < lastDay) {
+      while (cursor <= lastDay) {
         blocked.add(formatDayKey(cursor));
         cursor.setDate(cursor.getDate() + 1);
       }
@@ -38,25 +37,19 @@ export default function BookingAvailabilityCalendar({
   function selectDate(key) {
     if (!startDate || endDate || key < startDate) {
       onSelectDate(key, "");
-      return;
+    } else {
+      onSelectDate(startDate, key);
     }
-
-    const crossesUnavailableDay = Array.from(unavailableDays)
-      .some((day) => day >= startDate && day < key);
-    if (crossesUnavailableDay) {
-      onInvalidRange?.();
-      return;
-    }
-    onSelectDate(startDate, key);
   }
 
   return (
-    <section className="booking-select-calendar" aria-label="Listing availability calendar">
-      <div className="booking-select-calendar__header">
+    <section className="booking-item__calendar booking-select-calendar" aria-label="Listing availability calendar">
+      <div className="booking-item__calendar-header">
         <button
           type="button"
-          className="booking-select-calendar__month-button"
+          className="booking-item__month-button"
           aria-label="Previous month"
+          title="Previous month"
           disabled={monthIsBefore(visibleMonth, new Date())}
           onClick={() => setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}
         >
@@ -65,17 +58,18 @@ export default function BookingAvailabilityCalendar({
         <h3>{monthLabel}</h3>
         <button
           type="button"
-          className="booking-select-calendar__month-button"
+          className="booking-item__month-button"
           aria-label="Next month"
+          title="Next month"
           onClick={() => setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
         >
           <ChevronRight size={16} aria-hidden="true" />
         </button>
       </div>
-      <div className="booking-select-calendar__weekdays" aria-hidden="true">
+      <div className="booking-item__weekdays" aria-hidden="true">
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day}>{day}</span>)}
       </div>
-      <div className="booking-select-calendar__days">
+      <div className="booking-item__days">
         {monthDates.map((date) => {
           const key = formatDayKey(date);
           const isOutsideMonth = date.getMonth() !== visibleMonth.getMonth();
@@ -83,11 +77,9 @@ export default function BookingAvailabilityCalendar({
           const isTooEarly = key < firstAllowedDate;
           const isStart = key === startDate;
           const isEnd = key === endDate;
-          const isCheckoutBoundary = isUnavailable && Boolean(startDate && !endDate && key > startDate);
           const isSelectedRange = Boolean(startDate && endDate && startDate < key && key < endDate);
-          const disabled = isOutsideMonth || isTooEarly || (isUnavailable && !isCheckoutBoundary);
-          const stateLabel = isCheckoutBoundary ? "Available for checkout only"
-            : isUnavailable ? "Unavailable"
+          const disabled = isOutsideMonth || isTooEarly || isUnavailable;
+          const stateLabel = isUnavailable ? "Unavailable"
             : isStart ? "Check-in date"
             : isEnd ? "Check-out date"
             : isSelectedRange ? "Selected stay"
@@ -99,11 +91,10 @@ export default function BookingAvailabilityCalendar({
               key={key}
               type="button"
               className={[
-                "booking-select-calendar__day",
-                isOutsideMonth ? "booking-select-calendar__day--outside" : "",
-                isUnavailable ? "booking-select-calendar__day--unavailable" : "",
-                isCheckoutBoundary ? "booking-select-calendar__day--checkout-boundary" : "",
-                isStart || isEnd || isSelectedRange ? "booking-select-calendar__day--selected" : "",
+                "booking-item__day",
+                isOutsideMonth ? "booking-item__day--outside" : "",
+                isUnavailable ? "booking-item__day--booked" : "",
+                isStart || isEnd || isSelectedRange ? "booking-item__day--request" : "",
               ].join(" ")}
               disabled={disabled}
               aria-label={`${date.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}: ${stateLabel}`}
@@ -111,15 +102,15 @@ export default function BookingAvailabilityCalendar({
               title={stateLabel}
               onClick={() => selectDate(key)}
             >
-              {date.getDate()}
+              <span className="booking-item__day-number">{date.getDate()}</span>
             </button>
           );
         })}
       </div>
-      <div className="booking-select-calendar__legend" aria-label="Calendar key">
-        <span><i className="booking-select-calendar__swatch" />Available</span>
-        <span><i className="booking-select-calendar__swatch booking-select-calendar__swatch--selected" />Selected dates</span>
-        <span><i className="booking-select-calendar__swatch booking-select-calendar__swatch--unavailable" />Unavailable</span>
+      <div className="booking-item__legend" aria-label="Calendar key">
+        <span><i className="booking-item__legend-swatch booking-item__legend-swatch--available" />Available</span>
+        <span><i className="booking-item__legend-swatch booking-item__legend-swatch--requested" />Selected dates</span>
+        <span><i className="booking-item__legend-swatch booking-item__legend-swatch--unavailable" />Unavailable</span>
       </div>
     </section>
   );
@@ -130,6 +121,7 @@ function buildMonthGrid(dateValue) {
   const gridStart = new Date(monthStart);
   const offset = (monthStart.getDay() + 6) % 7;
   gridStart.setDate(monthStart.getDate() - offset);
+
   return Array.from({ length: 42 }, (_, index) => {
     const current = new Date(gridStart);
     current.setDate(gridStart.getDate() + index);

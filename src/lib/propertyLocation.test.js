@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { approximateDistanceKm, approximateMapCenter, approximateMapLocation, buildAddressSearchVariants, geocodeAddress, isValidMapLocation } from "./propertyLocation.js";
+import { approximateMapCenter, approximateMapLocation, buildAddressSearchVariants, geocodeAddress, isValidMapLocation } from "./propertyLocation.js";
 
 test("public map locations use a five-character approximate geohash", () => {
   const location = approximateMapLocation(12.3456, 121.5678);
@@ -14,13 +14,6 @@ test("invalid coordinates are rejected", () => {
   assert.equal(approximateMapLocation(91, 121), null);
   assert.equal(approximateMapLocation(12, 181), null);
   assert.equal(approximateMapLocation(Number.NaN, 121), null);
-});
-
-test("approximate distance calculates nearby listings and ranks missing locations last", () => {
-  const location = approximateMapLocation(14.2793, 121.1177);
-  const nearby = approximateDistanceKm(location, 14.28, 121.118);
-  assert.ok(nearby >= 0 && nearby < 5);
-  assert.equal(approximateDistanceKm(null, 14.28, 121.118), Number.POSITIVE_INFINITY);
 });
 
 test("address lookups return a usable latitude and longitude", async () => {

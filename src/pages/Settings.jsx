@@ -9,6 +9,11 @@ const THEME_OPTIONS = [
   { value: "dark", label: "Dark", icon: Moon },
 ];
 
+const ACCENT_OPTIONS = [
+  { value: "blue", label: "Blue" },
+  { value: "green", label: "Green" },
+];
+
 const ACCESSIBILITY_OPTIONS = [
   { key: "largeText", label: "Larger text", description: "Increase the size of interface text." },
   { key: "highContrast", label: "High contrast", description: "Strengthen text and surface contrast." },
@@ -16,7 +21,7 @@ const ACCESSIBILITY_OPTIONS = [
 ];
 
 export default function Settings({ adminMode = false }) {
-  const { themePreference, setThemePreference, accessibility, setAccessibility } = useTheme();
+  const { themePreference, setThemePreference, accentPreference, setAccentPreference, accessibility, setAccessibility } = useTheme();
   const content = <>
     <header className={adminMode ? "admin-page__header" : "user-page__header"}>
       <div>
@@ -45,6 +50,23 @@ export default function Settings({ adminMode = false }) {
           </button>
         ))}
       </div>
+      <fieldset className="settings-page__accent-group">
+        <legend>Accent color</legend>
+        <div className="settings-page__accent-options">
+          {ACCENT_OPTIONS.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              className={`settings-page__accent-option${accentPreference === value ? " settings-page__accent-option--active" : ""}`}
+              aria-pressed={accentPreference === value}
+              onClick={() => setAccentPreference(value)}
+            >
+              <span className={`settings-page__accent-swatch settings-page__accent-swatch--${value}`} aria-hidden="true" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </fieldset>
     </section>
     <section className="settings-page__section" aria-labelledby="settings-accessibility-title">
       <div className="settings-page__section-heading">
@@ -69,18 +91,6 @@ export default function Settings({ adminMode = false }) {
         ))}
       </div>
     </section>
-    {!adminMode && (
-      <section className="settings-page__section" aria-labelledby="settings-membership-title">
-        <div className="settings-page__section-heading">
-          <div>
-            <h2 id="settings-membership-title">TrustHome Verified</h2>
-            <p>An optional profile badge is planned for members who complete TrustHome's review.</p>
-          </div>
-        </div>
-        <p><strong>Planned price: ₱99 per month</strong></p>
-        <p role="status">Not available yet. No payment is accepted and no account is upgraded.</p>
-      </section>
-    )}
   </>;
 
   if (adminMode) return <div className="admin-page settings-page">{content}</div>;

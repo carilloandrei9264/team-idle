@@ -1,19 +1,19 @@
 /* ── Footer — always dark in both modes ── */
 .site-footer {
-  background: #020617;      /* slate-950 */
+  background: #020617;
   color: #CBD5E1;
   margin-top: auto;
   position: relative;
   overflow: hidden;
 }
 
-/* Subtle gradient accent line at very top */
+/* Subtle brand accent at the top edge */
 .site-footer::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 1px;
-  background: linear-gradient(to right, transparent, rgba(37,99,235,0.50), rgba(124,58,237,0.50), transparent);
+  background: var(--color-primary);
 }
 
 .site-footer__inner {
@@ -38,15 +38,11 @@
   font-weight: 800;
   text-decoration: none;
   margin-bottom: 8px;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .site-footer__logo-gradient {
-  background: linear-gradient(135deg, #60A5FA, #A78BFA);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+  color: #60A5FA;
 }
 
 .site-footer__logo-plain {
@@ -54,9 +50,7 @@
 }
 
 .site-footer__logo:hover .site-footer__logo-gradient {
-  background: linear-gradient(135deg, #93C5FD, #C4B5FD);
-  background-clip: text;
-  -webkit-background-clip: text;
+  color: #93C5FD;
 }
 
 .site-footer__tagline {
@@ -123,18 +117,17 @@
   width: 32px;
   height: 32px;
   border-radius: var(--radius-control);
-  border: 1px solid #1E293B;
+  border: 1px solid rgba(241, 246, 244, 0.18);
   color: #64748B;
   text-decoration: none;
   transition: var(--transition-base);
 }
 
 .site-footer__social-icon:hover {
-  background: linear-gradient(135deg, #2563EB, #7C3AED);
+  background: var(--color-primary);
   border-color: transparent;
   color: white;
-  box-shadow: 0 4px 12px rgba(124,58,237,0.35);
-  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.3);
 }
 
 .site-footer__social-icon:focus-visible {
@@ -144,7 +137,7 @@
 
 /* Bottom bar */
 .site-footer__bottom {
-  border-top: 1px solid #0F172A;
+  border-top: 1px solid rgba(241, 246, 244, 0.12);
   padding: 10px var(--space-4);
   position: relative;
   z-index: 1;

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   collection, getCountFromServer, getDocs, limit, orderBy, query, startAfter, where,
 } from "firebase/firestore";
-import { ChevronLeft, ChevronRight, Clipboard, ClipboardCheck, MapPin, SlidersHorizontal, X } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Clipboard, ClipboardCheck, MapPin, SlidersHorizontal, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PublicNav from "../components/PublicNav";
@@ -269,7 +269,7 @@ const BankPropertyCard = ({ property, onKeyNav }) => {
             to={`/bank-catalog/${property.id}`}
             tabIndex={-1}   /* card itself is focusable; Enter activates this */
           >
-            View property and loan estimate
+            View details &amp; estimate <ArrowRight size={16} aria-hidden="true" />
           </Link>
         </div>
       </div>
