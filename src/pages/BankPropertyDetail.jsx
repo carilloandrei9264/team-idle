@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
+import Seo from "../components/Seo";
 import { db } from "../firebase";
 import { formatCurrency, numericValue } from "../lib/number";
 import {
@@ -21,6 +22,8 @@ const PROBLEM_ICONS = [
   { match: /legal/i, Icon: Scale },
   { match: /document/i, Icon: FileText },
 ];
+const LOAN_TERM_OPTIONS = [10, 15, 20, 25, 30];
+
 function iconForCategory(category) {
   return PROBLEM_ICONS.find((p) => p.match.test(category || ""))?.Icon || FileText;
 }
@@ -81,6 +84,12 @@ export default function BankPropertyDetail() {
           </div>
         ) : (
           <>
+            <Seo
+              title={`${property.title || "Bank-Acquired Property"}${property.location ? ` in ${property.location}` : ""} | TrustHome`}
+              description={`${property.bank || "Bank-acquired"} property${property.location ? ` in ${property.location}` : " in the Philippines"}. Asking price ${formatCurrency(property.price)}. Confirm availability with the bank.`}
+              path={`/bank-catalog/${property.id}`}
+              image={galleryImages(property)[0]?.url}
+            />
             {/* Older cached properties only have the single defaultImage;
                 properties re-scraped since the gallery endpoint was added
                 have the full `images` array — fall back gracefully either way. */}
@@ -205,7 +214,12 @@ export default function BankPropertyDetail() {
                 <div className="listing-form__grid">
                   <Field id="loan-down" label="Down payment (%)" value={downPayment} setValue={setDownPayment} />
                   <Field id="loan-rate" label="Annual interest (%)" value={interestRate} setValue={setInterestRate} />
-                  <Field id="loan-years" label="Loan term (years)" value={termYears} setValue={setTermYears} />
+                  <div className="field">
+                    <label className="field__label" htmlFor="loan-years">Loan term</label>
+                    <select id="loan-years" className="field__input" value={termYears} onChange={(event) => setTermYears(event.target.value)}>
+                      {LOAN_TERM_OPTIONS.map((years) => <option key={years} value={years}>{years} years</option>)}
+                    </select>
+                  </div>
                   <div className="field">
                     <label className="field__label">Estimated loan amount</label>
                     <div className="field__static">{formatCurrency(principalAmount, 2)}</div>

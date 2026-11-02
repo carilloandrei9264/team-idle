@@ -3,6 +3,7 @@ import { collection, doc, getDoc, getDocs, query, where } from "firebase/firesto
 import { ArrowLeft, Mail, MapPin, Pencil, Phone, ShieldCheck, UserRound } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
+import Seo from "../components/Seo";
 import PropertyMap from "../components/PropertyMap";
 import { useAuth } from "../context/useAuth";
 import { db } from "../firebase";
@@ -74,10 +75,38 @@ export default function ListingDetail() {
   const ownerContactEmail = ownerProfile?.contactEmail || "";
   const ownerContactPhone = ownerProfile?.contactPhone || "";
   const hasOwnerContact = Boolean(ownerContactEmail || ownerContactPhone);
+  const listingTitle = listing?.title || "Verified property";
+  const listingDescription = listing
+    ? `${listing.type || "Property"} ${isSale ? "for sale" : "for rent"} in ${listing.city || "the Philippines"}. View verified property details on TrustHome.`
+    : "View verified property details on TrustHome.";
+  const listingPath = listing ? `/listings/${listing.id}` : "/browse";
+  const structuredData = listing?.verificationStatus === "verified" ? {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: listingTitle,
+    description: listingDescription,
+    url: new URL(listingPath, window.location.origin).href,
+    breadcrumb: {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: new URL("/", window.location.origin).href },
+        { "@type": "ListItem", position: 2, name: "Browse properties", item: new URL("/browse", window.location.origin).href },
+        { "@type": "ListItem", position: 3, name: listingTitle, item: new URL(listingPath, window.location.origin).href },
+      ],
+    },
+  } : null;
 
   return (
     <div className="user-page">
       <PublicNav />
+      <Seo
+        title={`${listingTitle} in ${listing?.city || "the Philippines"} | TrustHome`}
+        description={listingDescription}
+        path={listingPath}
+        image={listing?.photoUrls?.[0]}
+        robots={listing?.verificationStatus === "verified" ? "index, follow" : "noindex, nofollow"}
+        structuredData={structuredData}
+      />
       <main className="user-page__content">
         <Link to="/browse" className="user-page__back"><ArrowLeft size={16} aria-hidden="true" /> Browse listings</Link>
         {loading ? <p className="user-page__empty">Loading listing...</p> : error ? (

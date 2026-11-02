@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { collection, documentId, getDocs, limit, orderBy, query, startAfter, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { formatCurrency, numericValue } from "../lib/number";
 import PublicNav from "../components/PublicNav";
 import ListingCard from "../components/ListingCard";
 import AnimatedSelect from "../components/AnimatedSelect";
-import { SlidersHorizontal, X } from "lucide-react";
+import { MapPin, SlidersHorizontal, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { approximateMapCenter } from "../lib/propertyLocation";
+import { firebaseAccessErrorMessage } from "../lib/uiState";
+import useNetworkStatus from "../hooks/useNetworkStatus";
 import "./Browse.css";
 
 const PROPERTY_TYPE_OPTIONS = [
@@ -26,6 +29,7 @@ const PURPOSE_OPTIONS = [
 ];
 
 const SORT_OPTIONS = [
+  { value: "nearby", label: "Nearest to me" },
   { value: "trust", label: "Trust & Fairness score" },
   { value: "price_asc", label: "Price: Low to High" },
   { value: "price_desc", label: "Price: High to Low" },
@@ -59,6 +63,7 @@ function AnimatedCard({ listing, trustScore }) {
 
 export default function Browse() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const isOnline = useNetworkStatus();
   const [allListings, setAllListings] = useState([]);
   const [trustScores, setTrustScores] = useState({});
   const [loading, setLoading] = useState(true);
@@ -66,6 +71,9 @@ export default function Browse() {
   const lastListingSnapshot = useRef(null);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState("");
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationStatus, setLocationStatus] = useState("prompt");
+  const [slowNetwork, setSlowNetwork] = useState(false);
 
   const [city, setCity]       = useState(searchParams.get("city") || "");
   const [purpose, setPurpose] = useState(searchParams.get("purpose") || "");
@@ -77,6 +85,41 @@ export default function Browse() {
   // Mobile/tablet filter drawer — same pattern as the Bank Catalog page
   const [filtersOpen, setFiltersOpen] = useState(false);
   const closeRef = useRef(null);
+
+  const requestNearbyLocation = useCallback(() => {
+    setLocationStatus("loading");
+    setSort("nearby");
+    if (!navigator.geolocation) {
+      setLocationStatus("unsupported");
+      setSort("trust");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setUserLocation({ latitude: coords.latitude, longitude: coords.longitude });
+        setLocationStatus("ready");
+      },
+      (locationError) => {
+        setLocationStatus(locationError.code === 1 ? "denied" : "unavailable");
+        setSort("trust");
+      },
+      { enableHighAccuracy: false, maximumAge: 10 * 60 * 1000, timeout: 8000 },
+    );
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (!navigator.permissions?.query) return undefined;
+    navigator.permissions.query({ name: "geolocation" }).then((permission) => {
+      if (!active) return;
+      if (permission.state === "granted") requestNearbyLocation();
+      else if (permission.state === "denied") setLocationStatus("denied");
+    }).catch(() => {
+      if (active) setLocationStatus("prompt");
+    });
+    return () => { active = false; };
+  }, [requestNearbyLocation]);
 
   useEffect(() => {
     if (!filtersOpen) return undefined;
@@ -99,6 +142,7 @@ export default function Browse() {
     if (reset) setLoading(true);
     else setLoadingMore(true);
     setError("");
+    const slowNetworkTimer = window.setTimeout(() => setSlowNetwork(true), 5000);
     try {
       const baseQuery = query(
         collection(db, "listings"),
@@ -121,9 +165,11 @@ export default function Browse() {
       const scoreMap = {};
       scoresSnap.docs.forEach((d) => { scoreMap[d.id] = d.data(); });
       setTrustScores((current) => reset ? scoreMap : { ...current, ...scoreMap });
-    } catch {
-      setError("Listings could not be loaded. Check your connection and try again.");
+    } catch (loadError) {
+      setError(firebaseAccessErrorMessage(loadError, "property listings"));
     } finally {
+      window.clearTimeout(slowNetworkTimer);
+      setSlowNetwork(false);
       if (reset) setLoading(false);
       else setLoadingMore(false);
     }
@@ -149,6 +195,11 @@ export default function Browse() {
       if (sort === "price_asc")  return numericValue(a.price) - numericValue(b.price);
       if (sort === "price_desc") return numericValue(b.price) - numericValue(a.price);
       if (sort === "newest")     return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
+      if (sort === "nearby" && userLocation) {
+        const distanceA = getListingDistance(a, userLocation);
+        const distanceB = getListingDistance(b, userLocation);
+        if (distanceA !== distanceB) return distanceA - distanceB;
+      }
       const scoreA = trustScores[a.id]?.score;
       const scoreB = trustScores[b.id]?.score;
       if (scoreA == null && scoreB == null) return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
@@ -158,7 +209,7 @@ export default function Browse() {
     });
 
     return list;
-  }, [allListings, trustScores, city, purpose, type, minPrice, maxPrice, sort]);
+  }, [allListings, trustScores, city, purpose, type, minPrice, maxPrice, sort, userLocation]);
 
   function handleCityChange(value) {
     setCity(value);
@@ -304,6 +355,27 @@ export default function Browse() {
             <h1>Browse properties</h1>
             <span>Compare verified rentals and properties for sale.</span>
           </header>
+          {!isOnline && <p className="network-state network-state--offline" role="status">No internet connection. Showing any listings already loaded; new results may be unavailable.</p>}
+          {slowNetwork && <p className="network-state" role="status">This is taking longer than usual. The network may be slow.</p>}
+          {locationStatus === "ready" && sort === "nearby" && (
+            <p className="browse__location-status"><MapPin size={15} aria-hidden="true" /> Prioritizing nearby listings using your approximate location.</p>
+          )}
+          {["prompt", "denied", "unavailable", "unsupported"].includes(locationStatus) && (
+            <p className="browse__location-status" role={locationStatus === "denied" ? "alert" : "status"}>
+              {locationStatus === "denied"
+                ? "Location access is blocked. Update this site's browser permission to prioritize nearby listings."
+                : locationStatus === "prompt"
+                  ? "Want nearby results? Allow approximate location to prioritize listings close to you."
+                : locationStatus === "unsupported"
+                  ? "Your browser doesn't support location access. Showing listings by trust score instead."
+                  : "Your location could not be determined. Showing listings by trust score instead."}
+              {locationStatus !== "unsupported" && (
+                <button type="button" className="browse__location-retry" onClick={requestNearbyLocation}>
+                  {locationStatus === "prompt" ? "Use my location" : "Try again"}
+                </button>
+              )}
+            </p>
+          )}
           <div className="browse__toolbar">
             <button
               type="button"
@@ -330,7 +402,10 @@ export default function Browse() {
               <AnimatedSelect
                 id="sort"
                 value={sort}
-                onChange={setSort}
+                onChange={(value) => {
+                  setSort(value);
+                  if (value === "nearby" && !userLocation) requestNearbyLocation();
+                }}
                 options={SORT_OPTIONS}
               />
             </div>
@@ -361,11 +436,11 @@ export default function Browse() {
             </div>
           ) : !loading && results.length === 0 ? (
             <div className="browse__empty">
-              <p>
-                {allListings.length === 0
-                  ? "No verified listings yet — the review queue is still empty."
-                  : "No listings match those filters — try widening your search."}
-              </p>
+              <h2>{allListings.length === 0 ? "No listings yet" : "No search results"}</h2>
+              <p>{allListings.length === 0
+                ? "No verified listings are available right now. Check back soon."
+                : "No listings match those filters. Try another location or widen your price range."}</p>
+              {allListings.length > 0 && <button type="button" className="btn btn--secondary" onClick={clearFilters}>Clear filters</button>}
             </div>
           ) : (
             <AnimatePresence mode="wait">
@@ -377,12 +452,20 @@ export default function Browse() {
                 animate="visible"
                 exit={{ opacity: 0 }}
               >
-                {results.map((listing) => (
-                  <AnimatedCard
-                    key={listing.id}
-                    listing={listing}
-                    trustScore={trustScores[listing.id]}
-                  />
+                {loading ? (
+                  Array.from({ length: 6 }, (_, index) => <div key={`loading-${index}`} className="browse__skeleton" aria-hidden="true" />)
+                ) : results.map((listing, index) => (
+                  <Fragment key={listing.id}>
+                    <AnimatedCard listing={listing} trustScore={trustScores[listing.id]} />
+                    {index === 5 && results.length > 6 && (
+                      <article className="browse__house-ad" aria-label="TrustHome promotion">
+                        <span>Advertisement · TrustHome promotion</span>
+                        <h2>Have a place to rent?</h2>
+                        <p>List your property on TrustHome and help renters find a verified home near them.</p>
+                        <Link className="btn btn--secondary" to="/listings/new">List your property</Link>
+                      </article>
+                    )}
+                  </Fragment>
                 ))}
               </motion.div>
             </AnimatePresence>
@@ -396,4 +479,25 @@ export default function Browse() {
       </div>
     </div>
   );
+}
+
+function getListingDistance(listing, userLocation) {
+  const center = approximateMapCenter(listing.mapLocation);
+  if (!center) return Number.POSITIVE_INFINITY;
+  return distanceInKilometers(
+    userLocation.latitude,
+    userLocation.longitude,
+    center[0],
+    center[1],
+  );
+}
+
+function distanceInKilometers(latitudeA, longitudeA, latitudeB, longitudeB) {
+  const radians = (degrees) => degrees * Math.PI / 180;
+  const latitudeDifference = radians(latitudeB - latitudeA);
+  const longitudeDifference = radians(longitudeB - longitudeA);
+  const haversine = Math.sin(latitudeDifference / 2) ** 2
+    + Math.cos(radians(latitudeA)) * Math.cos(radians(latitudeB))
+    * Math.sin(longitudeDifference / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }

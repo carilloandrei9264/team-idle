@@ -9,12 +9,15 @@ import { formatBookingDateTime, getBookingReference, getCompletionStateLabel, ge
 import { ACCOUNT_ACTIVITY_ACTIONS, createAccountActivity } from "../lib/accountActivity";
 import { confirmBookingRequest } from "../lib/bookingConfirmation";
 import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
+import { firebaseAccessErrorMessage } from "../lib/uiState";
+import useNetworkStatus from "../hooks/useNetworkStatus";
 import "./UserPages.css";
 
 const REQUESTS_PER_PAGE = 6;
 
 export default function BookingRequests({ embedded = false }) {
   const { user, profile } = useAuth();
+  const isOnline = useNetworkStatus();
   const [searchParams] = useSearchParams();
   const [requests, setRequests] = useState([]);
   const [allBookings, setAllBookings] = useState([]);
@@ -22,6 +25,7 @@ export default function BookingRequests({ embedded = false }) {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
   const listingFilter = searchParams.get("listingId");
   const visibleRequests = listingFilter
@@ -43,9 +47,13 @@ export default function BookingRequests({ embedded = false }) {
       const docs = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).sort(sortByCreatedAt);
       setAllBookings(docs);
       setRequests(docs);
+      setLoadError("");
       setLoading(false);
     },
-    () => { setError("Booking requests could not be loaded."); setLoading(false); }
+    (loadErrorValue) => {
+      setLoadError(firebaseAccessErrorMessage(loadErrorValue, "booking requests"));
+      setLoading(false);
+    }
   ), [user.uid]);
 
   const bookingsByListing = useMemo(() => {
@@ -224,9 +232,12 @@ export default function BookingRequests({ embedded = false }) {
         </div>
         {listingFilter && <Link to="/my-activity?tab=requests" className="btn btn--secondary">Show all requests</Link>}
       </header>
+      {!isOnline && <p className="network-state network-state--offline" role="status">No internet connection. Booking updates may be delayed.</p>}
       {error && <p className="user-page__form-error" role="alert">{error}</p>}
       {message && <p className="user-page__message" role="status">{message}</p>}
-      {loading ? <p className="user-page__empty">Loading booking requests...</p> : requests.length === 0 ? (
+      {loading ? <p className="user-page__empty" role="status">Loading booking requests...</p> : loadError ? (
+        <div className="user-page__empty" role="alert"><h2>Booking requests unavailable</h2><p>{loadError}</p><button type="button" className="btn btn--secondary" onClick={() => window.location.reload()}>Try again</button></div>
+      ) : requests.length === 0 ? (
         <div className="user-page__empty"><h2>No booking requests</h2><p>Requests from renters will appear here.</p></div>
       ) : visibleRequests.length === 0 ? (
         <div className="user-page__empty"><h2>No requests for this listing</h2><p>There are no booking requests for this property.</p><Link to="/my-activity?tab=requests" className="btn btn--secondary">Show all requests</Link></div>

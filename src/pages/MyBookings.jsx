@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useAuth } from "../context/useAuth";
@@ -8,15 +8,22 @@ import { db } from "../firebase";
 import { canRenterCompleteBooking, canRevealExactAddress, formatBookingDateTime, getBookingReference, getCompletionStateLabel, getPaymentStatusLabel } from "../lib/booking";
 import { ACCOUNT_ACTIVITY_ACTIONS, createAccountActivity } from "../lib/accountActivity";
 import { createNotification, NOTIFICATION_TYPES } from "../lib/notifications";
+import { firebaseAccessErrorMessage } from "../lib/uiState";
+import useNetworkStatus from "../hooks/useNetworkStatus";
 import "./UserPages.css";
 
 export default function MyBookings({ embedded = false }) {
   const { user, profile } = useAuth();
+  const location = useLocation();
+  const isOnline = useNetworkStatus();
   const [bookings, setBookings] = useState([]);
   const [reviewStatus, setReviewStatus] = useState({ loading: true, bookingIds: new Set(), unavailable: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [message, setMessage] = useState(() => (
+    location.state?.bookingSubmitted ? "Booking request sent. The owner will review your dates." : ""
+  ));
   const [savingId, setSavingId] = useState(null);
   const [depositReferences, setDepositReferences] = useState({});
   const [pendingCancellation, setPendingCancellation] = useState(null);
@@ -27,7 +34,10 @@ export default function MyBookings({ embedded = false }) {
       setBookings(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)));
       setLoading(false);
     },
-    () => { setError("Your bookings could not be loaded."); setLoading(false); }
+    (loadErrorValue) => {
+      setLoadError(firebaseAccessErrorMessage(loadErrorValue, "your bookings"));
+      setLoading(false);
+    }
   ), [user.uid]);
 
   useEffect(() => onSnapshot(
@@ -164,9 +174,12 @@ export default function MyBookings({ embedded = false }) {
   const content = (
     <>
       {!embedded && <header className="user-page__header"><div><p className="user-page__eyebrow">Your account</p><h1>My Bookings</h1><p>Track requests and confirmed stays in one place.</p></div></header>}
+      {!isOnline && <p className="network-state network-state--offline" role="status">No internet connection. Booking updates may be delayed.</p>}
       {error && <p className="user-page__form-error" role="alert">{error}</p>}
       {message && <p className="user-page__message" role="status">{message}</p>}
-      {loading ? <p className="user-page__empty">Loading your bookings...</p> : bookings.length === 0 ? (
+      {loading ? <p className="user-page__empty" role="status">Loading your bookings...</p> : loadError ? (
+        <div className="user-page__empty" role="alert"><h2>Bookings unavailable</h2><p>{loadError}</p><button type="button" className="btn btn--secondary" onClick={() => window.location.reload()}>Try again</button></div>
+      ) : bookings.length === 0 ? (
         <div className="user-page__empty"><h2>No bookings yet</h2><p>When you request a stay, its status will appear here.</p><Link to="/browse" className="btn btn--primary">Browse listings</Link></div>
       ) : (
         <div className="user-page__list my-bookings__list">{bookings.map((booking) => (

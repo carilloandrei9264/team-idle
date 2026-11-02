@@ -55,9 +55,9 @@ export default function MembershipPreviewDialog({ onClose, previewUser = null })
         </article>
 
         <article className="membership-preview__plan membership-preview__plan--featured">
-          <p className="membership-preview__plan-kicker">Planned</p>
+          <p className="membership-preview__plan-kicker">Planned price</p>
           <h3>TrustHome Verified</h3>
-          <p className="membership-preview__price">Pricing to be announced</p>
+          <p className="membership-preview__price">₱99 <span>/ month</span></p>
           <p className="membership-preview__description">An optional badge for profiles that complete TrustHome's review.</p>
           <ul>
             <li><Check size={15} aria-hidden="true" /> Verified profile badge preview</li>

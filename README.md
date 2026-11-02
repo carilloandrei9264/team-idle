@@ -28,13 +28,25 @@ A rental marketplace prototype for the Philippines, with owner-submitted listing
 
 ## What This App Does
 
-- **Renters** browse verified rental listings and request bookings. Users can also browse a separate catalog of bank-acquired properties.
+- **Renters** browse verified rental listings and request bookings. Browse can prioritize nearby listings when the user grants location access; otherwise it falls back to the normal trust-score ordering. Clearly labeled promoted content may also appear in Browse.
 - **Homeowners** list a room, unit, or house for rent; listings only go public after a verification step.
-- **Bookings** use a calendar-based workflow with status tracking. Owner approvals serialize overlap checks through a per-listing lease; a backend-authoritative callable is not deployed.
+- **Bookings** use date selection and calendar availability to help renters choose dates, with status tracking. Owner approvals serialize overlap checks through a per-listing lease; a backend-authoritative callable is not deployed.
 - **Trust & Fairness Score** ranks listings using completed booking history, ratings, and price fairness, not just recency or price.
 - **Disputes** can be reviewed by admins; founded-dispute counts are shown on public accountability profiles.
 - **Public owner profiles** show verified listings and ratings, plus the email address or phone number only when the owner opts in. Shared contact details are publicly visible and have direct email/call actions.
-- **Loan calculator** helps users estimate financing for bank-acquired listings.
+- **Loan calculator** helps users estimate financing for bank-acquired listings, with preset loan terms from 10 to 30 years.
+- **UI feedback** covers loading, empty and no-search-result states, errors, offline or slow connections, permission/session problems, form validation, and successful actions.
+
+### Bank-acquired property catalog
+
+The public catalog currently displays Metrobank properties only. Visitors can filter by
+location and budget, sort by price, browse paginated results, and open a listing for its
+details and loan estimate. The loan estimate is informational; confirm availability,
+property details, and financing terms with the bank before acting. Scraped listings are
+not an endorsement or a substitute for checking the original bank source.
+
+See [`bank_scraper/README.md`](./bank_scraper/README.md) for the supported source,
+Firestore setup, safe scraper commands, admin-worker flow, and operational limitations.
 
 ---
 
@@ -68,7 +80,8 @@ team-idle/
 │   └── routes/
 ├── public/                  # Static assets
 ├── functions/               # Firebase Functions
-├── bank_scraper/            # Python scraper and demo data scripts
+├── bank_scraper/            # Python scraper, demo data, and catalog operations
+│   ├── README.md
 │   ├── scraper.py
 │   ├── database.py
 │   ├── scheduler.py
@@ -165,7 +178,7 @@ python seed_demo_data.py
 python -m unittest discover -s . -p "test_*.py"
 ```
 
-The live scraper writes to Firestore and needs a trusted Firebase Admin credential through `GOOGLE_APPLICATION_CREDENTIALS` or `FIREBASE_SERVICE_ACCOUNT_JSON`. Keep service-account keys outside Git and never include them in reports or logs. Run `--dry-run` first when checking source parsing.
+The live scraper writes only the production-enabled Metrobank source to Firestore and needs a trusted Firebase Admin credential through `GOOGLE_APPLICATION_CREDENTIALS` or `FIREBASE_SERVICE_ACCOUNT_JSON`. Keep service-account keys outside Git and never include them in reports or logs. Run `--dry-run` first when checking source parsing. BDO and Landbank are diagnostic-only and cannot write to the catalog.
 
 ---
 
@@ -205,6 +218,7 @@ npm run dev
 | `TrustHome_PH_07_UI_UX_Design_System_and_Page_Inventory.pdf` | Current page inventory, visual system, and accessibility conventions. |
 | `TrustHome_PH_08_QA_and_Testing_Strategy.pdf` | Test evidence levels, procedures, and workbook usage. |
 | `TrustHome_PH_09_Release_Roadmap_and_Versioning_Plan.pdf` | Version history, release blockers, ownership, and release practices. |
+| `bank_scraper/README.md` | Active bank source, scraper setup, catalog operations, and safety limitations. |
 | `TrustHome_PH_Use_Cases_and_Test_Cases_2026-10-04.xlsx` | Use cases, test cases, requirements, summary, and known gaps. |
 | `Local_Firebase_Emulator_Guide.md` | Local emulator setup, isolated test accounts, Google sign-in simulation, and safety boundaries. |
 | `docs/Account_Profile_and_Contact_Preferences.md` | Account contact-sharing behavior, privacy boundaries, owner contact flow, and remaining public trust-profile gaps. |
