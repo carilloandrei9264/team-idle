@@ -37,13 +37,9 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-
-      - name: Install Firebase CLI
-        run: npm install --global firebase-tools
-
       - name: Deploy Hosting
-        run: firebase deploy --only hosting --project trusthome-ph
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: trusthome-ph
+          channelId: live
