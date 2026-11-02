@@ -203,6 +203,8 @@ This creates a production bundle in the `dist/` folder for deployment or preview
 npm run dev
 ```
 
+Pushes to the `fixes` branch automatically run tests, lint, build, and deploy Firebase Hosting to `trusthome-ph`. Configure the GitHub Actions secret `FIREBASE_SERVICE_ACCOUNT` with a service-account JSON key authorized to release Firebase Hosting for that project. The workflow deploys Hosting only; it does not deploy Firestore rules, Storage rules, or Functions.
+
 ---
 
 ## Documentation Index

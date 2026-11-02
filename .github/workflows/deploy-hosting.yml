@@ -1,0 +1,49 @@
+name: Deploy Firebase Hosting
+
+on:
+  push:
+    branches: [fixes]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-hosting-fixes
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/fixes'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out fixes
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools
+
+      - name: Deploy Hosting
+        run: firebase deploy --only hosting --project trusthome-ph
