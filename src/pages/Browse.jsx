@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { numericValue } from "../lib/number";
 import PublicNav from "../components/PublicNav";
 import ListingCard from "../components/ListingCard";
 import AnimatedSelect from "../components/AnimatedSelect";
-import { SlidersHorizontal } from "lucide-react";
+import { MapPin, SlidersHorizontal } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { approximateDistanceKm } from "../lib/propertyLocation";
+import { firebaseAccessErrorMessage } from "../lib/uiState";
+import useNetworkStatus from "../hooks/useNetworkStatus";
 import "./Browse.css";
 
 const PROPERTY_TYPE_OPTIONS = [
@@ -26,6 +29,7 @@ const PURPOSE_OPTIONS = [
 ];
 
 const SORT_OPTIONS = [
+  { value: "nearby", label: "Nearest to me" },
   { value: "trust", label: "Trust & Fairness score" },
   { value: "price_asc", label: "Price: Low to High" },
   { value: "price_desc", label: "Price: High to Low" },
@@ -58,10 +62,14 @@ function AnimatedCard({ listing, trustScore }) {
 
 export default function Browse() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const isOnline = useNetworkStatus();
   const [allListings, setAllListings] = useState([]);
   const [trustScores, setTrustScores] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationStatus, setLocationStatus] = useState("prompt");
+  const [slowNetwork, setSlowNetwork] = useState(false);
 
   const [city, setCity]       = useState(searchParams.get("city") || "");
   const [purpose, setPurpose] = useState(searchParams.get("purpose") || "");
@@ -70,8 +78,44 @@ export default function Browse() {
   const [maxPrice, setMaxPrice] = useState("");
   const [sort, setSort]       = useState("trust");
 
+  const requestNearbyLocation = useCallback(() => {
+    setLocationStatus("loading");
+    setSort("nearby");
+    if (!navigator.geolocation) {
+      setLocationStatus("unsupported");
+      setSort("trust");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setUserLocation({ latitude: coords.latitude, longitude: coords.longitude });
+        setLocationStatus("ready");
+      },
+      (locationError) => {
+        setLocationStatus(locationError.code === 1 ? "denied" : "unavailable");
+        setSort("trust");
+      },
+      { enableHighAccuracy: false, maximumAge: 10 * 60 * 1000, timeout: 8000 },
+    );
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (!navigator.permissions?.query) return undefined;
+    navigator.permissions.query({ name: "geolocation" }).then((permission) => {
+      if (!active) return;
+      if (permission.state === "granted") requestNearbyLocation();
+      else if (permission.state === "denied") setLocationStatus("denied");
+    }).catch(() => {
+      if (active) setLocationStatus("prompt");
+    });
+    return () => { active = false; };
+  }, [requestNearbyLocation]);
+
   async function loadListings() {
     setError("");
+    const slowNetworkTimer = window.setTimeout(() => setSlowNetwork(true), 5000);
     try {
       const [listingsSnap, scoresSnap] = await Promise.all([
         getDocs(query(collection(db, "listings"), where("verificationStatus", "==", "verified"))),
@@ -81,11 +125,14 @@ export default function Browse() {
       const scoreMap = {};
       scoresSnap.docs.forEach((d) => { scoreMap[d.id] = d.data(); });
       setTrustScores(scoreMap);
-    } catch {
-      setError("Listings could not be loaded. Check your connection and try again.");
+    } catch (loadError) {
+      setError(firebaseAccessErrorMessage(loadError, "property listings"));
     } finally {
+      window.clearTimeout(slowNetworkTimer);
+      setSlowNetwork(false);
       setLoading(false);
     }
+
   }
 
   useEffect(() => {
@@ -108,6 +155,11 @@ export default function Browse() {
       if (sort === "price_asc")  return numericValue(a.price) - numericValue(b.price);
       if (sort === "price_desc") return numericValue(b.price) - numericValue(a.price);
       if (sort === "newest")     return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
+      if (sort === "nearby" && userLocation) {
+        const distanceA = approximateDistanceKm(a.mapLocation, userLocation.latitude, userLocation.longitude);
+        const distanceB = approximateDistanceKm(b.mapLocation, userLocation.latitude, userLocation.longitude);
+        if (distanceA !== distanceB) return distanceA - distanceB;
+      }
       const scoreA = trustScores[a.id]?.score;
       const scoreB = trustScores[b.id]?.score;
       if (scoreA == null && scoreB == null) return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
@@ -117,7 +169,7 @@ export default function Browse() {
     });
 
     return list;
-  }, [allListings, trustScores, city, purpose, type, minPrice, maxPrice, sort]);
+  }, [allListings, trustScores, city, purpose, type, minPrice, maxPrice, sort, userLocation]);
 
   function handleCityChange(value) {
     setCity(value);
@@ -213,6 +265,27 @@ export default function Browse() {
 
         {/* ── Results panel ── */}
         <main className="browse__results">
+          {!isOnline && <p className="network-state network-state--offline" role="status">No internet connection. Showing any listings already loaded; new results may be unavailable.</p>}
+          {slowNetwork && <p className="network-state" role="status">This is taking longer than usual. The network may be slow.</p>}
+          {locationStatus === "ready" && sort === "nearby" && (
+            <p className="browse__location-status"><MapPin size={15} aria-hidden="true" /> Prioritizing nearby listings using your approximate location.</p>
+          )}
+          {["prompt", "denied", "unavailable", "unsupported"].includes(locationStatus) && (
+            <p className="browse__location-status" role={locationStatus === "denied" ? "alert" : "status"}>
+              {locationStatus === "denied"
+                ? "Location access is blocked. Update this site's browser permission to prioritize nearby listings."
+                : locationStatus === "prompt"
+                  ? "Want nearby results? Allow approximate location to prioritize listings close to you."
+                  : locationStatus === "unsupported"
+                    ? "Your browser doesn't support location access. Showing listings by trust score instead."
+                    : "Your location could not be determined. Showing listings by trust score instead."}
+              {locationStatus !== "unsupported" && (
+                <button type="button" className="browse__location-retry" onClick={requestNearbyLocation}>
+                  {locationStatus === "prompt" ? "Use my location" : "Try again"}
+                </button>
+              )}
+            </p>
+          )}
           <div className="browse__results-header">
             <p className="browse__count">
               {loading ? "Loading…" : `${results.length} listing${results.length === 1 ? "" : "s"}`}
@@ -223,7 +296,10 @@ export default function Browse() {
               <AnimatedSelect
                 id="sort"
                 value={sort}
-                onChange={setSort}
+                onChange={(value) => {
+                  setSort(value);
+                  if (value === "nearby" && !userLocation) requestNearbyLocation();
+                }}
                 options={SORT_OPTIONS}
               />
             </div>
@@ -242,11 +318,10 @@ export default function Browse() {
             </div>
           ) : !loading && results.length === 0 ? (
             <div className="browse__empty">
-              <p>
-                {allListings.length === 0
-                  ? "No verified listings yet — the review queue is still empty."
-                  : "No listings match those filters — try widening your search."}
-              </p>
+              <h2>{allListings.length === 0 ? "No listings yet" : "No search results"}</h2>
+              <p>{allListings.length === 0
+                ? "No verified listings are available right now. Check back soon."
+                : "No listings match those filters. Try another location or widen your price range."}</p>
             </div>
           ) : (
             <AnimatePresence mode="wait">
@@ -258,12 +333,18 @@ export default function Browse() {
                 animate="visible"
                 exit={{ opacity: 0 }}
               >
-                {results.map((listing) => (
-                  <AnimatedCard
-                    key={listing.id}
-                    listing={listing}
-                    trustScore={trustScores[listing.id]}
-                  />
+                {results.map((listing, index) => (
+                  <Fragment key={listing.id}>
+                    <AnimatedCard listing={listing} trustScore={trustScores[listing.id]} />
+                    {index === 3 && (
+                      <article className="browse__house-ad">
+                        <span>Promotion</span>
+                        <h2>Have a place to rent?</h2>
+                        <p>Create a listing and connect with renters looking for a home.</p>
+                        <Link to="/listings/new" className="btn btn--secondary">List your property</Link>
+                      </article>
+                    )}
+                  </Fragment>
                 ))}
               </motion.div>
             </AnimatePresence>

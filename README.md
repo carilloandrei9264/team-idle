@@ -23,9 +23,12 @@ A verified rental marketplace for the Philippines, with a fairness-scored, publi
 - **Renters and buyers** browse document-reviewed rental listings and a regularly refreshed catalog of bank-acquired properties from major Philippine banks.
 - **Homeowners** list a room, unit, or house for rent; listings only go public after a verification step.
 - **Bookings** run through a calendar-based workflow with status tracking and conflict prevention.
+- **Availability calendar** shows confirmed stays before a renter submits a request; the owner-side confirmation flow remains the final conflict check.
 - **Trust & Fairness Score** ranks listings using completed booking history, ratings, and price fairness, not just recency or price.
+- **Browse** can prioritize nearby listings when the user grants location access; otherwise it falls back to trust score.
+- **User feedback** includes loading, empty, error, offline, slow-network, permission, and session states.
 - **Dispute trail** preserves a public record of reported issues and bad actor behavior.
-- **Loan calculator** helps users estimate financing for bank-acquired listings.
+- **Loan calculator** helps users estimate financing for bank-acquired listings with preset loan terms.
 
 ---
 
@@ -38,6 +41,7 @@ A verified rental marketplace for the Philippines, with a fairness-scored, publi
 | Auth | Firebase Authentication |
 | File uploads | Cloudinary |
 | Hosting | Firebase Hosting |
+| API | Node.js API routes in `api-server/` |
 | Serverless functions | Firebase Functions |
 | Bank scraper | Python (`requests` + `BeautifulSoup`) |
 | Scraper scheduling | GitHub Actions / local worker |
@@ -59,6 +63,7 @@ team-idle/
 │   └── routes/
 ├── public/                  # Static assets
 ├── functions/               # Firebase Functions
+├── api-server/              # Authenticated API routes and API tests
 ├── bank_scraper/            # Python scraper and demo data scripts
 │   ├── scraper.py
 │   ├── database.py
@@ -111,6 +116,11 @@ The app runs locally in development mode with Vite. For a production build:
 npm run build
 npm run preview
 ```
+
+Booking availability is loaded through the authenticated API in `api-server/`. Configure
+`VITE_API_BASE_URL` for the deployed API before building the web app. Availability shown
+in the calendar is advisory; the booking confirmation endpoint performs the final conflict
+check.
 
 If you need to point the app at a different Firebase project, update the config in `src/firebase.js` before running the app.
 

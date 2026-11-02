@@ -38,6 +38,10 @@ export function confirmBooking(bookingId) {
   return api(`/api/bookings/${encodeURIComponent(bookingId)}/confirm`, { method: "POST" });
 }
 
+export function getListingAvailability(listingId) {
+  return api(`/api/listings/${encodeURIComponent(listingId)}/availability`);
+}
+
 export function signPrivateDocumentUpload(listingId, kind, resourceType) {
   return api("/api/uploads/sign", {
     method: "POST",
