@@ -210,20 +210,40 @@ export default function BookingRequest() {
                 />
                 <div className="listing-form__grid">
                   <div className="field">
-                    <label className="field__label" htmlFor="booking-start">Check-in date</label>
-                    <input id="booking-start" className="field__input" type="date" min={startDateMin} value={startDate} onChange={(event) => setStartDate(event.target.value)} required />
+                    <label className="field__label" htmlFor="booking-start">Check-in date and time (PHT)</label>
+                    <input
+                      id="booking-start"
+                      className="field__input"
+                      type="datetime-local"
+                      min={`${startDateMin}T00:00`}
+                      step="60"
+                      value={startDate && startTime ? `${startDate}T${startTime}` : ""}
+                      onChange={(event) => {
+                        const [date = "", time = ""] = event.target.value.split("T");
+                        setStartDate(date);
+                        setStartTime(time);
+                        setError("");
+                      }}
+                      required
+                    />
                   </div>
                   <div className="field">
-                    <label className="field__label" htmlFor="booking-start-time">Check-in time (PHT)</label>
-                    <input id="booking-start-time" className="field__input" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} required />
-                  </div>
-                  <div className="field">
-                    <label className="field__label" htmlFor="booking-end">Check-out date</label>
-                    <input id="booking-end" className="field__input" type="date" min={startDate || today} value={endDate} onChange={(event) => setEndDate(event.target.value)} required />
-                  </div>
-                  <div className="field">
-                    <label className="field__label" htmlFor="booking-end-time">Check-out time (PHT)</label>
-                    <input id="booking-end-time" className="field__input" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} required />
+                    <label className="field__label" htmlFor="booking-end">Check-out date and time (PHT)</label>
+                    <input
+                      id="booking-end"
+                      className="field__input"
+                      type="datetime-local"
+                      min={startDate && startTime ? `${startDate}T${startTime}` : `${startDate || today}T00:00`}
+                      step="60"
+                      value={endDate && endTime ? `${endDate}T${endTime}` : ""}
+                      onChange={(event) => {
+                        const [date = "", time = ""] = event.target.value.split("T");
+                        setEndDate(date);
+                        setEndTime(time);
+                        setError("");
+                      }}
+                      required
+                    />
                   </div>
                 </div>
                 {availabilityLoading && <p className="listing-form__hint" role="status">Loading availability…</p>}

@@ -30,11 +30,11 @@ A rental marketplace prototype for the Philippines, with owner-submitted listing
 
 - **Renters** browse verified rental listings and request bookings. Browse can prioritize nearby listings when the user grants location access; otherwise it falls back to the normal trust-score ordering. Clearly labeled promoted content may also appear in Browse.
 - **Homeowners** list a room, unit, or house for rent; listings only go public after a verification step.
-- **Bookings** use date selection and calendar availability to help renters choose dates, with status tracking. Owner approvals serialize overlap checks through a per-listing lease; a backend-authoritative callable is not deployed.
+- **Bookings** use a calendar and combined check-in/check-out date-time inputs in Philippine time to help renters choose available stays, with status tracking. Owner approvals serialize overlap checks through a per-listing lease; a backend-authoritative callable is not deployed.
 - **Trust & Fairness Score** ranks listings using completed booking history, ratings, and price fairness, not just recency or price.
 - **Disputes** can be reviewed by admins; founded-dispute counts are shown on public accountability profiles.
 - **Public owner profiles** show verified listings and ratings, plus the email address or phone number only when the owner opts in. Shared contact details are publicly visible and have direct email/call actions.
-- **Loan calculator** helps users estimate financing for bank-acquired listings, with preset loan terms from 10 to 30 years.
+- **Loan calculator** helps users estimate financing for bank-acquired listings, with dropdowns for down payment (0-100%), annual interest (0-20%), and loan terms from 10 to 30 years.
 - **UI feedback** covers loading, empty and no-search-result states, errors, offline or slow connections, permission/session problems, form validation, and successful actions.
 
 ### Bank-acquired property catalog
