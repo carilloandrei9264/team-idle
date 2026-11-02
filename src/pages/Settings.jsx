@@ -69,6 +69,18 @@ export default function Settings({ adminMode = false }) {
         ))}
       </div>
     </section>
+    {!adminMode && (
+      <section className="settings-page__section" aria-labelledby="settings-membership-title">
+        <div className="settings-page__section-heading">
+          <div>
+            <h2 id="settings-membership-title">TrustHome Verified</h2>
+            <p>An optional profile badge is planned for members who complete TrustHome's review.</p>
+          </div>
+        </div>
+        <p><strong>Planned price: ₱99 per month</strong></p>
+        <p role="status">Not available yet. No payment is accepted and no account is upgraded.</p>
+      </section>
+    )}
   </>;
 
   if (adminMode) return <div className="admin-page settings-page">{content}</div>;

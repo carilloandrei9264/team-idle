@@ -17,6 +17,7 @@ serviceAccountKey*.json
 **/serviceAccountKey*.json
 *.pem
 .env*
+.firebase/*
 !.env*.example
 
 # Python

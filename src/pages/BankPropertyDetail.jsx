@@ -12,6 +12,8 @@ import {
 } from "../lib/loanCalculator.js";
 import "./UserPages.css";
 
+const LOAN_TERM_OPTIONS = [10, 15, 20, 25, 30];
+
 export default function BankPropertyDetail() {
   const { propertyId } = useParams();
   const [property, setProperty] = useState(null);
@@ -121,7 +123,12 @@ export default function BankPropertyDetail() {
               <div className="listing-form__grid">
                 <Field id="loan-down" label="Down payment (%)" value={downPayment} setValue={setDownPayment} />
                 <Field id="loan-rate" label="Annual interest (%)" value={interestRate} setValue={setInterestRate} />
-                <Field id="loan-years" label="Loan term (years)" value={termYears} setValue={setTermYears} />
+                <div className="field">
+                  <label className="field__label" htmlFor="loan-years">Loan term</label>
+                  <select id="loan-years" className="field__input" value={termYears} onChange={(event) => setTermYears(event.target.value)}>
+                    {LOAN_TERM_OPTIONS.map((years) => <option key={years} value={years}>{years} years</option>)}
+                  </select>
+                </div>
                 <div className="field">
                   <label className="field__label">Estimated loan amount</label>
                   <div className="field__static">{formatCurrency(principalAmount, 2)}</div>

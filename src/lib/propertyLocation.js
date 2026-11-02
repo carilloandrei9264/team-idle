@@ -78,3 +78,16 @@ export function approximateMapCenter(location) {
   const { latitude, longitude } = ngeohash.decode(location.geohash);
   return [latitude, longitude];
 }
+
+export function approximateDistanceKm(location, latitude, longitude) {
+  const center = approximateMapCenter(location);
+  if (!center || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return Number.POSITIVE_INFINITY;
+  const [targetLatitude, targetLongitude] = center;
+  const radians = (degrees) => degrees * Math.PI / 180;
+  const latitudeDelta = radians(targetLatitude - latitude);
+  const longitudeDelta = radians(targetLongitude - longitude);
+  const a = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(radians(latitude)) * Math.cos(radians(targetLatitude))
+    * Math.sin(longitudeDelta / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}

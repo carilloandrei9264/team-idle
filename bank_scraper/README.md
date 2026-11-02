@@ -1,8 +1,10 @@
 # Bank Property Scraper — Starter Project
 
-Supports the curated scraping architecture for publicly listed acquired/foreclosed properties from BDO, Landbank, and Metrobank. Metrobank is the only active production source at present because it already provides sufficient catalog supply.
-directly into your team's **Firestore** database, using each listing's own reference
-number as part of the document ID so re-running the scraper updates instead of duplicating.
+The scraper contains parsers for publicly listed acquired/foreclosed properties from BDO, Landbank, and Metrobank. **Metrobank is the only source currently intended for production writes.** The Landbank parser is unverified, and the BDO parser still contains a placeholder endpoint.
+
+The Metrobank scraper writes normalized records to your team's **Firestore** database,
+using each listing's reference number in the document ID so repeat runs update records
+instead of duplicating them.
 
 ## Firestore setup (do this once, per machine that runs the scraper)
 
@@ -39,10 +41,17 @@ venv\Scripts\activate        # Windows
 source venv/bin/activate     # Mac/Linux
 pip install -r requirements.txt
 python scraper.py            # runs once, immediately
-python scraper.py --dry-run landbank metrobank  # parse sources without Firestore writes
+python scraper.py --dry-run metrobank           # inspect the active source without Firestore writes
+python scraper.py --dry-run landbank             # diagnostic only; parser is unverified
+python scraper.py --dry-run bdo                   # diagnostic only; endpoint is a placeholder
 python seed_demo_data.py --dry-run              # preview synthetic demo data
 python seed_demo_data.py                        # write synthetic demo data to Firestore
 ```
+
+`python scraper.py` defaults to Metrobank. The command-line runner and admin worker
+currently accept explicitly selected BDO or Landbank parsers too; they do not enforce a
+production-source allowlist. Do not pass or queue those sources for normal writes until
+their parser and data quality have been verified.
 
 ## Files
 
@@ -130,10 +139,11 @@ The React admin button creates a `scraperJobs` document with status `queued`. It
 run Python in the browser. Start `python worker.py` in a trusted Python environment to
 poll that collection, run the requested banks, write `bankProperties`, and mark the job
 `completed` or `failed`.
-For the first live parser test, run only the two verified source strategies:
+For the first live parser test, use Metrobank only. Dry runs for BDO and Landbank are
+diagnostic and do not write to Firestore:
 
 ```bash
-python scraper.py --dry-run landbank metrobank
+python scraper.py --dry-run metrobank
 ```
 
-BDO and Landbank remain future integrations. They must not be enabled in production until their selectors/API behavior and data quality are verified. Metrobank remains the default production source.
+BDO and Landbank remain future integrations. Metrobank remains the default production source.
