@@ -192,63 +192,65 @@ export default function BookingRequest() {
               <div><p className="user-page__eyebrow">Request a stay</p><h1>{listing.title}</h1><p>{formatCurrency(listing.price)} / {listing.pricePeriod || "month"}</p></div>
             </header>
             <form className="listing-form" onSubmit={handleSubmit} aria-describedby={error ? "booking-form-error" : undefined}>
-              <section className="user-page__empty listing-form__section">
+              <section className="user-page__empty listing-form__section booking-request__section">
                 <div className="account-card__heading">
                   <CalendarDays size={20} aria-hidden="true" />
                   <div><h2>Choose your stay</h2><p>Select check-in and check-out times in Philippine time.</p></div>
                 </div>
-                <BookingAvailabilityCalendar
-                  blockedRanges={blockedRanges}
-                  availabilityDate={listing.availabilityDate}
-                  startDate={startDate}
-                  endDate={endDate}
-                  onSelectDate={(nextStart, nextEnd) => {
-                    setStartDate(nextStart);
-                    setEndDate(nextEnd);
-                    setError("");
-                  }}
-                />
-                <div className="listing-form__grid">
-                  <div className="field">
-                    <label className="field__label" htmlFor="booking-start">Check-in date and time (PHT)</label>
-                    <input
-                      id="booking-start"
-                      className="field__input"
-                      type="datetime-local"
-                      min={`${startDateMin}T00:00`}
-                      step="60"
-                      value={startDate && startTime ? `${startDate}T${startTime}` : ""}
-                      onChange={(event) => {
-                        const [date = "", time = ""] = event.target.value.split("T");
-                        setStartDate(date);
-                        setStartTime(time);
-                        setError("");
-                      }}
-                      required
-                    />
-                  </div>
-                  <div className="field">
-                    <label className="field__label" htmlFor="booking-end">Check-out date and time (PHT)</label>
-                    <input
-                      id="booking-end"
-                      className="field__input"
-                      type="datetime-local"
-                      min={startDate && startTime ? `${startDate}T${startTime}` : `${startDate || today}T00:00`}
-                      step="60"
-                      value={endDate && endTime ? `${endDate}T${endTime}` : ""}
-                      onChange={(event) => {
-                        const [date = "", time = ""] = event.target.value.split("T");
-                        setEndDate(date);
-                        setEndTime(time);
-                        setError("");
-                      }}
-                      required
-                    />
+                <div className="booking-request__layout">
+                  <BookingAvailabilityCalendar
+                    blockedRanges={blockedRanges}
+                    availabilityDate={listing.availabilityDate}
+                    startDate={startDate}
+                    endDate={endDate}
+                    onSelectDate={(nextStart, nextEnd) => {
+                      setStartDate(nextStart);
+                      setEndDate(nextEnd);
+                      setError("");
+                    }}
+                  />
+                  <div className="booking-request__fields">
+                    <div className="field">
+                      <label className="field__label" htmlFor="booking-start">Check-in date and time (PHT)</label>
+                      <input
+                        id="booking-start"
+                        className="field__input"
+                        type="datetime-local"
+                        min={`${startDateMin}T00:00`}
+                        step="60"
+                        value={startDate && startTime ? `${startDate}T${startTime}` : ""}
+                        onChange={(event) => {
+                          const [date = "", time = ""] = event.target.value.split("T");
+                          setStartDate(date);
+                          setStartTime(time);
+                          setError("");
+                        }}
+                        required
+                      />
+                    </div>
+                    <div className="field">
+                      <label className="field__label" htmlFor="booking-end">Check-out date and time (PHT)</label>
+                      <input
+                        id="booking-end"
+                        className="field__input"
+                        type="datetime-local"
+                        min={startDate && startTime ? `${startDate}T${startTime}` : `${startDate || today}T00:00`}
+                        step="60"
+                        value={endDate && endTime ? `${endDate}T${endTime}` : ""}
+                        onChange={(event) => {
+                          const [date = "", time = ""] = event.target.value.split("T");
+                          setEndDate(date);
+                          setEndTime(time);
+                          setError("");
+                        }}
+                        required
+                      />
+                    </div>
+                    {availabilityLoading && <p className="listing-form__hint" role="status">Loading availability…</p>}
+                    {availabilityUnavailable && <p className="listing-form__hint" role="alert">Availability could not be loaded. Dates may be out of date; the owner will recheck for conflicts before confirming.</p>}
+                    {!availabilityLoading && !availabilityUnavailable && blockedRanges.length === 0 && <p className="listing-form__hint">No confirmed stays are currently marked unavailable.</p>}
                   </div>
                 </div>
-                {availabilityLoading && <p className="listing-form__hint" role="status">Loading availability…</p>}
-                {availabilityUnavailable && <p className="listing-form__hint" role="alert">Availability could not be loaded. Dates may be out of date; the owner will recheck for conflicts before confirming.</p>}
-                {!availabilityLoading && !availabilityUnavailable && blockedRanges.length === 0 && <p className="listing-form__hint">No confirmed stays are currently marked unavailable.</p>}
               </section>
               {error && <p id="booking-form-error" className="user-page__form-error" role="alert">{error}</p>}
               <button type="submit" className="btn btn--primary listing-form__submit" disabled={submitting || !isOnline}>
