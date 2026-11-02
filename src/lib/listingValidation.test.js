@@ -1,0 +1,146 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  countWords,
+  MIN_DESCRIPTION_WORDS,
+  validateListingForm,
+} from "./listingValidation.js";
+
+const validForm = {
+  title: "Bright apartment",
+  city: "Cabuyao",
+  price: "12000",
+  address: "Banay-Banay, Cabuyao",
+  bedrooms: "2",
+  bathrooms: "1",
+  availabilityDate: "2026-10-01",
+  amenities: ["WiFi"],
+  showingWindows: { Monday: { enabled: true, start: "09:00", end: "17:00" } },
+  description: Array(MIN_DESCRIPTION_WORDS).fill("property").join(" "),
+};
+
+test("countWords ignores repeated whitespace", () => {
+  assert.equal(countWords("  bright   apartment home "), 3);
+});
+
+test("a complete listing intake passes validation", () => {
+  assert.deepEqual(validateListingForm({
+    form: validForm,
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  }), []);
+});
+
+test("short but meaningful descriptions remain valid when they are not empty", () => {
+  const errors = validateListingForm({
+    form: { ...validForm, description: "Cozy one-bedroom unit with balcony, natural light, and a shared laundry area close to the station." },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+
+  assert.deepEqual(errors, []);
+});
+
+test("sale listings do not require a rental term", () => {
+  const errors = validateListingForm({
+    form: { ...validForm, listingPurpose: "sale", pricePeriod: "total", rentalTerm: "" },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+
+  assert.deepEqual(errors, []);
+});
+
+test("rental listings require a supported rental term", () => {
+  const errors = validateListingForm({
+    form: { ...validForm, listingPurpose: "rent", rentalTerm: "weekly" },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+
+  assert.match(errors.join(" "), /short-term or long-term/);
+});
+
+test("condition and furnishing details remain optional but validate when supplied", () => {
+  const requiredOnlyErrors = validateListingForm({
+    form: validForm,
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+  assert.deepEqual(requiredOnlyErrors, []);
+
+  const supportedDetailsErrors = validateListingForm({
+    form: { ...validForm, propertyCondition: "good", furnishingStatus: "partially_furnished" },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+  assert.deepEqual(supportedDetailsErrors, []);
+
+  const unsupportedDetailsErrors = validateListingForm({
+    form: { ...validForm, propertyCondition: "unknown", furnishingStatus: "unknown" },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+  assert.match(unsupportedDetailsErrors.join(" "), /condition/i);
+  assert.match(unsupportedDetailsErrors.join(" "), /furnishing/i);
+});
+
+test("invalid or malformed map pins are rejected before submission", () => {
+  const errors = validateListingForm({
+    form: { ...validForm, mapLocation: { geohash: "bad", precision: "approximate" } },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+
+  assert.match(errors.join(" "), /map location|approximate/i);
+});
+
+test("listing validation reports missing documents, photos, and required fields", () => {
+  const errors = validateListingForm({
+    form: { ...validForm, address: "", amenities: [], showingWindows: {}, description: "" },
+    photos: [],
+    ownershipDocument: null,
+    governmentId: null,
+  });
+
+  assert.match(errors.join(" "), /address|amenity|Description|photos|ownership|government-issued/i);
+});
+
+test("listing price must be greater than zero", () => {
+  const errors = validateListingForm({
+    form: { ...validForm, price: "0" },
+    photos: [{ name: "one" }, { name: "two" }, { name: "three" }, { name: "four" }],
+    ownershipDocument: { name: "title.pdf" },
+    governmentId: { name: "id.jpg" },
+  });
+
+  assert.match(errors.join(" "), /price greater than 0/i);
+});
+
+test("listing files enforce accepted types and size limits", () => {
+  const errors = validateListingForm({
+    form: validForm,
+    photos: [
+      { type: "image/gif", size: 1024 },
+      { type: "image/jpeg", size: 6 * 1024 * 1024 },
+      { type: "image/png", size: 1024 },
+      { type: "image/webp", size: 1024 },
+    ],
+    ownershipDocument: { type: "application/pdf", size: 11 * 1024 * 1024 },
+    governmentId: { type: "image/gif", size: 1024 },
+  });
+
+  assert.match(errors.join(" "), /JPEG, PNG, or WebP/i);
+  assert.match(errors.join(" "), /5 MB or smaller/i);
+  assert.match(errors.join(" "), /10 MB or smaller/i);
+  assert.match(errors.join(" "), /Government ID files/i);
+});

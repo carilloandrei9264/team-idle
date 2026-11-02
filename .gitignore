@@ -11,6 +11,19 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.firebase/
+
+# Firebase Admin credentials must never be committed.
+serviceAccountKey.json
+**/serviceAccountKey.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
 
 # Editor directories and files
 .vscode/*

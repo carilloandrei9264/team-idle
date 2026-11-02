@@ -1,0 +1,590 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isActiveUser() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function isAdmin() {
+      return isActiveUser()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function hasValidPublicMapLocation(data) {
+      return !data.keys().hasAny(['mapLocation'])
+        || data.mapLocation == null
+        || (data.mapLocation is map
+          && data.mapLocation.precision == 'approximate'
+          && data.mapLocation.keys().hasOnly(['geohash', 'precision'])
+          && data.mapLocation.geohash is string
+          && data.mapLocation.geohash.matches('^[0123456789bcdefghjkmnpqrstuvwxyz]{5}$'));
+    }
+
+    function hasNoPublicVerificationUrls(data) {
+      return !data.keys().hasAny(['verificationDocUrl', 'ownershipDocumentUrl', 'governmentIdUrl']);
+    }
+
+    function hasSafePublicOwnerName(data) {
+      return !data.keys().hasAny(['ownerName'])
+        || (data.ownerName is string && !data.ownerName.matches('.*@.*'));
+    }
+
+    function hasValidListingPurpose(data) {
+      return !data.keys().hasAny(['listingPurpose'])
+        || (data.listingPurpose in ['rent', 'sale']
+          && (data.listingPurpose == 'sale'
+            ? data.rentalTerm == null
+            : data.rentalTerm in ['short_term', 'long_term']));
+    }
+
+    function hasExplicitListingPurpose(data) {
+      return data.keys().hasAny(['listingPurpose']) && hasValidListingPurpose(data);
+    }
+
+    function hasValidListingDetails(data) {
+      return (!data.keys().hasAny(['propertyCondition'])
+          || data.propertyCondition == null
+          || data.propertyCondition in ['new', 'excellent', 'good', 'fair', 'needs_repair'])
+        && (!data.keys().hasAny(['furnishingStatus'])
+          || data.furnishingStatus == null
+          || data.furnishingStatus in ['furnished', 'partially_furnished', 'unfurnished']);
+    }
+
+    function hasValidListingCore(data) {
+      return data.title is string
+        && data.title.size() > 0
+        && data.title.size() <= 120
+        && data.description is string
+        && data.description.size() > 0
+        && data.description.size() <= 4000
+        && data.price is number
+        && data.price > 0
+        && data.bedrooms is number
+        && data.bedrooms >= 0
+        && data.bathrooms is number
+        && data.bathrooms >= 0
+        && data.photoUrls is list
+        && data.photoUrls.size() >= 4
+        && data.photoUrls.size() <= 12
+        && data.city is string
+        && data.city.size() > 0;
+    }
+
+    function isBookableListingOwner(listingId) {
+      let listingPath = /databases/$(database)/documents/listings/$(listingId);
+      return isActiveUser()
+        && exists(listingPath)
+        && get(listingPath).data.ownerId == request.auth.uid
+        && get(listingPath).data.verificationStatus == 'verified'
+        && (!get(listingPath).data.keys().hasAny(['listingPurpose'])
+          || get(listingPath).data.listingPurpose == 'rent');
+    }
+
+    function hasReleasedConfirmationLock(listingId) {
+      let lockPath = /databases/$(database)/documents/bookingConfirmationLocks/$(listingId);
+      return existsAfter(lockPath)
+        && exists(lockPath)
+        && get(lockPath).data.locked == true
+        && get(lockPath).data.leaseExpiresAt > request.time
+        && getAfter(lockPath).data.locked == false
+        && getAfter(lockPath).data.token == get(lockPath).data.token
+        && getAfter(lockPath).data.version == get(lockPath).data.version
+        && getAfter(lockPath).data.updatedAt == request.time;
+    }
+
+    function hasValidConfirmationLease(data) {
+      return data.keys().hasOnly(['locked', 'token', 'leaseExpiresAt', 'version', 'updatedAt'])
+        && data.locked == true
+        && data.token is string
+        && data.token.size() >= 16
+        && data.leaseExpiresAt is timestamp
+        && data.leaseExpiresAt > request.time
+        && data.leaseExpiresAt <= request.time + duration.value(120, 's')
+        && data.version is int
+        && data.updatedAt == request.time;
+    }
+
+    function hasValidListingAvailability(listingId) {
+      let bookingId = request.resource.data.lastBookingId;
+      let bookingPath = /databases/$(database)/documents/bookings/$(bookingId);
+      let lastRange = request.resource.data.blocked[request.resource.data.blocked.size() - 1];
+      return request.resource.data.keys().hasOnly(['ownerId', 'blocked', 'lastBookingId', 'updatedAt'])
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.blocked is list
+        && request.resource.data.blocked.size() > 0
+        && request.resource.data.blocked.size() <= 100
+        && request.resource.data.updatedAt == request.time
+        && bookingId is string
+        && existsAfter(bookingPath)
+        && getAfter(bookingPath).data.ownerId == request.auth.uid
+        && getAfter(bookingPath).data.listingId == listingId
+        && getAfter(bookingPath).data.status == 'Confirmed'
+        && lastRange is map
+        && lastRange.keys().hasOnly(['start', 'end'])
+        && lastRange.start == getAfter(bookingPath).data.startDate
+        && lastRange.end == getAfter(bookingPath).data.endDate;
+    }
+
+    // User profiles are private to the account owner and admins.
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId)
+        && request.resource.data.role == 'user'
+        && request.resource.data.status == 'active';
+      allow update: if (isAdmin()
+          && !(userId == request.auth.uid && request.resource.data.status != resource.data.status))
+        || (isOwner(userId)
+          && (
+            (
+              request.resource.data.role == resource.data.role
+              && request.resource.data.status == resource.data.status
+            )
+            || (
+              request.resource.data.role == 'user'
+              && request.resource.data.status == 'active'
+              && (
+                !resource.data.keys().hasAny(['role'])
+                || !resource.data.keys().hasAny(['status'])
+                || (resource.data.role == 'user' && resource.data.status == 'active')
+              )
+            )
+          ));
+      allow delete: if false;
+    }
+
+    // Public users can read verified listings. Owners can read their own
+    // listings, including pending and rejected submissions.
+    match /listings/{listingId} {
+      allow read: if resource.data.verificationStatus == 'verified'
+        || isOwner(resource.data.ownerId)
+        || isAdmin();
+
+      allow create: if isActiveUser()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.verificationStatus == 'pending'
+        && !request.resource.data.keys().hasAny(['address'])
+        && hasValidListingCore(request.resource.data)
+        && hasSafePublicOwnerName(request.resource.data)
+        && hasExplicitListingPurpose(request.resource.data)
+        && hasValidListingDetails(request.resource.data)
+        && hasNoPublicVerificationUrls(request.resource.data)
+        && hasValidPublicMapLocation(request.resource.data);
+
+      // Admins control verification fields. Owners may edit their own listing
+      // fields and resubmit rejected listings, but cannot self-approve them.
+      allow update: if isAdmin()
+        || (isActiveUser()
+          && isOwner(resource.data.ownerId)
+          && request.resource.data.ownerId == resource.data.ownerId
+          && hasValidListingCore(request.resource.data)
+          && hasSafePublicOwnerName(request.resource.data)
+          && hasValidListingPurpose(request.resource.data)
+          && hasValidListingDetails(request.resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'description', 'type', 'listingPurpose', 'rentalTerm', 'propertyCondition', 'furnishingStatus', 'city', 'price', 'pricePeriod', 'mapLocation',
+            'bedrooms', 'bathrooms', 'floorArea', 'lotArea', 'availabilityDate',
+            'amenities', 'showingWindows', 'photoUrls', 'verificationDocUrl',
+            'ownershipDocumentUrl', 'governmentIdUrl', 'resubmissionRequested',
+            'verificationStatus', 'updatedAt'
+          ])
+          && request.resource.data.verificationStatus == 'pending'
+          && !request.resource.data.keys().hasAny(['address'])
+          && hasNoPublicVerificationUrls(request.resource.data)
+          && hasValidPublicMapLocation(request.resource.data));
+
+      allow delete: if isAdmin();
+    }
+
+    // Exact listing addresses are private. Public listing documents contain
+    // only the owner's deliberately coarsened map location.
+    match /listingPrivate/{listingId} {
+      allow read: if isActiveUser()
+        && (isAdmin() || isOwner(resource.data.ownerId));
+      allow create: if isActiveUser()
+        && request.resource.data.keys().hasOnly([
+          'ownerId', 'address', 'ownershipDocumentUrl', 'governmentIdUrl', 'updatedAt'
+        ])
+        && ((isOwner(request.resource.data.ownerId)
+            && request.resource.data.address is string
+            && request.resource.data.address.size() > 0
+            && getAfter(/databases/$(database)/documents/listings/$(listingId)).data.ownerId == request.auth.uid)
+          || (isAdmin()
+            && request.resource.data.ownerId == get(/databases/$(database)/documents/listings/$(listingId)).data.ownerId));
+      allow update: if isAdmin()
+        || (isActiveUser()
+          && isOwner(resource.data.ownerId)
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'address', 'ownershipDocumentUrl', 'governmentIdUrl', 'updatedAt'
+          ])
+          && request.resource.data.address is string
+          && request.resource.data.address.size() > 0
+          && (!request.resource.data.keys().hasAny(['ownershipDocumentUrl']) || request.resource.data.ownershipDocumentUrl is string)
+          && (!request.resource.data.keys().hasAny(['governmentIdUrl']) || request.resource.data.governmentIdUrl is string));
+      allow delete: if isAdmin() || (isActiveUser() && isOwner(resource.data.ownerId));
+    }
+
+    // Public catalog data is readable only while active. Admins may inspect
+    // delisted records as well.
+    match /bankProperties/{propertyId} {
+      allow read: if resource.data.status == 'active' || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /bookingConfirmationLocks/{listingId} {
+      allow read: if isBookableListingOwner(listingId);
+      allow create: if isBookableListingOwner(listingId)
+        && hasValidConfirmationLease(request.resource.data)
+        && request.resource.data.version == 1;
+      allow update: if isBookableListingOwner(listingId)
+        && resource.data.version is int
+        && (
+          ((!resource.data.keys().hasAny(['locked'])
+              || resource.data.locked == false
+              || resource.data.leaseExpiresAt <= request.time)
+            && hasValidConfirmationLease(request.resource.data)
+            && request.resource.data.version == resource.data.version + 1
+            && request.resource.data.token != resource.data.token)
+          || (resource.data.locked == true
+            && resource.data.leaseExpiresAt > request.time
+            && request.resource.data.keys().hasOnly(['locked', 'token', 'leaseExpiresAt', 'version', 'updatedAt'])
+            && request.resource.data.locked == false
+            && request.resource.data.token == resource.data.token
+            && request.resource.data.leaseExpiresAt == resource.data.leaseExpiresAt
+            && request.resource.data.version == resource.data.version
+            && request.resource.data.updatedAt == request.time)
+        );
+      allow delete: if false;
+    }
+
+    match /listingAvailability/{listingId} {
+      allow read: if true;
+      allow create, update: if isActiveUser()
+        && get(/databases/$(database)/documents/listings/$(listingId)).data.ownerId == request.auth.uid
+        && hasValidListingAvailability(listingId);
+      allow delete: if false;
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isActiveUser()
+        && (resource.data.renterId == request.auth.uid
+          || resource.data.ownerId == request.auth.uid
+          || isAdmin());
+      allow create: if isActiveUser()
+        && request.resource.data.keys().hasOnly([
+          'listingId', 'listingTitle', 'listingPhotoUrl', 'ownerId', 'ownerName',
+          'renterId', 'renterName', 'listingPurpose', 'rentalTerm', 'startDate',
+          'endDate', 'bookingTimeZone', 'price', 'pricePeriod', 'status',
+          'createdAt', 'updatedAt', 'bookingReference'
+        ])
+        && request.resource.data.renterId == request.auth.uid
+        && request.resource.data.ownerId != request.auth.uid
+        && request.resource.data.status == 'Pending'
+        && request.resource.data.startDate is timestamp
+        && request.resource.data.endDate is timestamp
+        && request.resource.data.startDate > request.time
+        && request.resource.data.startDate < request.resource.data.endDate
+        && request.resource.data.bookingTimeZone == 'Asia/Manila'
+        && request.resource.data.price is number
+        && request.resource.data.price > 0
+        && request.resource.data.bookingReference is string
+        && request.resource.data.listingId is string
+        && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.verificationStatus == 'verified'
+        && (!get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.keys().hasAny(['listingPurpose'])
+          || get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.listingPurpose == 'rent')
+        && request.resource.data.price == get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.price
+        && request.resource.data.pricePeriod == get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.pricePeriod
+        && get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.ownerId == request.resource.data.ownerId;
+      allow update: if isAdmin()
+        || (isActiveUser()
+          && resource.data.ownerId == request.auth.uid
+          && resource.data.status == 'Pending'
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.status == 'Confirmed'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'updatedAt', 'confirmedAt', 'address'
+          ])
+          && request.resource.data.address is string
+          && request.resource.data.address == get(/databases/$(database)/documents/listingPrivate/$(resource.data.listingId)).data.address
+          && hasReleasedConfirmationLock(resource.data.listingId))
+        || (isActiveUser() && resource.data.renterId == request.auth.uid
+          && resource.data.status == 'Confirmed'
+          && resource.data.endDate is timestamp
+          && ((resource.data.keys().hasAny(['bookingTimeZone'])
+              && resource.data.bookingTimeZone == 'Asia/Manila'
+              && resource.data.endDate <= request.time)
+            || (!resource.data.keys().hasAny(['bookingTimeZone'])
+              && resource.data.endDate + duration.value(24, 'h') <= request.time))
+          && request.resource.data.status == 'Completed'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'completedAt', 'updatedAt', 'completionRequestedAt',
+            'completionRequestedBy', 'ownerConfirmedCompletion'
+          ])
+          && request.resource.data.completedAt is timestamp
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.completionRequestedAt is timestamp
+          && request.resource.data.completionRequestedBy == 'renter'
+          && request.resource.data.ownerConfirmedCompletion == false)
+        || (isActiveUser() && resource.data.ownerId == request.auth.uid
+          && resource.data.status == 'Completed'
+          && request.resource.data.status == 'Completed'
+          && (!resource.data.keys().hasAny(['ownerConfirmedCompletion'])
+            || resource.data.ownerConfirmedCompletion == false)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'ownerConfirmedCompletion', 'completionConfirmedAt', 'updatedAt'
+          ])
+          && request.resource.data.ownerConfirmedCompletion == true
+          && request.resource.data.completionConfirmedAt is timestamp
+          && request.resource.data.updatedAt is timestamp)
+        || (isActiveUser() && resource.data.ownerId == request.auth.uid
+          && resource.data.status == 'Pending'
+          && request.resource.data.status == 'Declined'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'declinedAt', 'updatedAt'
+          ])
+          && request.resource.data.declinedAt is timestamp
+          && request.resource.data.updatedAt is timestamp)
+        || (isActiveUser() && resource.data.renterId == request.auth.uid
+          && resource.data.status == 'Pending'
+          && request.resource.data.status == 'Cancelled'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'cancelledAt', 'updatedAt'
+          ])
+          && request.resource.data.cancelledAt is timestamp
+          && request.resource.data.updatedAt is timestamp)
+        || (isActiveUser() && resource.data.renterId == request.auth.uid
+          && resource.data.status in ['Confirmed', 'Completed']
+          && request.resource.data.status == 'Disputed'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'disputedAt', 'disputeId', 'updatedAt'
+          ]))
+        || (isActiveUser() && resource.data.renterId == request.auth.uid
+          && resource.data.status == 'Confirmed'
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'depositReference', 'paymentStatus', 'updatedAt'
+          ])
+          && request.resource.data.depositReference is string
+          && request.resource.data.depositReference.size() > 0
+          && request.resource.data.paymentStatus == 'reference_submitted'
+          && (!resource.data.keys().hasAny(['paymentStatus'])
+            || resource.data.paymentStatus != 'payment_received'))
+        || (isActiveUser() && resource.data.ownerId == request.auth.uid
+          && resource.data.status == 'Confirmed'
+          && request.resource.data.status == resource.data.status
+          && resource.data.keys().hasAny(['depositReference'])
+          && resource.data.depositReference is string
+          && resource.data.depositReference.size() > 0
+          && (!resource.data.keys().hasAny(['paymentStatus'])
+            || resource.data.paymentStatus == 'reference_submitted')
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'paymentStatus', 'updatedAt'
+          ])
+          && request.resource.data.paymentStatus == 'payment_received');
+      allow delete: if isActiveUser()
+        && resource.data.ownerId == request.auth.uid
+        && resource.data.status == 'Pending';
+    }
+
+    match /ratings/{ratingId} {
+      allow read: if true;
+      allow create: if isActiveUser()
+        && request.resource.data.keys().hasOnly([
+          'bookingId', 'listingId', 'ownerId', 'renterId', 'reviewerId',
+          'reviewerName', 'score', 'comment', 'createdAt'
+        ])
+        && request.resource.data.reviewerId == request.auth.uid
+        && request.resource.data.bookingId is string
+        && ratingId == request.resource.data.bookingId + '_' + request.auth.uid
+        && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.renterId == request.auth.uid
+        && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status == 'Completed'
+        && request.resource.data.listingId == get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.listingId
+        && request.resource.data.renterId == request.auth.uid
+        && request.resource.data.ownerId == get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.ownerId
+        && request.resource.data.score is int
+        && request.resource.data.score >= 1
+        && request.resource.data.score <= 5
+        && request.resource.data.reviewerName is string
+        && request.resource.data.reviewerName.size() > 0
+        && !request.resource.data.reviewerName.matches('.*@.*')
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() >= 1
+        && request.resource.data.comment.size() <= 1000;
+      allow update, delete: if isAdmin();
+    }
+
+    match /disputes/{disputeId} {
+      allow read: if isAdmin()
+        || (isActiveUser() && resource.data.raisedBy == request.auth.uid);
+      allow create: if isActiveUser()
+        && request.resource.data.raisedBy == request.auth.uid
+        && request.resource.data.status == 'Open'
+        && request.resource.data.bookingId is string
+        && request.resource.data.ownerId is string
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() >= 10
+        && (!request.resource.data.keys().hasAny(['evidenceUrls'])
+          || (request.resource.data.evidenceUrls is list
+            && request.resource.data.evidenceUrls.size() <= 5))
+        && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.renterId == request.auth.uid
+        && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status in ['Confirmed', 'Completed']
+        && request.resource.data.ownerId == get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.ownerId
+        && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status == 'Disputed'
+        && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.disputeId == disputeId;
+      allow update: if isAdmin()
+        && request.resource.data.status in ['Founded', 'Dismissed']
+        && request.resource.data.resolutionNotes is string
+        && request.resource.data.resolutionNotes.size() >= 10
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'resolutionNotes', 'resolvedAt', 'resolvedBy'
+        ]);
+      allow delete: if false;
+    }
+
+    match /publicProfiles/{profileId} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        || (isActiveUser() && isOwner(profileId)
+          && request.resource.data.keys().hasOnly([
+            'userId', 'name', 'contactEmail', 'contactPhone', 'updatedAt'
+          ])
+          && request.resource.data.userId == profileId
+          && request.resource.data.name is string
+          && (!request.resource.data.keys().hasAny(['contactEmail'])
+            || request.resource.data.contactEmail == request.auth.token.email)
+          && (!request.resource.data.keys().hasAny(['contactPhone'])
+            || (request.resource.data.contactPhone is string
+              && request.resource.data.contactPhone.matches('^\\+[1-9][0-9]{7,14}$'))));
+      allow delete: if false;
+    }
+
+    // Public count-only accountability summaries. Private dispute reports
+    // remain readable only by the reporter and admins.
+    match /publicAccountability/{userId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    function canAccessNotification(recipientId, type) {
+      return isActiveUser()
+        && ((isAdmin() && recipientId == '__admins__' && type in ['dispute_update', 'listing_submitted'])
+          || (!isAdmin() && recipientId == request.auth.uid));
+    }
+
+    function hasValidAccountActivity(data) {
+      return data.keys().hasOnly([
+        'actorId', 'actorRole', 'targetUserId', 'entityType', 'entityId',
+        'action', 'summary', 'details', 'createdAt'
+      ])
+        && data.actorId == request.auth.uid
+        && data.actorId is string
+        && data.actorRole in ['user', 'admin']
+        && ((data.actorRole == 'admin' && isAdmin()) || (data.actorRole == 'user' && isActiveUser()))
+        && (!data.keys().hasAny(['targetUserId']) || (data.targetUserId is string && data.targetUserId.size() > 0))
+        && data.entityType in ['account', 'listing', 'booking', 'dispute', 'notification', 'user']
+        && data.entityId is string
+        && data.entityId.size() > 0
+        && data.action is string
+        && data.action.size() > 0
+        && data.action.size() <= 50
+        && data.summary is string
+        && data.summary.size() > 0
+        && data.summary.size() <= 200
+        && data.details is map
+        && data.createdAt == request.time
+        && (!data.keys().hasAny(['targetUserId'])
+          || data.targetUserId == request.auth.uid
+          || isAdmin()
+          || (data.entityType == 'booking'
+            && data.entityId is string
+            && data.targetUserId is string
+            && ((get(/databases/$(database)/documents/bookings/$(data.entityId)).data.renterId == request.auth.uid
+                && get(/databases/$(database)/documents/bookings/$(data.entityId)).data.ownerId == data.targetUserId)
+              || (get(/databases/$(database)/documents/bookings/$(data.entityId)).data.ownerId == request.auth.uid
+                && get(/databases/$(database)/documents/bookings/$(data.entityId)).data.renterId == data.targetUserId))));
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if canAccessNotification(resource.data.recipientId, resource.data.type);
+      allow update: if canAccessNotification(resource.data.recipientId, resource.data.type)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read is bool;
+      allow create: if isActiveUser()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.recipientId is string
+        && request.resource.data.type in [
+          'listing_review', 'listing_submitted', 'booking_update',
+          'dispute_update', 'booking_request'
+        ]
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 100
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 300
+        && request.resource.data.read == false
+        && ((isAdmin() && request.resource.data.recipientId != '__admins__')
+          || (!isAdmin() && request.resource.data.recipientId == request.auth.uid)
+          || (!isAdmin() && request.resource.data.entityType == 'booking'
+            && request.resource.data.entityId is string
+            && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.renterId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.ownerId == request.resource.data.recipientId)
+          || (!isAdmin() && request.resource.data.entityType == 'booking'
+            && request.resource.data.entityId is string
+            && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.ownerId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.entityId)).data.renterId == request.resource.data.recipientId)
+          || (!isAdmin() && request.resource.data.recipientId == '__admins__'
+            && request.resource.data.type == 'listing_submitted'
+            && request.resource.data.entityType == 'listing'
+            && request.resource.data.entityId is string
+            && getAfter(/databases/$(database)/documents/listings/$(request.resource.data.entityId)).data.ownerId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/listings/$(request.resource.data.entityId)).data.verificationStatus == 'pending')
+          || (!isAdmin() && request.resource.data.recipientId == '__admins__'
+            && request.resource.data.type == 'dispute_update'
+            && request.resource.data.entityType == 'dispute'
+            && request.resource.data.entityId is string
+            && getAfter(/databases/$(database)/documents/disputes/$(request.resource.data.entityId)).data.raisedBy == request.auth.uid
+            && getAfter(/databases/$(database)/documents/disputes/$(request.resource.data.entityId)).data.status == 'Open'));
+      allow delete: if canAccessNotification(resource.data.recipientId, resource.data.type);
+    }
+
+    match /accountActivity/{activityId} {
+      allow read: if isActiveUser()
+        && (isAdmin()
+          || resource.data.actorId == request.auth.uid
+          || (resource.data.keys().hasAny(['targetUserId']) && resource.data.targetUserId == request.auth.uid));
+      allow create: if hasValidAccountActivity(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    // Trust scores are public display data; only admins/functions should write.
+    match /trustScores/{scoreId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // The admin UI queues scraper requests and reads their status.
+    match /scraperJobs/{jobId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.requestedBy == request.auth.uid
+        && request.resource.data.status == 'queued';
+      allow update, delete: if isAdmin();
+    }
+
+    // Deny all unmatched document reads and writes.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

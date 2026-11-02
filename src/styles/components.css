@@ -1,0 +1,241 @@
+/* Shared primitives — import once in main.jsx, after tokens.css            */
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn {
+  min-height: 44px;
+  height: auto;
+  padding: 10px var(--space-4);
+  border-radius: var(--radius-control);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.25;
+  text-align: center;
+  gap: var(--space-2);
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Primary: solid brand color keeps action hierarchy clear in both themes. */
+.btn--primary {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.16);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.18);
+}
+
+html.dark .btn--primary { color: #10221F; }
+html.dark .btn--primary:hover:not(:disabled) { color: #10221F; }
+
+/* Secondary: glass-white with blue border */
+.btn--secondary {
+  background: var(--card-bg);
+  border-color: var(--color-neutral-200);
+  color: var(--color-primary-dark);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: var(--color-neutral-100);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-card);
+}
+
+html.dark .btn--secondary {
+  color: var(--color-primary-dark);
+}
+
+html.dark .btn--secondary:hover:not(:disabled) {
+  background: var(--color-neutral-100);
+  border-color: var(--color-primary);
+}
+
+/* Danger */
+.btn--danger {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: #B91C1C;
+}
+
+/* Shared states */
+.btn--block   { width: 100%; }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none !important; }
+.btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Spinner */
+.btn__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+
+/* ── Badges ──────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.badge--verified {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border: 1px solid var(--color-primary);
+}
+
+html.dark .badge--verified {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border-color: var(--color-primary);
+}
+
+.badge--pending {
+  background: var(--color-warning-bg);
+  color: var(--badge-warning-text);
+}
+
+.badge--danger {
+  background: var(--color-danger-bg);
+  color: var(--badge-danger-text);
+}
+
+
+/* ── Form fields ─────────────────────────────────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+}
+
+.field__input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-input);
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--color-neutral-900);
+  background: var(--card-bg);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.field__input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+html.dark .field__input {
+  background: var(--card-bg);
+  border-color: var(--color-neutral-200);
+  color: var(--color-neutral-900);
+}
+
+html.dark .field__input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 24%, transparent);
+}
+
+html.dark .field__input::placeholder {
+  color: var(--color-neutral-400);
+}
+
+.field__input--error {
+  border-color: var(--color-danger);
+}
+
+.field__error {
+  font-size: 12px;
+  color: var(--color-danger);
+  margin: 0;
+}
+
+/* ── Booking form icon ── */
+.booking-form__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-control);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* ── Panel empty state ── */
+.panel__empty {
+  color: var(--color-neutral-600);
+  font-size: 14px;
+  padding: var(--space-8);
+  text-align: center;
+}
+
+/* ── Link button ── */
+.link-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  padding: 0;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.link-button:hover {
+  color: var(--color-primary-dark);
+}
+
+/* ── Panel title ── */
+.panel__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  margin: 0;
+}
+
+.panel__title--inline {
+  display: inline;
+}

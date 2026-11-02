@@ -1,122 +1,242 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { Fragment, lazy, Suspense, useEffect } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
+import RequireAdmin from "./routes/RequireAdmin";
+import RequireAuth from "./routes/RequireAuth";
+import Footer from "./components/Footer";
+import { DEFAULT_DESCRIPTION, DEFAULT_TITLE, updatePageMetadata } from "./lib/seo";
+import "./App.css";
+
+const Login = lazy(() => import("./pages/Login"));
+const Home = lazy(() => import("./pages/Home"));
+const Browse = lazy(() => import("./pages/Browse"));
+const MyListings = lazy(() => import("./pages/MyListings"));
+const MyActivity = lazy(() => import("./pages/MyActivity"));
+const MyDashboard = lazy(() => import("./pages/MyDashboard"));
+const Account = lazy(() => import("./pages/Account"));
+const BankCatalog = lazy(() => import("./pages/BankCatalog"));
+const CreateListing = lazy(() => import("./pages/CreateListing"));
+const ListingDetail = lazy(() => import("./pages/ListingDetail"));
+const EditListing = lazy(() => import("./pages/EditListing"));
+const BookingRequest = lazy(() => import("./pages/BookingRequest"));
+const MyBookings = lazy(() => import("./pages/MyBookings"));
+const BookingRequests = lazy(() => import("./pages/BookingRequests"));
+const RatingForm = lazy(() => import("./pages/RatingForm"));
+const RaiseDispute = lazy(() => import("./pages/RaiseDispute"));
+const BankPropertyDetail = lazy(() => import("./pages/BankPropertyDetail"));
+const PublicProfile = lazy(() => import("./pages/PublicProfile"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const Settings = lazy(() => import("./pages/Settings"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
+const AdminLayout = lazy(() => import("./admin/AdminLayout"));
+const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
+const AdminActivityLog = lazy(() => import("./admin/AdminActivityLog"));
+const AdminNotifications = lazy(() => import("./admin/AdminNotifications"));
+const AdminListings = lazy(() => import("./admin/AdminListings"));
+const AdminDisputes = lazy(() => import("./admin/AdminDisputes"));
+const AdminUsers = lazy(() => import("./admin/AdminUsers"));
+const AdminBankCatalog = lazy(() => import("./admin/AdminBankCatalog"));
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
+  );
 }
 
-export default App
+function AppRoutes() {
+  const location = useLocation();
+
+  useEffect(() => {
+    updatePageMetadata(routeMetadata(location.pathname));
+  }, [location.pathname]);
+
+  return <>
+    <Suspense fallback={<LoadingState />}>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<Home />} />
+        <Route path="/browse" element={<Browse />} />
+        <Route path="/bank-catalog" element={<BankCatalog />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/my-listings" element={<RequireAuth><MyListings /></RequireAuth>} />
+        <Route path="/my-activity" element={<RequireAuth><MyActivity /></RequireAuth>} />
+        <Route path="/dashboard" element={<RequireAuth><MyDashboard /></RequireAuth>} />
+        <Route path="/listings/new" element={<RequireAuth><CreateListing /></RequireAuth>} />
+        <Route path="/listings/:listingId" element={<ListingDetail />} />
+        <Route path="/listings/:listingId/edit" element={<RequireAuth><EditListing /></RequireAuth>} />
+        <Route path="/listings/:listingId/book" element={<RequireAuth><BookingRequest /></RequireAuth>} />
+        <Route path="/my-bookings" element={<RequireAuth><MyBookings /></RequireAuth>} />
+        <Route path="/booking-requests" element={<RequireAuth><BookingRequests /></RequireAuth>} />
+        <Route path="/manage-bookings" element={<Navigate to="/my-activity?tab=requests" replace />} />
+        <Route path="/bookings/:bookingId/review" element={<RequireAuth><RatingForm /></RequireAuth>} />
+        <Route path="/bookings/:bookingId/dispute" element={<RequireAuth><RaiseDispute /></RequireAuth>} />
+          <Route path="/bank-catalog/:propertyId" element={<BankPropertyDetail />} />
+          <Route path="/profiles/:userId" element={<PublicProfile />} />
+          <Route path="/saved-searches" element={<Navigate to="/browse" replace />} />
+          <Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} />
+        <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+        <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
+          <Route path="/legal/:documentId" element={<LegalPage />} />
+        <Route
+          path="/admin"
+          element={
+            <RequireAdmin>
+              <AdminLayout />
+            </RequireAdmin>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="activity" element={<AdminActivityLog />} />
+          <Route path="notifications" element={<AdminNotifications />} />
+          <Route path="settings" element={<Settings adminMode />} />
+          <Route path="listings" element={<AdminListings />} />
+          <Route path="disputes" element={<AdminDisputes />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="bank-catalog" element={<AdminBankCatalog />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </AnimatePresence>
+    </Suspense>
+    {!location.pathname.startsWith("/admin") && <Footer />}
+  </>;
+}
+
+function routeMetadata(pathname) {
+  if (pathname === "/") {
+    return {
+      title: DEFAULT_TITLE,
+      description: DEFAULT_DESCRIPTION,
+      path: "/",
+      structuredData: {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: "TrustHome",
+        url: "https://trusthome-ph.web.app/",
+        inLanguage: "en-PH",
+      },
+    };
+  }
+  if (pathname === "/browse") {
+    return {
+      title: "Browse Verified Rentals & Homes in the Philippines | TrustHome",
+      description: "Search verified rental homes and properties for sale across the Philippines. Compare locations, prices, and TrustHome trust scores.",
+      path: pathname,
+    };
+  }
+  if (pathname === "/bank-catalog") {
+    return {
+      title: "Bank-Acquired Properties in the Philippines | TrustHome",
+      description: "Browse bank-acquired properties in the Philippines, compare asking prices, and visit the original bank listing for current details.",
+      path: pathname,
+    };
+  }
+
+  const legalDocument = pathname.match(/^\/legal\/(privacy|terms|data-compliance|ip-infringement)$/)?.[1];
+  if (legalDocument) {
+    const titles = {
+      privacy: "Privacy Policy",
+      terms: "Terms of Use",
+      "data-compliance": "Data & Compliance",
+      "ip-infringement": "Intellectual Property",
+    };
+    return {
+      title: `${titles[legalDocument]} | TrustHome`,
+      description: `${titles[legalDocument]} for TrustHome, a property search and rental marketplace project in the Philippines.`,
+      path: pathname,
+    };
+  }
+
+  if (/^\/listings\/[^/]+$/.test(pathname)) {
+    return {
+      title: "Property listing | TrustHome",
+      description: "View property details on TrustHome.",
+      path: pathname,
+      robots: "noindex, nofollow",
+    };
+  }
+  if (/^\/bank-catalog\/[^/]+$/.test(pathname)) {
+    return {
+      title: "Bank-Acquired Property | TrustHome",
+      description: "Review bank-acquired property details and confirm current information with the original bank listing.",
+      path: pathname,
+    };
+  }
+
+  return {
+    title: "TrustHome Account",
+    description: DEFAULT_DESCRIPTION,
+    path: pathname,
+    robots: "noindex, nofollow",
+  };
+}
+
+function LoadingState() {
+  return (
+    <main className="app-loading" aria-live="polite" aria-busy="true">
+      <BrandLoader />
+    </main>
+  );
+}
+
+// Small skyline that builds itself up (house → mid-rise → tower), on loop,
+// while a lazy-loaded page or bundle is still downloading.
+function BrandLoader() {
+  return (
+    <div className="app-loading__box">
+      <svg
+        className="app-loading__skyline"
+        viewBox="0 0 200 120"
+        width="140"
+        height="84"
+        aria-hidden="true"
+      >
+        <line x1="6" y1="104" x2="194" y2="104" className="app-loading__ground" />
+
+        {/* House — rises first */}
+        <g className="app-loading__building app-loading__building--a">
+          <path d="M26 64 L46 44 L66 64 Z" />
+          <rect x="30" y="64" width="32" height="40" rx="2" />
+          <rect className="app-loading__window" x="36" y="73" width="6" height="6" />
+          <rect className="app-loading__window" x="50" y="73" width="6" height="6" />
+          <rect className="app-loading__door" x="42" y="86" width="8" height="18" />
+        </g>
+
+        {/* Mid-rise — rises second */}
+        <g className="app-loading__building app-loading__building--b">
+          <rect x="83" y="40" width="34" height="64" rx="2" />
+          <rect className="app-loading__window" x="90" y="50" width="6" height="6" />
+          <rect className="app-loading__window" x="104" y="50" width="6" height="6" />
+          <rect className="app-loading__window" x="90" y="64" width="6" height="6" />
+          <rect className="app-loading__window" x="104" y="64" width="6" height="6" />
+          <rect className="app-loading__window" x="90" y="78" width="6" height="6" />
+          <rect className="app-loading__window" x="104" y="78" width="6" height="6" />
+        </g>
+
+        {/* Tower — rises last, completing the skyline */}
+        <g className="app-loading__building app-loading__building--c">
+          <rect x="157" y="10" width="4" height="8" />
+          <rect x="144" y="16" width="32" height="88" rx="2" />
+          {[26, 40, 54, 68, 82].map((y) => (
+            <Fragment key={y}>
+              <rect className="app-loading__window" x="150" y={y} width="6" height="6" />
+              <rect className="app-loading__window" x="164" y={y} width="6" height="6" />
+            </Fragment>
+          ))}
+        </g>
+      </svg>
+
+      <p className="app-loading__brand">
+        <span className="app-loading__brand-accent">Trust</span>Home
+      </p>
+      <p className="app-loading__caption">
+        Loading
+        <span className="app-loading__dots" aria-hidden="true"><span /><span /><span /></span>
+      </p>
+    </div>
+  );
+}
+
+export default App;
