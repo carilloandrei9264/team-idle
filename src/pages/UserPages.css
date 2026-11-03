@@ -939,6 +939,29 @@
 .listing-form__section {
   padding: 28px;
 }
+.booking-request__section {
+  padding: 20px;
+}
+.booking-request__section > .account-card__heading {
+  margin-bottom: 14px;
+}
+.booking-request__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+.booking-request__fields {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+.booking-request__fields .field__input {
+  min-width: 0;
+}
+.booking-request__fields .listing-form__hint {
+  margin: 0;
+}
 .listing-form__section h2 {
   font-size: 18px;
   margin-bottom: 20px;
@@ -1649,6 +1672,12 @@
 }
 
 @media (max-width: 760px) {
+  .booking-request__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .booking-request__layout .booking-select-calendar {
+    width: min(100%, 360px);
+  }
   .booking-request-card {
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
