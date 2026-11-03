@@ -1,256 +1,201 @@
 # TrustHome PH
 
-A rental marketplace prototype for the Philippines, with owner-submitted listings reviewed by admins, booking workflows, trust and dispute features, and a separate bank-acquired property catalog. Metrobank is the only currently active bank source.
+A capstone rental marketplace prototype for the Philippines. Renters can discover
+verified rental listings and request bookings; homeowners can submit properties for
+review; admins can manage listings, disputes, and trust-related workflows. A separate
+catalog displays bank-acquired properties, currently from Metrobank only.
 
-**Capstone project — 2026**
+> **Project status:** This is a prototype, not a production-ready property, legal, or
+> financial service. See [Known limitations](#known-limitations) before using or
+> deploying it.
 
----
+## Contents
 
-## Team
+- [Features](#features)
+- [Technology](#technology)
+- [Getting started](#getting-started)
+- [Checks and build](#checks-and-build)
+- [Bank property scraper](#bank-property-scraper)
+- [Deployment](#deployment)
+- [Project structure](#project-structure)
+- [Documentation](#documentation)
+- [Team](#team)
+- [Known limitations](#known-limitations)
 
-| Member | Role |
-|---|---|
-| Andresa, Rev Andrei | Scrum Master · Project Documentation |
-| Carillo, Christopher Andrei | Lead Developer · Marketplace & Booking · Firestore Security · Trust & Dispute Workflows |
-| Laurente, Vien Melvic | Project Manager · Bank-Acquired Catalog & Scraper · Frontend Development |
-| Prades, Justine James | Frontend Design & Animation · Settings & Themes · Ratings & Reviews · Trust & Fairness Score |
-| Solpico, Robert | QA & Testing · Loan Calculator · Dispute & Accountability Trail |
+## Features
 
-### Carillo's Contributions
+- **Rental marketplace:** homeowners submit properties for review; renters browse
+  listings and request bookings.
+- **Bookings:** booking requests have status tracking and date/time selection in
+  Philippine time. Owner approvals use a per-listing Firestore lease to serialize
+  overlap checks.
+- **Trust and accountability:** ratings, trust and fairness scoring, dispute review,
+  notifications, and public owner profiles.
+- **Bank property catalog:** filter, sort, and browse bank-acquired properties, with
+  an informational loan estimate.
+- **Responsive feedback:** loading, empty, error, offline, permission, and form
+  validation states.
 
-- Led development of the rental marketplace, including verified listing intake and the owner dashboard; authored the majority of the project's 110+ commits.
-- Built booking approvals around per-listing leases and atomic Firestore transactions to prevent overlapping confirmed bookings.
-- Implemented trust and fairness scoring, dispute and accountability workflows, notifications, and public owner-profile features.
-- Wrote Firestore and Storage security rules for renter, owner, and admin roles, and verified them with emulator-based tests.
-- Set up GitHub Actions checks for unit tests, security-rule tests, linting, and production builds.
+## Technology
 
----
-
-## What This App Does
-
-- **Renters** browse verified rental listings and request bookings. Browse can prioritize nearby listings when the user grants location access; otherwise it falls back to the normal trust-score ordering. Clearly labeled promoted content may also appear in Browse.
-- **Homeowners** list a room, unit, or house for rent; listings only go public after a verification step.
-- **Bookings** use date selection and calendar availability to help renters choose dates, with status tracking. Owner approvals serialize overlap checks through a per-listing lease; a backend-authoritative callable is not deployed.
-- **Trust & Fairness Score** ranks listings using completed booking history, ratings, and price fairness, not just recency or price.
-- **Disputes** can be reviewed by admins; founded-dispute counts are shown on public accountability profiles.
-- **Public owner profiles** show verified listings and ratings, plus the email address or phone number only when the owner opts in. Shared contact details are publicly visible and have direct email/call actions.
-- **Loan calculator** helps users estimate financing for bank-acquired listings, with preset loan terms from 10 to 30 years.
-- **UI feedback** covers loading, empty and no-search-result states, errors, offline or slow connections, permission/session problems, form validation, and successful actions.
-
-### Bank-acquired property catalog
-
-The public catalog currently displays Metrobank properties only. Visitors can filter by
-location and budget, sort by price, browse paginated results, and open a listing for its
-details and loan estimate. The loan estimate is informational; confirm availability,
-property details, and financing terms with the bank before acting. Scraped listings are
-not an endorsement or a substitute for checking the original bank source.
-
-See [`bank_scraper/README.md`](./bank_scraper/README.md) for the supported source,
-Firestore setup, safe scraper commands, admin-worker flow, and operational limitations.
-
----
-
-## Tech Stack
-
-| Layer | Choice |
-|---|---|
-| Frontend | React + Vite |
-| Database | Firebase Firestore |
-| Auth | Firebase Authentication |
-| File uploads | Cloudinary for listing photos and verification documents; Firebase Storage is not enabled for this Spark project |
+| Area | Technology |
+| --- | --- |
+| Frontend | React, Vite |
+| Authentication and database | Firebase Authentication, Cloud Firestore |
+| Listing images and verification documents | Cloudinary |
 | Hosting | Firebase Hosting |
-| Optional backend jobs | Firebase Functions source exists; deployment is not verified and requires an approved billing-enabled environment |
-| Bank scraper | Python (`requests` + `BeautifulSoup`) |
-| Scraper scheduling | GitHub Actions / local worker |
+| Optional backend | Firebase Functions (deployment is not verified) |
+| Bank scraper | Python, Requests, Beautiful Soup |
 
----
-
-## Project Structure
-
-```text
-team-idle/
-├── src/                     # React app source
-│   ├── App.jsx
-│   ├── firebase.js
-│   ├── uploadImage.js
-│   ├── components/
-│   ├── context/
-│   ├── lib/
-│   ├── pages/
-│   └── routes/
-├── public/                  # Static assets
-├── functions/               # Firebase Functions
-├── bank_scraper/            # Python scraper, demo data, and catalog operations
-│   ├── README.md
-│   ├── scraper.py
-│   ├── database.py
-│   ├── scheduler.py
-│   ├── trust_scores.py
-│   ├── backup_firestore.py
-│   ├── restore_firestore.py
-│   ├── complete_expired_bookings.py
-│   ├── migrate_verification_documents.py
-│   ├── requirements.txt
-│   └── seed_demo_data.py
-├── docs/                    # Project documentation and planning files
-│   ├── TrustHome_PH_01_Project_Overview_and_Scope.pdf
-│   ├── TrustHome_PH_02_System_Architecture_and_Data_Model.pdf
-│   ├── TrustHome_PH_03_Functional_Specification_and_Business_Rules.pdf
-│   ├── TrustHome_PH_04_Firebase_Cloudinary_and_Security_Setup.pdf
-│   ├── TrustHome_PH_05_Development_Build_and_Deployment_Guide.pdf
-│   ├── TrustHome_PH_06_Bank_Catalog_Scraper_and_Data_Operations.pdf
-│   ├── TrustHome_PH_07_UI_UX_Design_System_and_Page_Inventory.pdf
-│   ├── TrustHome_PH_08_QA_and_Testing_Strategy.pdf
-│   ├── TrustHome_PH_09_Release_Roadmap_and_Versioning_Plan.pdf
-│   ├── TrustHome_PH_Use_Cases_and_Test_Cases_2026-10-04.xlsx
-│   ├── TrustHome_Current_Progress_Report_2026-10-04.md
-│   └── TrustHomePH_SWOT_Analysis.pdf
-├── package.json
-├── vite.config.js
-├── eslint.config.js
-├── firebase.json
-├── firestore.indexes.json
-├── firestore.rules
-├── index.html
-├── README.md
-└── .gitignore
-```
-
----
-
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
-- Node.js 20.19+ or 22.12+ (Vite 8 requirement)
-- npm
-- Python 3.10+
-- Firebase project access and local configuration if you are using a team environment
+- Node.js **20.19+** or **22.12+**, and npm
+- Firebase CLI and Java for the local Firebase emulators and rules tests
+- Python **3.10+** only if you plan to use the bank scraper
 
-### Web app
+### Run the web app locally
 
-From the project root:
+Install the project dependencies from the repository root:
 
 ```bash
-npm install
+npm ci
 ```
 
-Local development uses the Firebase Auth, Firestore, and Storage emulators by default so it does not write to the shared `trusthome-ph` project. Start them in a separate terminal with `npm run emulators` (Firebase CLI and Java required). Functions are not needed for the current browser workflows and are not started by this command. To intentionally use the shared project during local development, set `VITE_USE_SHARED_FIREBASE=true` in an untracked `.env.local` file; avoid this for routine testing. Validate the verification-file Storage rules locally with `npm run test:storage-rules`; this uses a demo project ID and does not access the shared project.
-
-Run these in two terminals from the project root:
+The development app connects to local Firebase Auth, Firestore, and Storage
+emulators by default. Install the Firebase CLI if needed (`npm install --global
+firebase-tools`), then start the emulators and Vite in separate terminals:
 
 ```bash
 # Terminal 1
 npm run emulators
+```
 
+```bash
 # Terminal 2
 npm run dev
 ```
 
-The app runs locally in development mode with Vite. For a production build:
+Open the local URL printed by Vite. Java and the Firebase CLI must be available for
+the emulator command.
+
+To deliberately connect local development to the shared Firebase project, create an
+untracked `.env.local` file in the repository root:
+
+```dotenv
+VITE_USE_SHARED_FIREBASE=true
+```
+
+This opts out of the local emulators. Use the shared project only when you intend to
+interact with its data.
+
+### Run the bank scraper
+
+The scraper has separate Python dependencies and Firebase Admin credential
+requirements. Follow the [bank scraper guide](./bank_scraper/README.md) for virtual
+environment setup, dry-run commands, credentials, and safe catalog operations.
+
+## Checks and build
+
+Run these commands from the repository root:
+
+```bash
+npm test
+npm run lint
+npm run build
+npm run test:firestore-rules
+npm run test:storage-rules
+python -m unittest discover -s bank_scraper -p "test_*.py"
+```
+
+The emulator-based rules tests require Java and the Firebase CLI. They use demo
+project IDs rather than the shared Firebase project. CI runs the unit tests, lint,
+build, Firestore rules tests, and Python tests.
+
+To serve a production build locally:
 
 ```bash
 npm run build
 npm run preview
 ```
 
-The client configuration in `src/firebase.js` contains the app's Firebase project identifiers. Vite development connects to local emulators by default; production builds use the configured Firebase project. Shared-project access from local development must be explicitly enabled with `VITE_USE_SHARED_FIREBASE=true`.
+## Bank property scraper
 
-### Bank scraper
+The public bank-acquired property catalog currently supports **Metrobank only**.
+Other bank parsers are diagnostic-only and cannot write to the catalog. Scraped
+information can become stale; verify availability, property details, and financing
+directly with the bank. For operational instructions and limitations, see
+[`bank_scraper/README.md`](./bank_scraper/README.md).
 
-```bash
-cd bank_scraper
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS/Linux
-source .venv/bin/activate
-pip install -r requirements.txt
+## Deployment
+
+The GitHub Actions workflow deploys **Firebase Hosting only** when changes are pushed
+to the `fixes` branch. It runs tests, lint, and a production build before deployment.
+Configure the `FIREBASE_SERVICE_ACCOUNT` repository secret with a service account
+authorized to deploy Hosting to the `trusthome-ph` Firebase project.
+
+The separate CI workflow runs on pull requests and pushes to `fixes` or `main`.
+Hosting deployment does not deploy Firestore rules, Storage rules, or Functions.
+Review the project audit and verify production configuration before treating a
+deployment as release-ready.
+
+## Project structure
+
+```text
+src/                  React application
+public/               Static assets
+functions/            Firebase Functions source
+bank_scraper/         Python scraper, tests, and catalog operations
+docs/                 Project, setup, audit, and testing documentation
+scripts/              Firebase rules smoke tests
+firebase.json         Firebase emulator and Hosting configuration
+firestore.rules       Firestore security rules
+storage.rules         Storage security rules
 ```
 
-You can then run the scraper locally or use the demo seed script:
+## Documentation
 
-```bash
-python scraper.py --dry-run metrobank
-python scraper.py
-python seed_demo_data.py --dry-run
-python seed_demo_data.py
-python -m unittest discover -s . -p "test_*.py"
-```
+- [Local Firebase Emulator Guide](./docs/Local_Firebase_Emulator_Guide.md)
+- [Firebase, Cloudinary, and Security Setup](./docs/TrustHome_PH_04_Firebase_Cloudinary_and_Security_Setup.pdf)
+- [Development, Build, and Deployment Guide](./docs/TrustHome_PH_05_Development_Build_and_Deployment_Guide.pdf)
+- [QA and Testing Strategy](./docs/TrustHome_PH_08_QA_and_Testing_Strategy.pdf)
+- [Bank Catalog Scraper and Data Operations](./docs/TrustHome_PH_06_Bank_Catalog_Scraper_and_Data_Operations.pdf)
+- [Current Project Audit](./docs/Project_Audit_2026-10-12.md)
+- [Problems and Fixes](./docs/TrustHome_PH_Problems_and_Fixes_2026-10-15.md)
+- [Current Progress Report](./docs/TrustHome_Current_Progress_Report_2026-10-04.md)
+- [Account Profile and Contact Preferences](./docs/Account_Profile_and_Contact_Preferences.md)
+- [Project Overview and Scope](./docs/TrustHome_PH_01_Project_Overview_and_Scope.pdf)
+- [System Architecture and Data Model](./docs/TrustHome_PH_02_System_Architecture_and_Data_Model.pdf)
+- [Functional Specification and Business Rules](./docs/TrustHome_PH_03_Functional_Specification_and_Business_Rules.pdf)
+- [UI/UX Design System and Page Inventory](./docs/TrustHome_PH_07_UI_UX_Design_System_and_Page_Inventory.pdf)
+- [Release Roadmap and Versioning Plan](./docs/TrustHome_PH_09_Release_Roadmap_and_Versioning_Plan.pdf)
 
-The live scraper writes only the production-enabled Metrobank source to Firestore and needs a trusted Firebase Admin credential through `GOOGLE_APPLICATION_CREDENTIALS` or `FIREBASE_SERVICE_ACCOUNT_JSON`. Keep service-account keys outside Git and never include them in reports or logs. Run `--dry-run` first when checking source parsing. BDO and Landbank are diagnostic-only and cannot write to the catalog.
+## Team
 
----
+| Member | Role |
+| --- | --- |
+| Andresa, Rev Andrei | Scrum Master; project documentation |
+| Carillo, Christopher Andrei | Lead developer; marketplace, booking, security, and trust workflows |
+| Laurente, Vien Melvic | Project manager; bank catalog, scraper, and frontend |
+| Prades, Justine James | Frontend design, settings, ratings, and trust scoring |
+| Solpico, Robert | QA, loan calculator, disputes, and accountability |
 
-## Build Instructions
+## Known limitations
 
-Use these commands from the repository root:
+- Property document review is a plausibility check, not a legal title search.
+- The app does not hold, transfer, or recover deposits; a deposit reference is only a
+  text record.
+- Metrobank is the only active bank catalog source. Confirm property and financing
+  information with the bank.
+- Verification documents use Cloudinary. PDF delivery is currently blocked for some
+  assets, and document URLs are not short-lived authenticated links.
+- Booking overlap protection uses a client flow and Firestore lease rules; a
+  backend-authoritative callable is not deployed. Local rules and indexes must match
+  production before relying on these changes there.
+- Firebase Functions deployment requires an approved billing-enabled environment.
+- Native mobile development and activation of additional bank sources are outside the
+  currently verified implementation.
 
-```bash
-npm install
-npm test
-npm run test:firestore-rules
-npm run test:storage-rules
-npm run lint
-npm run build
-```
-
-`npm run test:firestore-rules` and `npm run test:storage-rules` require the Firebase CLI and Java and use demo project IDs with local emulators.
-
-This creates a production bundle in the `dist/` folder for deployment or previewing. For local development, use:
-
-```bash
-npm run dev
-```
-
----
-
-## Documentation Index
-
-| Document | What's in it |
-|---|---|
-| `TrustHome_PH_01_Project_Overview_and_Scope.pdf` | Project scope, users, roles, and limitations. |
-| `TrustHome_PH_02_System_Architecture_and_Data_Model.pdf` | Application architecture, routes, data model, and access boundaries. |
-| `TrustHome_PH_03_Functional_Specification_and_Business_Rules.pdf` | Listing, booking, trust, dispute, and catalog behavior with known gaps. |
-| `TrustHome_PH_04_Firebase_Cloudinary_and_Security_Setup.pdf` | Firebase configuration, Firestore rules, Cloudinary, and credential guidance. |
-| `TrustHome_PH_05_Development_Build_and_Deployment_Guide.pdf` | Developer setup, quality gates, Git workflow, and deployment checks. |
-| `TrustHome_PH_06_Bank_Catalog_Scraper_and_Data_Operations.pdf` | Scraper sources, jobs, backups, restores, migrations, and seed data. |
-| `TrustHome_PH_07_UI_UX_Design_System_and_Page_Inventory.pdf` | Current page inventory, visual system, and accessibility conventions. |
-| `TrustHome_PH_08_QA_and_Testing_Strategy.pdf` | Test evidence levels, procedures, and workbook usage. |
-| `TrustHome_PH_09_Release_Roadmap_and_Versioning_Plan.pdf` | Version history, release blockers, ownership, and release practices. |
-| `bank_scraper/README.md` | Active bank source, scraper setup, catalog operations, and safety limitations. |
-| `TrustHome_PH_Use_Cases_and_Test_Cases_2026-10-04.xlsx` | Use cases, test cases, requirements, summary, and known gaps. |
-| `Local_Firebase_Emulator_Guide.md` | Local emulator setup, isolated test accounts, Google sign-in simulation, and safety boundaries. |
-| `docs/Account_Profile_and_Contact_Preferences.md` | Account contact-sharing behavior, privacy boundaries, owner contact flow, and remaining public trust-profile gaps. |
-| `Project_Audit_2026-10-12.md` | Current project audit, fixes implemented, remaining risks, and verification evidence. |
-| `TrustHome_Current_Progress_Report_2026-10-04.md` | Source-backed system flows, evidence, current status, and release gaps. |
-| `TrustHomePH_SWOT_Analysis.pdf` | SWOT and project reflection summary. |
-
----
-
-## Roadmap
-
-| Version | Focus |
-|---|---|
-| v0.1 | Foundations: authentication, listings, verification, search, and Metrobank catalog foundation |
-| v0.2 | Booking and trust: booking lifecycle, ratings, trust scoring, and expired-booking job |
-| v0.3 | Accountability and integration: disputes, public accountability, catalog safeguards, and loan estimate |
-| v1.0-v1.3 | Requirements alignment, booking accountability, marketplace quality, notifications, navigation, settings, and UI hardening |
-| v1.4+ | Release blockers and verification work; see the roadmap PDF before treating these as completed features |
-
----
-
-## Known Limitations
-
-- Document review filters casual fraud, but it is not a legal title search.
-- TrustHome does not hold, transfer, or recover deposit funds. A deposit reference is a text record only.
-- Listing document review is a plausibility check, not a legal title search.
-- Metrobank is the only active bank catalog source. Landbank parsing is unverified and BDO remains a placeholder.
-- Cloudinary currently blocks delivery of verification PDFs with `show_original_customer_untrusted`, including legacy uploads. The admin download link cannot bypass that account-level restriction; new verification PDFs use the same Cloudinary path.
-- Verification documents continue to use Cloudinary URLs. Firebase Console confirms this project is on Spark and its Storage page requires Blaze, so the app does not use Firebase Storage for document uploads. Cloudinary PDF delivery remains blocked for some assets, and direct URLs are not short-lived authenticated links; treat document handling as a release blocker.
-- Both owner approval routes now use a shared client flow that acquires a 60-second per-listing lease, checks confirmed bookings, and atomically confirms the booking while releasing the lease. Firestore Rules require the lease transition, and local emulator tests cover concurrent approvals. Rules cannot independently verify that an intentionally modified client checked for overlaps; a backend-authoritative callable is not deployed.
-- Deployment parity is not current: the live Hosting release is dated Oct 1, 2026; live Firestore Rules do not include the booking lease requirement, and the live index list is missing the repository's new `bookings(listingId, ownerId, status)` index. See the audit before considering the local booking changes production-ready.
-- Firebase Functions require an approved billing-enabled deployment environment. The current frontend booking approval does not require a deployed callable.
-- Native mobile development and BDO/Landbank activation are outside the currently verified implementation.
-
-These are disclosed scope decisions for the current build and are documented in the project planning files.
+See the [current project audit](./docs/Project_Audit_2026-10-12.md) for deployment
+parity, verification evidence, and remaining release risks.

@@ -23,6 +23,8 @@ const PROBLEM_ICONS = [
   { match: /document/i, Icon: FileText },
 ];
 const LOAN_TERM_OPTIONS = [10, 15, 20, 25, 30];
+const DOWN_PAYMENT_OPTIONS = Array.from({ length: 21 }, (_, index) => index * 5);
+const INTEREST_RATE_OPTIONS = Array.from({ length: 21 }, (_, index) => index);
 
 function iconForCategory(category) {
   return PROBLEM_ICONS.find((p) => p.match.test(category || ""))?.Icon || FileText;
@@ -212,14 +214,9 @@ export default function BankPropertyDetail() {
                 </div>
 
                 <div className="listing-form__grid">
-                  <Field id="loan-down" label="Down payment (%)" value={downPayment} setValue={setDownPayment} />
-                  <Field id="loan-rate" label="Annual interest (%)" value={interestRate} setValue={setInterestRate} />
-                  <div className="field">
-                    <label className="field__label" htmlFor="loan-years">Loan term</label>
-                    <select id="loan-years" className="field__input" value={termYears} onChange={(event) => setTermYears(event.target.value)}>
-                      {LOAN_TERM_OPTIONS.map((years) => <option key={years} value={years}>{years} years</option>)}
-                    </select>
-                  </div>
+                  <LoanSelect id="loan-down" label="Down payment (%)" value={downPayment} setValue={setDownPayment} options={DOWN_PAYMENT_OPTIONS} unit="%" />
+                  <LoanSelect id="loan-rate" label="Annual interest (%)" value={interestRate} setValue={setInterestRate} options={INTEREST_RATE_OPTIONS} unit="%" />
+                  <LoanSelect id="loan-years" label="Loan term" value={termYears} setValue={setTermYears} options={LOAN_TERM_OPTIONS} unit=" years" />
                   <div className="field">
                     <label className="field__label">Estimated loan amount</label>
                     <div className="field__static">{formatCurrency(principalAmount, 2)}</div>
@@ -249,19 +246,13 @@ export default function BankPropertyDetail() {
   );
 }
 
-function Field({ id, label, value, setValue }) {
+function LoanSelect({ id, label, value, setValue, options, unit }) {
   return (
     <div className="field">
       <label className="field__label" htmlFor={id}>{label}</label>
-      <input
-        id={id}
-        className="field__input"
-        type="number"
-        min="0"
-        step="0.01"
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-      />
+      <select id={id} className="field__input" value={value} onChange={(event) => setValue(event.target.value)}>
+        {options.map((option) => <option key={option} value={option}>{option}{unit}</option>)}
+      </select>
     </div>
   );
 }
